@@ -1,0 +1,45 @@
+Name: GCDObsidian
+Version: 0.0.1
+
+License:      BSD3 
+License-file: LICENSE
+Stability:    Experimental
+Maintainer:   Joel Svensson<svensson.bj@gmail.com>
+Author:       Joel Svensson<svensson.bj@gmail.com>
+
+Copyright:    Copyright (c) 2011 Joel Svensson
+Synopsis:     Embedded GPU kernel language 
+HomePage:     
+Description: 
+  Domain Specific Embedded Language for GPU Kernel implementation
+
+
+Category: EDSL 
+Cabal-Version: >= 1.8
+Tested-With: GHC == 7.0.3
+
+build-type: Simple
+
+Library
+  build-depends: base >= 4 && < 5, haskell98
+               , mtl
+               , containers
+               , process
+               , filepath
+               , directory
+              
+
+  exposed-modules: Obsidian.GCDObsidian.Array 
+  		 , Obsidian.GCDObsidian.Library
+		 , Obsidian.GCDObsidian.Kernel 
+                 , Obsidian.GCDObsidian.Exp  
+                 , Obsidian.GCDObsidian.Elem 
+		 , Obsidian.GCDObsidian.CodeGen.Common
+		 , Obsidian.GCDObsidian.CodeGen.OpenCL
+		 , Obsidian.GCDObsidian.CodeGen.CUDA 
+		 
+
+
+              
+
+

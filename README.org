@@ -1,0 +1,16 @@
+* GCDObsidian
+  + Embedded DSL for implementation of GPU Kernels
+  + Generates CUDA kernels
+    
+* News in GCDObsidian 
+  + Sync can be performed on pairs of arrays. This leads 
+    to that a number of threads equal to the GCD of the lengths of
+    the arrays is used to compute and store them. 
+  
+
+* Work in progress
+  + OpenCL generation is unfinished
+  + CUDA generation is "untested" 
+  + More library functions needed
+
+  
