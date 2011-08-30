@@ -14,3 +14,5 @@ vectorAdd (a,b) = return$ zipWith (+) a b
 testSync :: Array Int -> Kernel (Array Int) 
 testSync arr = sync arr 
 
+run1 = 
+   putStrLn$ genCUDAKernel "sync" testSync (namedArray "apa" 128)
