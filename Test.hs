@@ -16,3 +16,16 @@ testSync arr = sync arr
 
 run1 = 
    putStrLn$ genCUDAKernel "sync" testSync (namedArray "apa" 128)
+   
+
+
+   
+testTwo :: Array Int -> Kernel (Array Int) 
+testTwo arr = do 
+  arr1 <- return$ twoK 2 rev arr  
+  sync arr1 -- and a sync for fun
+
+run2 = 
+   putStrLn$ genCUDAKernel "two" testTwo (namedArray "apa" 128)
+   
+

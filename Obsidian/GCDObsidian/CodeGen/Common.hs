@@ -80,13 +80,23 @@ genOp Sub     [a,b] = oper "-" a b
 genOp Mul     [a,b] = oper "*" a b 
 genOp Sin     [a]   = func "sin" a 
 
+-- Bool ops
 genOp Lt      [a,b] = oper "<" a b 
 genOp LEq     [a,b] = oper "<=" a b 
 genOp Gt      [a,b] = oper ">" a b
 genOp GEq     [a,b] = oper ">=" a b
 
+-- Bitwise ops
+genOp BitwiseAnd [a,b] = oper "&" a b 
+genOp BitwiseOr  [a,b] = oper "|" a b 
+genOp BitwiseXor [a,b] = oper "^" a b 
+genOp BitwiseNeg [a]   = unOp "~" a 
+genOp ShiftL     [a,b] = oper "<<" a b 
+genOp ShiftR     [a,b] = oper ">>" a b 
+
 func  f a = f ++ "(" ++ a ++ ")" 
 oper  f a b = "(" ++ a ++ f ++ b ++ ")" 
+unOp  f a   = "(" ++ f ++ a ++ ")"
 
  
 

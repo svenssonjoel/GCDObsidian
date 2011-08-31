@@ -136,6 +136,8 @@ data Op a where
   BitwiseOr  :: Bits a => Op ((a,a) -> a)
   BitwiseXor :: Bits a => Op ((a,a) -> a) 
   BitwiseNeg :: Bits a => Op (a -> a) 
+  ShiftL     :: Bits a => Op ((a, Int) -> a) 
+  ShiftR     :: Bits a => Op ((a, Int) -> a) 
   
   
   
@@ -213,6 +215,14 @@ instance Num (Exp Int) where
   abs = undefined
   fromInteger a = Literal (fromInteger a) 
   
+  
+instance Bits (Exp Int) where 
+  (.&.) a b = Op BitwiseAnd (tup2 (a,b))
+  (.|.) a b = Op BitwiseOr  (tup2 (a,b))
+  xor   a b = Op BitwiseXor (tup2 (a,b)) 
+  complement a = Op BitwiseNeg a
+  shiftL a i = Op ShiftL (tup2 (a,Literal i))
+  shiftR a i = Op ShiftR (tup2 (a,Literal i))
   
   
   
