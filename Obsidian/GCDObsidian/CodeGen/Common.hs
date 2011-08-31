@@ -150,6 +150,33 @@ runPP pp i = snd$ execState pp (i,"")
 
 
 
+------------------------------------------------------------------------------
+-- Configurations, threads,memorymap 
+
+data Config = Config {configThreads :: NumThreads, 
+                      configMM      :: MemMap} 
+config = Config
+
+
+assign :: Elem a => MemMap -> Exp a -> Exp a -> PP () 
+assign mm name val = line ((concat (genExp mm name)) ++ 
+                           " = " ++  concat (genExp mm val) ++ 
+                           ";") 
+                                                    
+cond :: MemMap -> Exp Bool -> PP ()  
+cond mm e = line ("if " ++ concat (genExp mm e))  
+
+begin :: PP () 
+begin = line "{" >> indent >> newline
+
+end :: PP () 
+end =  unindent >> newline >> line "}" >> newline
+
+
+
+
+
+
 
 
 ------------------------------------------------------------------------------

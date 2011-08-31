@@ -33,63 +33,44 @@ import Obsidian.GCDObsidian.Elem
 
 
 ------------------------------------------------------------------------------
--- Configuration that guides code generation 
-data Config = Config {configThreads :: NumThreads, 
-                      configMM      :: MemMap} 
-config = Config
-
-
-------------------------------------------------------------------------------
 -- Generate CUDA code to a String 
 
 getCUDA :: Config -> Code Syncthreads -> Name -> [(String,Type)] -> [(String,Type)] -> String 
 getCUDA conf c name ins outs = 
   runPP (kernelHead name ins outs >>  
-         cudaBegin >>
-         cudaTid >> newline >>
-         cudaBid >> newline >>
-         cudaSBase >> newline >> 
+         begin >>
+         tidLine >> newline >>
+         bidLine >> newline >>
+         sBase >> newline >> 
          genCUDABody conf c >>
-         cudaEnd ) 0 
+         end ) 0 
 
 
 genCUDABody :: Config -> Code Syncthreads -> PP () 
 genCUDABody _ Skip  = return () 
 genCUDABody conf (Seq store code) = 
   do 
-    genStoreConfig conf store 
+    genStore conf store 
     if storeNeedsSync store 
       then line "__syncthreads();" >> newline
       else return () 
     genCUDABody conf code  
 
-------------------------------------------------------------------------------
--- Old 
-genStore :: MemMap -> Store a -> PP () 
-genStore mm (Store nt ws) = 
-  do 
-    cudaCond mm (tid <* (fromIntegral nt)) 
-    cudaBegin
-    mapM_ (genWrite mm nt) ws
-    cudaEnd
-                              
+        
 ------------------------------------------------------------------------------
 -- New
-genStoreConfig :: Config -> Store a -> PP () 
-genStoreConfig conf (Store nt ws) = 
+genStore :: Config -> Store a -> PP () 
+genStore conf (Store nt ws) = 
   do 
     case compare nt blockSize of 
       LT -> do
-            cudaCond mm (tid <* (fromIntegral nt))
-            cudaBegin
+            cond mm (tid <* (fromIntegral nt))
+            begin
             mapM_ (genWrite mm nt) ws
-            cudaEnd
+            end
       EQ -> mapM_ (genWrite mm nt) ws
       GT -> error "genStore: CUDA code generation is broken somewhere" 
 
-   
-
-    
     where 
       mm = configMM conf
       blockSize = configThreads conf
@@ -99,7 +80,7 @@ genWrite :: MemMap -> Word32 -> Write a -> PP ()
 genWrite mm nt (Write name ll _) = 
   sequence_  [let n  = fromIntegral nAssigns
                   ix = fromIntegral i 
-              in cudaAssign mm (name (tid * n + ix))
+              in assign mm (name (tid * n + ix))
                  (ll ! (tid * n + ix)) >> 
                  newline 
              | i <- [0..nAssigns-1]]
@@ -107,26 +88,12 @@ genWrite mm nt (Write name ll _) =
   where 
     nAssigns     = (staticLength ll) `div` nt 
 
-  
-cudaAssign :: Elem a => MemMap -> Exp a -> Exp a -> PP () 
-cudaAssign mm name val = line ((concat (genExp mm name)) ++ 
-                         " = " ++  concat (genExp mm val) ++ 
-                         ";") 
-                                                    
-cudaCond :: MemMap -> Exp Bool -> PP ()  
-cudaCond mm e = line ("if " ++ concat (genExp mm e))  
 
-cudaBegin :: PP () 
-cudaBegin = line "{" >> indent >> newline
-
-cudaEnd :: PP () 
-cudaEnd =  unindent >> newline >> line "}" >> newline
+tidLine = line "unsigned int tid = threadIdx.x;"
+bidLine = line "unsigned int bid = blockIdx.x;" 
 
 
-cudaTid = line "unsigned int tid = threadIdx.x;"
-cudaBid = line "unsigned int bid = blockIdx.x;" 
-
-cudaSBase = line "extern __shared__ unsigned char sbase[];" 
+sBase = line "extern __shared__ unsigned char sbase[];" 
 
 
 

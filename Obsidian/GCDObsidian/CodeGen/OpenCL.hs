@@ -17,14 +17,6 @@ import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil))
 import Obsidian.GCDObsidian.Elem
 
 
-------------------------------------------------------------------------------
--- 
-
-data Config = Config {configThreads :: NumThreads, 
-                      configMM      :: MemMap} 
-config = Config
-
-
 
 ------------------------------------------------------------------------------
 -- Generate OpenCL code to a String 
@@ -44,26 +36,16 @@ genOpenCLBody :: Config -> Code Syncthreads -> PP ()
 genOpenCLBody _ Skip  = return () 
 genOpenCLBody conf (Seq store code) = 
   do 
-    genStoreConfig conf store 
+    genStore conf store 
     if storeNeedsSync store 
-      then line "__syncthreads();" >> newline
+      then line "barrier(CLK_LOCAL_MEM_FENCE);" >> newline
       else return () 
     genOpenCLBody conf code  
 
 ------------------------------------------------------------------------------
--- Old 
-genStore :: MemMap -> Store a -> PP () 
-genStore mm (Store nt ws) = 
-  do 
-    cond mm (tid <* (fromIntegral nt)) 
-    begin
-    mapM_ (genWrite mm nt) ws
-    end
-                              
-------------------------------------------------------------------------------
 -- New
-genStoreConfig :: Config -> Store a -> PP () 
-genStoreConfig conf (Store nt ws) = 
+genStore :: Config -> Store a -> PP () 
+genStore conf (Store nt ws) = 
   do 
     case compare nt blockSize of 
       LT -> do
@@ -73,9 +55,6 @@ genStoreConfig conf (Store nt ws) =
             end
       EQ -> mapM_ (genWrite mm nt) ws
       GT -> error "genStore: OpenCL code generation is broken somewhere" 
-
-   
-
     
     where 
       mm = configMM conf
@@ -95,20 +74,6 @@ genWrite mm nt (Write name ll _) =
     nAssigns     = (staticLength ll) `div` nt 
 
   
-assign :: Elem a => MemMap -> Exp a -> Exp a -> PP () 
-assign mm name val = line ((concat (genExp mm name)) ++ 
-                           " = " ++  concat (genExp mm val) ++ 
-                           ";") 
-                                                    
-cond :: MemMap -> Exp Bool -> PP ()  
-cond mm e = line ("if " ++ concat (genExp mm e))  
-
-begin :: PP () 
-begin = line "{" >> indent >> newline
-
-end :: PP () 
-end =  unindent >> newline >> line "}" >> newline
-
 
 tidLine = line "unsigned int tid = get_local_id(0);"
 
