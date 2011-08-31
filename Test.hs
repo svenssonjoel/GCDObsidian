@@ -14,12 +14,10 @@ vectorAdd (a,b) = return$ zipWith (+) a b
 testSync :: Array Int -> Kernel (Array Int) 
 testSync arr = sync arr 
 
-run1 = 
-   putStrLn$ genCUDAKernel "sync" testSync (namedArray "apa" 128)
+run1 =    
+  putStrLn$ genCUDAKernel "sync" testSync (namedArray "apa" 128)
    
 
-
-   
 testTwo :: Array Int -> Kernel (Array Int) 
 testTwo arr = do 
   arr1 <- return$ twoK 1 rev arr  
