@@ -10,9 +10,10 @@ import Obsidian.GCDObsidian.Array
 
 import Control.Monad.State
 
+import Data.Word
 ------------------------------------------------------------------------------
 -- Block index ! 
-bid :: Exp Int
+bid :: Exp Word32
 bid = variable "bid" 
 
 
@@ -32,7 +33,7 @@ class InOut a where
                   State (Int,[(String,Type)]) (Code e) 
   
   -- is this a hack ?
-  gcdThreads :: a -> Int 
+  gcdThreads :: a -> Word32
 
 newInOut name t = do 
   (i,ins) <- get 

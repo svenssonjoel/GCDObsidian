@@ -95,7 +95,7 @@ genStoreConfig conf (Store nt ws) =
       blockSize = configThreads conf
 
 
-genWrite :: MemMap -> Int -> Write a -> PP () 
+genWrite :: MemMap -> Word32 -> Write a -> PP () 
 genWrite mm nt (Write name ll _) = 
   sequence_  [let n  = fromIntegral nAssigns
                   ix = fromIntegral i 
@@ -126,7 +126,7 @@ cudaEnd =  unindent >> newline >> line "}" >> newline
 cudaTid = line "unsigned int tid = threadIdx.x;"
 cudaBid = line "unsigned int bid = blockIdx.x;" 
 
-cudaSBase = line "extern __shared__ unsigned char sbase[]" 
+cudaSBase = line "extern __shared__ unsigned char sbase[];" 
 
 
 

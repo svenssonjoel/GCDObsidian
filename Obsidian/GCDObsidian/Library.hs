@@ -16,9 +16,9 @@ rev arr = Array (\ix -> arr ! ((fromIntegral (n-1)) - ix)) n
     
 ------------------------------------------------------------------------------
 -- splitAt (name clashes with Prelude.splitAt 
-splitAt :: Int -> Array a -> (Array a, Array a) 
-splitAt n arr = (Array (\ix -> arr ! ix) n , 
-                 Array (\ix -> arr ! (ix + fromIntegral n)) (len arr - n))
+splitAt :: Integral i => i -> Array a -> (Array a, Array a) 
+splitAt n arr = (Array (\ix -> arr ! ix) (fromIntegral n) , 
+                 Array (\ix -> arr ! (ix + fromIntegral n)) (len arr - (fromIntegral n)))
 
 ------------------------------------------------------------------------------
 --

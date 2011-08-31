@@ -21,7 +21,7 @@ import Obsidian.GCDObsidian.Tuple
 import Obsidian.GCDObsidian.Exp 
 
 import Data.List
-
+import Data.Word
 
 ------------------------------------------------------------------------------
 -- Arrays!
@@ -29,14 +29,14 @@ import Data.List
 
 type Dynamic = Bool 
 
-data Array a = Array (Exp Int -> Exp a) Int 
+data Array a = Array (Exp Word32 -> Exp a) Word32 
 
 namedArray name n = Array (\ix -> index name ix) n 
 indexArray n      = Array (\ix -> ix) n 
 
 
-data DArray a = DArray (Exp Int -> Exp a) (Exp Int) Int 
-data LLArray a = LLArray (Exp Int -> Exp a) (Exp Int) Int Dynamic 
+data DArray a = DArray (Exp Word32 -> Exp a) (Exp Word32) Word32
+data LLArray a = LLArray (Exp Word32 -> Exp a) (Exp Word32) Word32 Dynamic 
 
 
 class OArray a e  where 
@@ -48,7 +48,7 @@ instance OArray Array e where
   fromLL (LLArray ixf _ n False) = Array ixf n 
 
 class Indexible a e where 
-  access :: a e -> Exp Int -> Exp e 
+  access :: a e -> Exp Word32 -> Exp e 
   
 instance Indexible Array a where
   access (Array ixf _) ix = ixf ix
@@ -57,21 +57,21 @@ instance Indexible LLArray a where
 instance Indexible DArray a where 
   access (DArray ixf _ _) ix = ixf ix 
 
-len :: Array a -> Int 
+len :: Array a -> Word32
 len (Array _ n) = n 
 
 -- ixf (LLArray f _ _ _ ) = f 
 
-staticLength :: LLArray a -> Int
+staticLength :: LLArray a -> Word32
 staticLength (LLArray _ _ n _) = n 
 
-dynamicLength :: LLArray a -> Exp Int 
+dynamicLength :: LLArray a -> Exp Word32
 dynamicLength (LLArray _ e _ _) = e
 
 --(!) :: LLArray a -> Exp Int -> Exp a 
 --(!) (LLArray ixf _ _ _) ix = ixf ix 
 
-(!) :: Indexible a e => a e -> Exp Int -> Exp e 
+(!) :: Indexible a e => a e -> Exp Word32 -> Exp e 
 (!) = access
 
 

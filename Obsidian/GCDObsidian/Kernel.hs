@@ -30,19 +30,19 @@ import Obsidian.GCDObsidian.Array
 ------------------------------------------------------------------------------
 -- Kernels!
 
-type NumThreads = Int 
+type NumThreads = Word32 
 
 
 ------------------------------------------------------------------------------
 -- Ways to write data into GPU memory
 data  Write extra where  
   Write :: forall a extra . Scalar a 
-            => (Exp Int -> Exp a) -- Name  -- target storage
+            => (Exp Word32 -> Exp a) -- Name  -- target storage
             -> LLArray a -- array to store
             -> extra 
             -> Write extra 
   Permute :: forall a extra . Scalar a 
-            => (Exp Int -> Exp a)    -- target storage
+            => (Exp Word32 -> Exp a)    -- target storage
             -> LLArray a -- Data 
             -> LLArray Int -- Permutation
             -> extra 
@@ -110,7 +110,7 @@ runKernel k = runWriter (runStateT k 0 )
 ------------------------------------------------------------------------------  
 -- Simple sync
 
-tid :: Exp Int
+tid :: Exp Word32
 tid = variable "tid"
 
 sync :: (OArray a e, Scalar e) => a e -> Kernel (a e)
@@ -298,7 +298,7 @@ allocateWrites ((Write n ll _):ws) m mm = allocateWrites ws m' mm'
 
 ------------------------------------------------------------------------------
 -- numbers of threads needed to compute a kernel
-threadsNeeded :: Code a -> Int 
+threadsNeeded :: Code a -> Word32
 threadsNeeded Skip = 0
 threadsNeeded ((Store nt _)  `Seq` c2) = nt `max` threadsNeeded c2 
 

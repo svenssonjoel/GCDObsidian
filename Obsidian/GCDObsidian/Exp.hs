@@ -89,7 +89,7 @@ data Exp a where
              -> Exp a 
 
   Index   :: Scalar a => 
-             (Name,[Exp Int]) 
+             (Name,[Exp Word32]) 
              -> Exp a 
              
              
@@ -197,6 +197,8 @@ instance Elem a => Show (Exp a) where
 instance Elem a => Eq (Exp a) where 
   (==) = undefined 
 
+------------------------------------------------------------------------------
+-- INT Instances 
 instance Num (Exp Int) where 
   (+) a (Literal 0) = a
   (+) (Literal 0) a = a
@@ -223,7 +225,40 @@ instance Bits (Exp Int) where
   complement a = Op BitwiseNeg a
   shiftL a i = Op ShiftL (tup2 (a,Literal i))
   shiftR a i = Op ShiftR (tup2 (a,Literal i))
+  bitSize a  = sizeOf a * 8
+  isSigned a = True
+
+------------------------------------------------------------------------------
+-- Word32 Instances 
+instance Num (Exp Word32) where 
+  (+) a (Literal 0) = a
+  (+) (Literal 0) a = a
+  (+) (Literal a) (Literal b) = Literal (a+b)
+  (+) a b = Op Add (tup2 (a,b))  
   
+  (-) a (Literal 0) = a 
+  (-) (Literal a) (Literal b) = Literal (a - b) 
+  (-) a b = Op Sub (tup2 (a,b)) 
+  
+  (*) a (Literal 1) = a 
+  (*) (Literal 1) a = a
+  (*) a b = Op Mul (tup2 (a,b)) 
+  
+  signum = undefined 
+  abs = undefined
+  fromInteger a = Literal (fromInteger a) 
+  
+  
+instance Bits (Exp Word32) where 
+  (.&.) a b = Op BitwiseAnd (tup2 (a,b))
+  (.|.) a b = Op BitwiseOr  (tup2 (a,b))
+  xor   a b = Op BitwiseXor (tup2 (a,b)) 
+  complement a = Op BitwiseNeg a
+  shiftL a i = Op ShiftL (tup2 (a,Literal i))
+  shiftR a i = Op ShiftR (tup2 (a,Literal i))
+  bitSize a  = 32
+  isSigned a = False
+
   
   
 ------------------------------------------------------------------------------  
