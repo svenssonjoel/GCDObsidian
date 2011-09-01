@@ -99,62 +99,26 @@ code s = Seq s Skip
 instance Monoid (Code a) where 
   mempty = Skip
   mappend a b = a +++ b
-  
+
+------------------------------------------------------------------------------
+-- KERNEL
 
 type Kernel a = StateT Integer (Writer (Code ())) a   
 type a :-> b = a -> Kernel b     
 
+(->-) :: (a -> Kernel b) -> (b -> Kernel c) -> (a -> Kernel c) 
+(->-) = (>=>) 
+
+pure f a = return (f a) 
 
 runKernel k = runWriter (runStateT k 0 )
 
 ------------------------------------------------------------------------------  
--- Simple sync
+-- Tid. Probably not really needed here
 
 tid :: Exp Word32
 tid = variable "tid"
-
-sync :: (OArray a e, Scalar e) => a e -> Kernel (a e)
-sync arr = 
-  do 
-    let ll@(LLArray ixf n m d) = toLL arr 
     
-    (w,r) <- writeNT m ll 
-    tell$ code$ Store m w 
-    -- tell Synchronize
-    return$ fromLL r
-    
-  
-sync2 :: (OArray a e, Scalar e, 
-          OArray a' e', Scalar e') 
-         => (a e,a' e') 
-         -> Kernel (a e,a' e') 
-sync2 (a1,a2)  = 
-  do         
-    (w1,r1) <- writeNT numThreads ll1
-    (w2,r2) <- writeNT numThreads ll2
-    
-    tell$ code$ Store numThreads (w1++w2)
-                           
-    -- tell Synchronize
-    -- No do not "tell Synchronize". 
-    -- Discover if to Synchronize or not later. 
- 
-    return$ (fromLL r1,fromLL r2)  
-    where 
-      ll1 = toLL a1 
-      ll2 = toLL a2   
-      numThreads = gcd (staticLength ll1) (staticLength ll2)
-    
-writeNT nt ll@(LLArray ixf n m d) = 
-  do 
-    i <- get 
-    put (i+1) 
-    let newName  = "arr" ++ show i
-        newArray = LLArray (\ix -> Index (newName,[ix])) n m d 
-                
-    return ([write newName ll () ],newArray)
-                    
-  
                              
 ------------------------------------------------------------------------------
 -- Code analysis .... 

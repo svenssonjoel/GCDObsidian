@@ -1,5 +1,7 @@
 
 import Obsidian.GCDObsidian
+import Obsidian.GCDObsidian.Kernel
+import Obsidian.GCDObsidian.Store
 
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA   as CUDA
 import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as OpenCL
@@ -29,7 +31,17 @@ testTwo arr = do
   sync arr1 -- and a sync for fun
 
 run2 = 
-   putStrLn$ CUDA.genCUDAKernel "two" testTwo (namedArray "apa" 32)
+  putStrLn$ CUDA.genCUDAKernel "two" testTwo (namedArray "apa" 32)
    
 run2CL =    
-     putStrLn$ OpenCL.genOpenCLKernel "two" testTwo (namedArray "apa" 32)
+  putStrLn$ OpenCL.genOpenCLKernel "two" testTwo (namedArray "apa" 32)
+
+
+testComp :: Array Int -> Kernel (Array Int) 
+testComp = (pure rev) ->- sync ->- (pure rev)
+
+run3 = 
+  putStrLn$ CUDA.genCUDAKernel "comp" testComp (namedArray "apa" 32)
+   
+run3CL =    
+  putStrLn$ OpenCL.genOpenCLKernel "comp" testComp (namedArray "apa" 32)
