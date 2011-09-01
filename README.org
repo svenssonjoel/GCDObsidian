@@ -4,14 +4,23 @@
   + Generates CUDA kernels
     
 * News in GCDObsidian 
-  + Sync can be performed on pairs of arrays. This leads 
+  + Sync can be performed on groups of arrays. This leads 
     to that a number of threads equal to the GCD of the lengths of
     the arrays is used to compute and store them. 
   
-
 * Work in progress
   + OpenCL generation is unfinished
   + CUDA generation is "untested" 
   + More library functions needed
-
   
+* Thoughts 
+  + replace sync with a bunch of functions describing various ways to 
+    "Store" data into GPU shared memory.
+    
+    some potential functions: 
+    store arr       = old sync
+    storeL [arrays] = sync with the new GCD capabilities (the arrays in the list are independent! so no sync needed between them) 
+    storeP (arr1,arr2) = as above but taking a pair
+    storeIlv (arr of pairs) = forces the elements in the pairs to be interleaved in memory (could be extremely innefficient if sizes differ)
+    storeIlvF (arr of pairs of same type) = same as above but gives a flat array back 
+    
