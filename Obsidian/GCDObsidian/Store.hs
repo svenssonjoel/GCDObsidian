@@ -15,6 +15,12 @@ import Obsidian.GCDObsidian.Elem
 import Control.Monad.State
 import Control.Monad.Writer
 
+------------------------------------------------------------------------------
+-- TODO: Start looking at what porblems the "dynamic" arrays might cause
+
+
+------------------------------------------------------------------------------
+-- Store
 store :: (OArray a e, Scalar e) => a e -> Kernel (a e)
 store = sync
         
@@ -92,6 +98,36 @@ writeIlv ll1@(LLArray ixf n m d)
         newArray2 = LLArray (\ix -> Index (newName,[ix*2+1])) n' m' d' 
     return ([Write (\ix -> index newName (ix*2)) ll1 (),
              Write (\ix -> index newName (ix*2+1)) ll2 ()],(newArray1,newArray2))
+
+
+storeIlvF ::( Scalar e) 
+             => (Array (e,e)) 
+             -> Kernel (Array e) 
+storeIlvF arr = do 
+  (w,r) <- writeIlvF ll1 ll2
+  
+  tell$ code$ Store numThreads w
+  
+  return$ fromLL r
+  
+  where 
+    (a1,a2) = unzipp arr
+    ll1 = toLL a1 
+    ll2 = toLL a2
+    numThreads = staticLength ll1
+
+
+writeIlvF ll1@(LLArray ixf n m d) 
+         ll2@(LLArray ixf' n' m' d') = 
+  do 
+    i <- get 
+    put (i+1) 
+    let newName  = "arr" ++ show i
+        elmsize1 = sizeOf (ixf (variable "X"))
+        newArray = LLArray (\ix -> Index (newName,[ix])) (n+n') (m+m') d 
+        -- newArray2 = LLArray (\ix -> Index (newName,[ix*2+1])) n' m' d' 
+    return ([Write (\ix -> index newName (ix*2)) ll1 (),
+             Write (\ix -> index newName (ix*2+1)) ll2 ()] ,newArray)
 
 
 ------------------------------------------------------------------------------

@@ -7,7 +7,16 @@
   + Sync can be performed on groups of arrays. This leads 
     to that a number of threads equal to the GCD of the lengths of
     the arrays is used to compute and store them. 
-  
+  + The Sync concept will gradually be replaced by a group 
+    of functions, "store" functions. 
+  + Kernel Building blocks: 
+    There are pure functions, (Array a -> Array a), that can be composed
+    using Haskell functional composition. These are turned into "kernels" using the function pure.
+    There are built in kernel building blocks, (things like, Array a -> Kernel (Array a)).
+    These represents (hopefully) efficient ways to store intermediate values 
+    in GPU shared memory. (store, storeIlv, storeIlvF, storeP - currently) 
+
+    
 * Work in progress
   + OpenCL generation is unfinished
   + CUDA generation is "untested" 
