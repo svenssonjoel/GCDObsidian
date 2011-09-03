@@ -93,7 +93,7 @@ tidLine = line "unsigned int tid = threadIdx.x;"
 bidLine = line "unsigned int bid = blockIdx.x;" 
 
 
-sBase = line "extern __shared__ unsigned char sbase[];" 
+sBase = line "extern __shared__ __attribute__ ((aligned (16))) unsigned char sbase[];" 
 
 
 
