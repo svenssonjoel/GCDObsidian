@@ -78,6 +78,10 @@ genOp :: Op a -> [String] -> String
 genOp Add     [a,b] = oper "+" a b 
 genOp Sub     [a,b] = oper "-" a b 
 genOp Mul     [a,b] = oper "*" a b 
+genOp Div     [a,b] = oper "/" a b 
+
+genOp If      [b,e1,e2] = b ++ " ? " ++ e1 ++ " : " ++ e2
+
 genOp Sin     [a]   = func "sin" a 
 
 -- Bool ops
@@ -93,6 +97,8 @@ genOp BitwiseXor [a,b] = oper "^" a b
 genOp BitwiseNeg [a]   = unOp "~" a 
 genOp ShiftL     [a,b] = oper "<<" a b 
 genOp ShiftR     [a,b] = oper ">>" a b 
+
+
 
 func  f a = f ++ "(" ++ a ++ ")" 
 oper  f a b = "(" ++ a ++ f ++ b ++ ")" 

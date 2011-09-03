@@ -23,10 +23,5 @@
   + More library functions needed
   
 * Thoughts 
-  + replace sync with a bunch of functions describing various ways to 
-    "Store" data into GPU shared memory.
-  +  store arr       = old sync
-  +  storeP (arr1,arr2) = GCD of lengths number of threads used
-  +  storeIlv (arr of pairs) = forces the elements in the pairs to be interleaved in memory (could be extremely innefficient if sizes differ)
-  +  storeIlvF (arr of pairs) = same as above but gives a flat array back 
+ + Add storeCat
     

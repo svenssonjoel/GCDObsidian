@@ -1,19 +1,25 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Obsidian.GCDObsidian.Store  
-      {- (sync,
+       (sync,
         sync2, 
         store,
-        storeP
-        ) -} where 
+        storeP,
+        storeIlv,
+        storeIlvF
+        )  where 
 
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Kernel
 import Obsidian.GCDObsidian.Elem
+import Obsidian.GCDObsidian.Library
+
 
 import Control.Monad.State
 import Control.Monad.Writer
+
+
 
 ------------------------------------------------------------------------------
 -- TODO: Start looking at what porblems the "dynamic" arrays might cause
@@ -57,14 +63,6 @@ sync2 (a1,a2)  =
       ll2 = toLL a2   
       numThreads = gcd (staticLength ll1) (staticLength ll2)
 
-------------------------------------------------------------------------------
---move to library
-unzipp :: (Elem a , Elem b) =>  Array (a,b) -> (Array a, Array b)       
-unzipp arr = (Array (\ix -> fst (untup2 (arr ! ix))) (len arr),
-              Array (\ix -> snd (untup2 (arr ! ix))) (len arr))
-              
-zipp :: (Elem a, Elem b) => (Array a, Array b) -> Array (a,b)             
-zipp (arr1,arr2) = Array (\ix -> tup2 (arr1 ! ix, arr2 ! ix)) (len arr1)
              
              
 ------------------------------------------------------------------------------

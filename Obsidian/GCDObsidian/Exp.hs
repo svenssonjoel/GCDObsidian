@@ -117,6 +117,7 @@ data Op a where
   Add :: Num a => Op ((a,a) -> a) 
   Sub :: Num a => Op ((a,a) -> a) 
   Mul :: Num a => Op ((a,a) -> a) 
+  Div :: Num a => Op ((a,a) -> a) 
   If  :: Op ((Bool,a,a) -> a) 
   
   -- Trig
