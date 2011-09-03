@@ -141,4 +141,8 @@ writeNT ll@(LLArray ixf n m d) =
                     
   
 ------------------------------------------------------------------------------  
---
+-- Combination of store and two 
+  
+twoK' :: Int -> (Array a -> Array b) -> Array a -> Kernel (Array b) 
+twoK' = undefined 
+
