@@ -77,22 +77,3 @@ run5 =
 run5CL =    
   putStrLn$ OpenCL.genOpenCLKernel "sklansky" (sklansky 5)(namedArray "apa" 32)
   
-  
-  
-sklansky2 :: Int -> Array Word32 -> Kernel (Array Word32)
-sklansky2 0 = pure id 
-sklansky2 n = pure (twoK (n-1) fan) ->- storeCatZ ->- sklansky2 (n-1)
-  where fan arr = zipp (a1,a2')
-          where 
-            (a1,a2) = splitAt middle arr  
-            middle = len arr `div` 2 
-            n = len a1          
-            e = a1 ! (fromIntegral (n-1)) 
-            a2' = (Array (\ix -> (a2 ! ix) + e) (len a2))
-
-run6 = 
-  putStrLn$ CUDA.genCUDAKernel "sklansky2" (sklansky2 5) (namedArray "apa" 32)
-   
-run6CL =    
-  putStrLn$ OpenCL.genOpenCLKernel "sklansky2" (sklansky2 5)(namedArray "apa" 32)
-  
