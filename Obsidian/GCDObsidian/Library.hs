@@ -60,7 +60,7 @@ zipWith op a1 a2 = Array (\ix -> (a1 ! ix) `op` (a2 ! ix)) (len a1)
 ------------------------------------------------------------------------------    
 -- twoK (untested for proper functionality) 
 
-twoK::Int -> (Array a -> Array b) -> (Array a -> Array b) 
+twoK::Int -> (Array a -> Array b) -> Array a -> Array b 
 twoK 0 f = f  -- divide 0 times and apply f
 twoK n f =  (\arr -> 
               let arr' = Array (\i -> (f (Array (\j -> (arr ! (g i j))) m)) ! (h i)) (lt) 
@@ -71,3 +71,4 @@ twoK n f =  (\arr ->
                   nl2   = (len (f (Array (\j -> arr ! variable "X") m)))
                   lt    = nl2 `shiftL` n 
               in arr')  
+

@@ -6,7 +6,8 @@ module Obsidian.GCDObsidian.Store
         store,
         storeP,
         storeIlv,
-        storeIlvF
+        storeIlvF,
+        storeCatZ
         )  where 
 
 import Obsidian.GCDObsidian.Exp 
@@ -126,6 +127,37 @@ writeIlvF ll1@(LLArray ixf n m d)
         -- newArray2 = LLArray (\ix -> Index (newName,[ix*2+1])) n' m' d' 
     return ([Write (\ix -> index newName (ix*2)) ll1 (),
              Write (\ix -> index newName (ix*2+1)) ll2 ()] ,newArray)
+
+
+storeCatZ ::( Scalar e) 
+             => (Array (e,e)) 
+             -> Kernel (Array e) 
+storeCatZ arr = do 
+  (w,r) <- writeCatZ ll1 ll2
+  
+  tell$ code$ Store numThreads w
+  
+  return$ fromLL r
+  
+  where 
+    (a1,a2) = unzipp arr
+    ll1 = toLL a1 
+    ll2 = toLL a2
+    numThreads = staticLength ll1
+
+
+writeCatZ ll1@(LLArray ixf n m d) 
+          ll2@(LLArray ixf' n' m' d') = 
+  do 
+    i <- get 
+    put (i+1) 
+    let newName  = "arr" ++ show i
+        elmsize1 = sizeOf (ixf (variable "X"))
+        newArray = LLArray (\ix -> Index (newName,[ix])) (n+n') (m+m') d 
+        -- newArray2 = LLArray (\ix -> Index (newName,[ix*2+1])) n' m' d' 
+    return ([Write (\ix -> index newName (ix)) ll1 (),
+             Write (\ix -> index newName (ix+(fromIntegral m))) ll2 ()] ,newArray)
+
 
 
 ------------------------------------------------------------------------------
