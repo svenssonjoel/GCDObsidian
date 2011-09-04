@@ -122,7 +122,7 @@ genCUDAKernel name kernel a = cuda
   where 
     (input,ins)  = runInOut (createInputs a) (0,[])
   
-    ((res,s),c)  = runKernel (kernel input)
+    ((res,(_,mapArraySize)),c)  = runKernel (kernel input)
     lc = liveness c
    
     threadBudget = 
@@ -130,7 +130,7 @@ genCUDAKernel name kernel a = cuda
         Skip -> gcdThreads res
         a  -> threadsNeeded c 
         
-    (m,mm) = mapMemory lc sharedMem (Map.empty)
+    (m,mm) = mapMemory lc sharedMem mapArraySize (Map.empty)
     (outCode,outs)   = 
       runInOut (writeOutputs threadBudget res nosync) (0,[])
       

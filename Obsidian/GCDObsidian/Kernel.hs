@@ -102,8 +102,20 @@ instance Monoid (Code a) where
 
 ------------------------------------------------------------------------------
 -- KERNEL
+  
+type ArraySizes = Map.Map Name Word32 
 
-type Kernel a = StateT Integer (Writer (Code ())) a   
+type Kernel a = StateT (Integer,ArraySizes) (Writer (Code ())) a   
+
+newArray :: Word32 -> Kernel Name 
+newArray nBytes = do
+  (i,ns) <- get
+  let newName = "arr" ++ show i 
+  put (i+1,Map.insert newName nBytes ns)  
+  return newName
+
+
+
 type a :-> b = a -> Kernel b     
 
 (->-) :: (a -> Kernel b) -> (b -> Kernel c) -> (a -> Kernel c) 
@@ -111,7 +123,8 @@ type a :-> b = a -> Kernel b
 
 pure f a = return (f a) 
 
-runKernel k = runWriter (runStateT k 0 )
+--runKernel :: Kernel a -> ((a,(Int,Map.Map Name Word32)),Code ()) 
+runKernel k = runWriter (runStateT k (0,Map.empty) )
 
 ------------------------------------------------------------------------------  
 -- Tid. Probably not really needed here
@@ -229,11 +242,11 @@ merge ((x,b):(y,b2):xs) = if (x+b == y) then merge ((x,b+b2):xs)
 
 type MemMap = Map.Map Name (Address,Type) 
 
-mapMemory :: Code Liveness -> Memory -> MemMap -> (Memory,MemMap)
-mapMemory Skip m mm = (m,mm) 
-mapMemory (store `Seq` code) m mm = mapMemory code m'' mm' 
+mapMemory :: Code Liveness -> Memory -> ArraySizes -> MemMap -> (Memory,MemMap)
+mapMemory Skip m as mm = (m,mm) 
+mapMemory (store `Seq` code) m as mm = mapMemory code m'' as mm' 
   where 
-    (m',mm')  = mapMemoryStore store m mm 
+    (m',mm')  = mapMemoryStore store m as mm 
     aliveNext = whatsAliveNext code 
     aliveNow  = getExtraStore store Set.union
     diff      = aliveNow Set.\\ aliveNext
@@ -242,19 +255,25 @@ mapMemory (store `Seq` code) m mm = mapMemory code m'' mm'
                    (Just addys) -> freeAll m' (map fst addys)
                    Nothing      -> error "atleast one array does not exist in memorymap" 
       
-mapMemoryStore :: Store Liveness -> Memory -> MemMap -> (Memory,MemMap)
-mapMemoryStore (Store nt ws) m mm = allocateWrites ws m mm 
+mapMemoryStore :: Store Liveness -> Memory -> ArraySizes -> MemMap -> (Memory,MemMap)
+mapMemoryStore (Store nt ws) m as mm = allocateWrites ws m as mm 
 
 
-allocateWrites :: [Write extra] -> Memory -> MemMap -> (Memory,MemMap)
-allocateWrites [] m mm = (m,mm) 
-allocateWrites ((Write n ll _):ws) m mm = allocateWrites ws m' mm'
+allocateWrites :: [Write extra] -> Memory -> ArraySizes -> MemMap -> (Memory,MemMap)
+allocateWrites [] m as mm = (m,mm) 
+allocateWrites ((Write n ll _):ws) m as mm = allocateWrites ws m' as mm'
   where 
-    (m', addr) = allocate m bytesNeeded
-    mm'        = Map.insert (rootName (n (variable "X"))) (addr,t) mm 
-    
-    bytesNeeded = fromIntegral s * fromIntegral (staticLength ll) 
-    s = sizeOf (ll ! tid) -- If I am doing this a lot rethink having the array  
+    -- TODO: This is still wrong. (the array sizes will be wrong) 
+    ((m',addr),mm') = case Map.lookup name mm of 
+       Nothing -> 
+         case Map.lookup name as of 
+           Nothing -> error "bad implementation" 
+           (Just b) -> (allocate m (fromIntegral b),Map.insert (rootName (n (variable "X"))) (addr,t) mm)
+       (Just (a,t)) -> ((m,a),mm)
+    name = rootName (n (variable "X"))
+
+    --bytesNeeded = fromIntegral s * fromIntegral (staticLength ll) 
+    --s = sizeOf (ll ! tid) -- If I am doing this a lot rethink having the array  
     t = Pointer (typeOf (ll ! tid)) -- in the write "object" 
     -- Add a "Pointer" type associated to the "array" into the MM 
     

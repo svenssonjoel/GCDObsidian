@@ -111,7 +111,7 @@ genOpenCLKernel name kernel a = opencl
   where 
     (input,ins)  = runInOut (createInputs a) (0,[])
   
-    ((res,s),c)  = runKernel (kernel input)
+    ((res,(_,mapArraySize)),c)  = runKernel (kernel input)
     lc = liveness c
    
     threadBudget = 
@@ -119,7 +119,7 @@ genOpenCLKernel name kernel a = opencl
         Skip -> gcdThreads res
         a  -> threadsNeeded c 
         
-    (m,mm) = mapMemory lc sharedMem (Map.empty)
+    (m,mm) = mapMemory lc sharedMem mapArraySize(Map.empty)
     (outCode,outs)   = 
       runInOut (writeOutputs threadBudget res nosync) (0,[])
       

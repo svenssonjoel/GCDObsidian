@@ -89,12 +89,14 @@ storeIlv arr = do
 writeIlv ll1@(LLArray ixf n m d) 
          ll2@(LLArray ixf' n' m' d') = 
   do 
-    i <- get 
-    put (i+1) 
-    let newName  = "arr" ++ show i
-        elmsize1 = sizeOf (ixf (variable "X"))
-        newArray1 = LLArray (\ix -> Index (newName,[ix*2])) n m d 
+    --i <- get 
+    --put (i+1) 
+    --let newName  = "arr" ++ show i
+    let elmsize1 = fromIntegral$ sizeOf$ ixf (variable "X")
+    newName <- newArray (elmsize1 * (m+m'))
+    let newArray1 = LLArray (\ix -> Index (newName,[ix*2])) n m d 
         newArray2 = LLArray (\ix -> Index (newName,[ix*2+1])) n' m' d' 
+        
     return ([Write (\ix -> index newName (ix*2)) ll1 (),
              Write (\ix -> index newName (ix*2+1)) ll2 ()],(newArray1,newArray2))
 
@@ -117,14 +119,16 @@ storeIlvF arr = do
 
 
 writeIlvF ll1@(LLArray ixf n m d) 
-         ll2@(LLArray ixf' n' m' d') = 
+          ll2@(LLArray ixf' n' m' d') = 
   do 
-    i <- get 
-    put (i+1) 
-    let newName  = "arr" ++ show i
-        elmsize1 = sizeOf (ixf (variable "X"))
-        newArray = LLArray (\ix -> Index (newName,[ix])) (n+n') (m+m') d 
-        -- newArray2 = LLArray (\ix -> Index (newName,[ix*2+1])) n' m' d' 
+    --i <- get 
+    --put (i+1) 
+    
+    --let newName  = "arr" ++ show i
+    let elmsize1 = fromIntegral$ sizeOf (ixf (variable "X"))
+    newName <- newArray (elmsize1 * (m+m'))
+    let newArray = LLArray (\ix -> Index (newName,[ix])) (n+n') (m+m') d 
+        
     return ([Write (\ix -> index newName (ix*2)) ll1 (),
              Write (\ix -> index newName (ix*2+1)) ll2 ()] ,newArray)
 
@@ -149,11 +153,13 @@ storeCatZ arr = do
 writeCatZ ll1@(LLArray ixf n m d) 
           ll2@(LLArray ixf' n' m' d') = 
   do 
-    i <- get 
-    put (i+1) 
-    let newName  = "arr" ++ show i
-        elmsize1 = sizeOf (ixf (variable "X"))
-        newArray = LLArray (\ix -> Index (newName,[ix])) (n+n') (m+m') d 
+    --i <- get 
+    --put (i+1) 
+    --let newName  = "arr" ++ show i
+    let elmsize1 = fromIntegral$ sizeOf (ixf (variable "X"))
+    newName <- newArray (elmsize1 * (m+m'))               
+                   
+    let newArray = LLArray (\ix -> Index (newName,[ix])) (n+n') (m+m') d 
         -- newArray2 = LLArray (\ix -> Index (newName,[ix*2+1])) n' m' d' 
     return ([Write (\ix -> index newName (ix)) ll1 (),
              Write (\ix -> index newName (ix+(fromIntegral m))) ll2 ()] ,newArray)
@@ -164,10 +170,12 @@ writeCatZ ll1@(LLArray ixf n m d)
 --
 writeNT ll@(LLArray ixf n m d) = 
   do 
-    i <- get 
-    put (i+1) 
-    let newName  = "arr" ++ show i
-        newArray = LLArray (\ix -> Index (newName,[ix])) n m d 
+    --i <- get 
+    --put (i+1) 
+    --let newName  = "arr" ++ show i
+    let elmsize = fromIntegral$ sizeOf (ixf (variable "X"))
+    newName <- newArray (elmsize * m) 
+    let newArray = LLArray (\ix -> Index (newName,[ix])) n m d 
                 
     return ([write newName ll () ],newArray)
                     
