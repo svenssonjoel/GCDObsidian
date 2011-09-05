@@ -2,15 +2,15 @@
 import Obsidian.GCDObsidian
 import Obsidian.GCDObsidian.Kernel
 import Obsidian.GCDObsidian.Store
+import Obsidian.GCDObsidian.Printing
+
 
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA   as CUDA
 import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as OpenCL
 
 
-import Prelude hiding (zipWith)
-
-zipWith :: (Exp a -> Exp b -> Exp c) -> Array a -> Array b -> Array c
-zipWith op a1 a2 = Array (\ix -> (a1 ! ix) `op` (a2 ! ix)) (len a1)
+import Prelude hiding (zipWith,splitAt)
+import Data.Word
   
 vectorAdd :: (Array Int, Array Int) -> Kernel (Array Int)   
 vectorAdd (a,b) = return$ zipWith (+) a b 
@@ -56,4 +56,24 @@ run4 =
    
 run4CL =    
   putStrLn$ OpenCL.genOpenCLKernel "storeIlv" testStoreIlv (namedArray "apa" 32,namedArray "apa" 32)
+  
+
+
+sklansky :: Int -> Array Word32 -> Kernel (Array Word32)
+sklansky 0 = pure id 
+sklansky n = pure (twoK (n-1) fan) ->- store ->- sklansky (n-1)
+  where fan arr = conc (a1,a2')
+          where 
+            (a1,a2) = splitAt middle arr  
+            middle = len arr `div` 2 
+            n = len a1          
+            e = a1 ! (fromIntegral (n-1)) 
+            a2' = (Array (\ix -> (a2 ! ix) + e) (len a2))
+                    
+            
+run5 = 
+  putStrLn$ CUDA.genCUDAKernel "sklansky" (sklansky 5) (namedArray "apa" 32)
+   
+run5CL =    
+  putStrLn$ OpenCL.genOpenCLKernel "sklansky" (sklansky 5)(namedArray "apa" 32)
   

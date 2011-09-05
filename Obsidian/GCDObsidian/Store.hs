@@ -1,19 +1,26 @@
 {-# LANGUAGE FlexibleContexts #-}
 
 module Obsidian.GCDObsidian.Store  
-      {- (sync,
+       (sync,
         sync2, 
         store,
-        storeP
-        ) -} where 
+        storeP,
+        storeIlv,
+        storeIlvF,
+        storeCatZ
+        )  where 
 
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Kernel
 import Obsidian.GCDObsidian.Elem
+import Obsidian.GCDObsidian.Library
+
 
 import Control.Monad.State
 import Control.Monad.Writer
+
+
 
 ------------------------------------------------------------------------------
 -- TODO: Start looking at what porblems the "dynamic" arrays might cause
@@ -57,14 +64,6 @@ sync2 (a1,a2)  =
       ll2 = toLL a2   
       numThreads = gcd (staticLength ll1) (staticLength ll2)
 
-------------------------------------------------------------------------------
---move to library
-unzipp :: (Elem a , Elem b) =>  Array (a,b) -> (Array a, Array b)       
-unzipp arr = (Array (\ix -> fst (untup2 (arr ! ix))) (len arr),
-              Array (\ix -> snd (untup2 (arr ! ix))) (len arr))
-              
-zipp :: (Elem a, Elem b) => (Array a, Array b) -> Array (a,b)             
-zipp (arr1,arr2) = Array (\ix -> tup2 (arr1 ! ix, arr2 ! ix)) (len arr1)
              
              
 ------------------------------------------------------------------------------
@@ -90,12 +89,14 @@ storeIlv arr = do
 writeIlv ll1@(LLArray ixf n m d) 
          ll2@(LLArray ixf' n' m' d') = 
   do 
-    i <- get 
-    put (i+1) 
-    let newName  = "arr" ++ show i
-        elmsize1 = sizeOf (ixf (variable "X"))
-        newArray1 = LLArray (\ix -> Index (newName,[ix*2])) n m d 
+    --i <- get 
+    --put (i+1) 
+    --let newName  = "arr" ++ show i
+    let elmsize1 = fromIntegral$ sizeOf$ ixf (variable "X")
+    newName <- newArray (elmsize1 * (m+m'))
+    let newArray1 = LLArray (\ix -> Index (newName,[ix*2])) n m d 
         newArray2 = LLArray (\ix -> Index (newName,[ix*2+1])) n' m' d' 
+        
     return ([Write (\ix -> index newName (ix*2)) ll1 (),
              Write (\ix -> index newName (ix*2+1)) ll2 ()],(newArray1,newArray2))
 
@@ -118,29 +119,70 @@ storeIlvF arr = do
 
 
 writeIlvF ll1@(LLArray ixf n m d) 
-         ll2@(LLArray ixf' n' m' d') = 
+          ll2@(LLArray ixf' n' m' d') = 
   do 
-    i <- get 
-    put (i+1) 
-    let newName  = "arr" ++ show i
-        elmsize1 = sizeOf (ixf (variable "X"))
-        newArray = LLArray (\ix -> Index (newName,[ix])) (n+n') (m+m') d 
-        -- newArray2 = LLArray (\ix -> Index (newName,[ix*2+1])) n' m' d' 
+    --i <- get 
+    --put (i+1) 
+    
+    --let newName  = "arr" ++ show i
+    let elmsize1 = fromIntegral$ sizeOf (ixf (variable "X"))
+    newName <- newArray (elmsize1 * (m+m'))
+    let newArray = LLArray (\ix -> Index (newName,[ix])) (n+n') (m+m') d 
+        
     return ([Write (\ix -> index newName (ix*2)) ll1 (),
              Write (\ix -> index newName (ix*2+1)) ll2 ()] ,newArray)
+
+
+storeCatZ ::( Scalar e) 
+             => (Array (e,e)) 
+             -> Kernel (Array e) 
+storeCatZ arr = do 
+  (w,r) <- writeCatZ ll1 ll2
+  
+  tell$ code$ Store numThreads w
+  
+  return$ fromLL r
+  
+  where 
+    (a1,a2) = unzipp arr
+    ll1 = toLL a1 
+    ll2 = toLL a2
+    numThreads = staticLength ll1
+
+
+writeCatZ ll1@(LLArray ixf n m d) 
+          ll2@(LLArray ixf' n' m' d') = 
+  do 
+    --i <- get 
+    --put (i+1) 
+    --let newName  = "arr" ++ show i
+    let elmsize1 = fromIntegral$ sizeOf (ixf (variable "X"))
+    newName <- newArray (elmsize1 * (m+m'))               
+                   
+    let newArray = LLArray (\ix -> Index (newName,[ix])) (n+n') (m+m') d 
+        -- newArray2 = LLArray (\ix -> Index (newName,[ix*2+1])) n' m' d' 
+    return ([Write (\ix -> index newName (ix)) ll1 (),
+             Write (\ix -> index newName (ix+(fromIntegral m))) ll2 ()] ,newArray)
+
 
 
 ------------------------------------------------------------------------------
 --
 writeNT ll@(LLArray ixf n m d) = 
   do 
-    i <- get 
-    put (i+1) 
-    let newName  = "arr" ++ show i
-        newArray = LLArray (\ix -> Index (newName,[ix])) n m d 
+    --i <- get 
+    --put (i+1) 
+    --let newName  = "arr" ++ show i
+    let elmsize = fromIntegral$ sizeOf (ixf (variable "X"))
+    newName <- newArray (elmsize * m) 
+    let newArray = LLArray (\ix -> Index (newName,[ix])) n m d 
                 
     return ([write newName ll () ],newArray)
                     
   
 ------------------------------------------------------------------------------  
---
+-- Combination of store and two 
+  
+twoK' :: Int -> (Array a -> Array b) -> Array a -> Kernel (Array b) 
+twoK' = undefined 
+
