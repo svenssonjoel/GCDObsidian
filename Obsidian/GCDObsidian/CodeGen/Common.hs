@@ -94,6 +94,10 @@ genOp BitwiseNeg [a]   = unOp "~" a
 genOp ShiftL     [a,b] = oper "<<" a b 
 genOp ShiftR     [a,b] = oper ">>" a b 
 
+-- built-ins 
+genOp Min      [a,b] = func "min" (a ++ "," ++ b) 
+genOp Max      [a,b] = func "max" (a ++ "," ++ b) 
+
 func  f a = f ++ "(" ++ a ++ ")" 
 oper  f a b = "(" ++ a ++ f ++ b ++ ")" 
 unOp  f a   = "(" ++ f ++ a ++ ")"

@@ -139,7 +139,11 @@ data Op a where
   ShiftL     :: Bits a => Op ((a, Int) -> a) 
   ShiftR     :: Bits a => Op ((a, Int) -> a) 
   
-  
+  -- built-ins
+  Min        :: Ord a => Op ((a,a) -> a) 
+  Max        :: Ord a => Op ((a,a) -> a) 
+
+                
   
   
 ------------------------------------------------------------------------------
@@ -196,6 +200,10 @@ instance Elem a => Show (Exp a) where
 
 instance Elem a => Eq (Exp a) where 
   (==) = undefined 
+
+instance (Elem a, Ord a) => Ord (Exp a) where 
+    min a b = Op Min (tup2 (a,b))
+    max a b = Op Max (tup2 (a,b))
 
 ------------------------------------------------------------------------------
 -- INT Instances 
