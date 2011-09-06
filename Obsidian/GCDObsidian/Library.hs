@@ -72,3 +72,17 @@ twoK n f =  (\arr ->
                   lt    = nl2 `shiftL` n 
               in arr')  
 
+
+
+------------------------------------------------------------------------------    
+-- ivt (untested)
+
+ivt :: Int -> Int -> (Array a -> Array b) -> Array a -> Array b
+ivt i j f arr = Array g nl
+  where
+    g i1 = f (Array (\j2 -> arr ! (i1 `xor` (mask (j2 `xor` bb)))) 2) ! bb
+        where bb = (i1 .&. bit) `shiftR` ij
+    nl = len arr
+    mask k = k  `shiftL` (ij+1) - k `shiftL` i
+    bit = fromIntegral $ 2^ij
+    ij = i+j
