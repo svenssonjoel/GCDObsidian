@@ -2,7 +2,8 @@
              TypeFamilies,  
              RankNTypes,
              FlexibleContexts,
-             FlexibleInstances #-} 
+             FlexibleInstances, 
+             UndecidableInstances #-} 
 
 module Obsidian.GCDObsidian.Exp where 
 
@@ -29,11 +30,65 @@ data Type = Bool | Int | Word8 | Word16 | Word32 | Word64
           | Local Type     -- OpenCL thing
                     deriving Show
 
+------------------------------------------------------------------------------
+--
+
+data Value = BoolVal Bool
+           | IntVal Int
+           | FloatVal Float             
+           | DoubleVal Double
+           | Word8Val Word8
+           | Word16Val Word16
+           | Word32Val Word32
+           | Word64Val Word64
+           
+             deriving Show 
+           
+class Val a where 
+  toValue :: a -> Value
+  fromValue :: Value -> a 
+                       
+instance Val Bool where 
+  toValue i = BoolVal i
+  fromValue (BoolVal i) = i
+
+instance Val Int where 
+  toValue i = IntVal i
+  fromValue (IntVal i) = i
+  
+instance Val Float where 
+  toValue f = FloatVal f 
+  fromValue (FloatVal f) = f 
+  
+instance Val Double where 
+  toValue f = DoubleVal f 
+  fromValue (DoubleVal f) = f 
+
+instance Val Word8 where
+  toValue w = Word8Val w
+  fromValue (Word8Val w) = w 
+  
+instance Val Word16 where
+  toValue w = Word16Val w
+  fromValue (Word16Val w) = w 
+
+instance Val Word32 where
+  toValue w = Word32Val w
+  fromValue (Word32Val w) = w 
+
+instance Val Word64 where
+  toValue w = Word64Val w
+  fromValue (Word64Val w) = w 
+
+  
+--instance Scalar a => Val a where
+--  toValue a = error "Broken toValue"
+--  fromValue = error "Broken fromValue"
 
 
 ------------------------------------------------------------------------------
 -- Class Scalar. (Things that are not tuples) 
-class Elem a => Scalar a where 
+class (Val a, Elem a) => Scalar a where 
   sizeOf :: Exp a -> Int   --  
   typeOf :: Exp a -> Type  --   Good enough for me ... 
 

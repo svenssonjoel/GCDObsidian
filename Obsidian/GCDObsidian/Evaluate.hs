@@ -22,32 +22,6 @@ type Env = [(Name,[Value])]
 
 emptyEnv = []           
 
-data Value = IntVal Int
-           | FloatVal Float             
-           | Word32Val Word32
-           | ListOf [Value] 
-             deriving Show 
-           
-class Scalar a => Val a where 
-  toValue :: a -> Value
-  fromValue :: Value -> a 
-                       
-instance Val Int where 
-  toValue i = IntVal i
-  fromValue (IntVal i) = i
-  
-instance Val Float where 
-  toValue f = FloatVal f 
-  fromValue (FloatVal f) = f 
-  
-instance Val Word32 where
-  toValue w = Word32Val w
-  fromValue (Word32Val w) = w 
-  
-instance Scalar a => Val a where
-  toValue = undefined
-  fromValue = undefined 
-
 ------------------------------------------------------------------------------
   
 -- instance Scalar a => Dynamic.Typeable a 
@@ -89,7 +63,13 @@ instance (UserData a, UserData b) => UserData (a,b)  where
   fromRepr (a,b)    = (fromRepr a, fromRepr b)
   toRepr  (a,b) env = (toRepr a env, toRepr b env)
     
-{-                  
+
+instance Scalar a => UserData (Exp a) where 
+  type UserDataRepr (Exp a) = Value 
+  
+  fromRepr v = Literal (fromValue v)
+  toRepr i env  = evalExp i env
+                 
 evalKernel  :: (UserData a, UserData b) => (a -> Kernel b) -> UserDataRepr a -> UserDataRepr b
 evalKernel kernel a = evalResults b finalEnv 
    where 
@@ -107,11 +87,10 @@ evalStore (Store _ ws) env = evalWrites ws env
 
 evalWrites ws env = concatMap (evalWrite env) ws 
 
--- evalWrite :: Env -> Write 
 evalWrite env (Write targ source _) = 
   case lookup rn env  of 
     (Just arr) -> error "do something"
-    Nothing -> (rn,map toValue elems) : env 
+    Nothing -> (rn,elems) : env 
                
       
   where
@@ -124,7 +103,7 @@ evalResults :: UserData b =>  b -> Env ->  UserDataRepr b
 evalResults b env = toRepr b env
 
 
--} 
+ 
 ------------------------------------------------------------------------------
 -- EvalExp 
 evalExp ::(UserDataRepr (Exp a) ~ Value,  UserData (Exp a)) =>  Exp a -> Env -> (UserDataRepr (Exp a))
