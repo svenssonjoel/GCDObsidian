@@ -3,7 +3,7 @@ import Obsidian.GCDObsidian
 import Obsidian.GCDObsidian.Kernel
 import Obsidian.GCDObsidian.Store
 import Obsidian.GCDObsidian.Printing
-
+import Obsidian.GCDObsidian.Evaluate
 
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA   as CUDA
 import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as OpenCL

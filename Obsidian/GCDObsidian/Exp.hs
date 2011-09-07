@@ -11,6 +11,7 @@ import Data.Word
 import Data.Bits
 
 import qualified Foreign.Storable as Storable
+import qualified Data.Dynamic as D
 
 ------------------------------------------------------------------------------
 -- Obsidian imports
@@ -33,7 +34,7 @@ data Type = Bool | Int | Word8 | Word16 | Word32 | Word64
 
 ------------------------------------------------------------------------------
 -- Class Scalar. (Things that are not tuples) 
-class Elem a => Scalar a where 
+class (D.Typeable a, Elem a) => Scalar a where 
   sizeOf :: Exp a -> Int   --  
   typeOf :: Exp a -> Type  --   Good enough for me ... 
 
