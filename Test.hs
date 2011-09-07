@@ -77,3 +77,4 @@ run5 =
 run5CL =    
   putStrLn$ OpenCL.genOpenCLKernel "sklansky" (sklansky 5)(namedArray "apa" 32)
   
+
