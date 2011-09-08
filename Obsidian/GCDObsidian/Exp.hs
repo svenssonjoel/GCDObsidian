@@ -42,49 +42,56 @@ data Value = BoolVal Bool
            | Word32Val Word32
            | Word64Val Word64
            
-             deriving Show 
+             deriving (Eq,Show )
            
 class Val a where 
   toValue :: a -> Value
   fromValue :: Value -> a 
-                       
+  defaultValue :: a -> Value 
+
+  
 instance Val Bool where 
   toValue i = BoolVal i
   fromValue (BoolVal i) = i
+  defaultValue _ = BoolVal False
 
 instance Val Int where 
   toValue i = IntVal i
   fromValue (IntVal i) = i
+  defaultValue _ = IntVal 0
   
 instance Val Float where 
   toValue f = FloatVal f 
   fromValue (FloatVal f) = f 
+  defaultValue _ = FloatVal 0.0
   
 instance Val Double where 
   toValue f = DoubleVal f 
   fromValue (DoubleVal f) = f 
+  defaultValue _ = DoubleVal 0.0
 
 instance Val Word8 where
   toValue w = Word8Val w
   fromValue (Word8Val w) = w 
+  defaultValue _ = Word8Val 0
   
 instance Val Word16 where
   toValue w = Word16Val w
   fromValue (Word16Val w) = w 
+  defaultValue _ = Word16Val 0
 
 instance Val Word32 where
   toValue w = Word32Val w
   fromValue (Word32Val w) = w 
-
+  defaultValue _ = Word32Val 0
+  
 instance Val Word64 where
   toValue w = Word64Val w
   fromValue (Word64Val w) = w 
+  defaultValue _ = Word64Val 0
 
-  
---instance Scalar a => Val a where
---  toValue a = error "Broken toValue"
---  fromValue = error "Broken fromValue"
-
+defaultValueList :: Val a => Int -> a -> [Value]
+defaultValueList i a = replicate i (defaultValue a)
 
 ------------------------------------------------------------------------------
 -- Class Scalar. (Things that are not tuples) 

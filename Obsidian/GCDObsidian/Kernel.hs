@@ -36,7 +36,7 @@ type NumThreads = Word32
 ------------------------------------------------------------------------------
 -- Ways to write data into GPU memory
 data  Write extra where  
-  Write :: forall a extra . Scalar a 
+  Write :: forall a extra . Scalar a
             => (Exp Word32 -> Exp a) -- Name  -- target storage
             -> LLArray a -- array to store
             -> extra 

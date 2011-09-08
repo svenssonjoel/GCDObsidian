@@ -17,6 +17,8 @@ import qualified Obsidian.GCDObsidian.Tuple as Tuple
 import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil) ) 
 
 import Data.Word
+import Data.List
+import qualified Data.Map as Map
 ------------------------------------------------------------------------------
 type Env = [(Name,[Value])]
 
@@ -70,43 +72,91 @@ instance Scalar a => UserData (Exp a) where
   fromRepr v = Literal (fromValue v)
   toRepr i env  = evalExp i env
                  
-evalKernel  :: (UserData a, UserData b) => (a -> Kernel b) -> UserDataRepr a -> UserDataRepr b
+------------------------------------------------------------------------------
+-- Evaluate a kernel 
+evalKernel  :: (UserData a, UserData b) 
+               => (a -> Kernel b) 
+               -> UserDataRepr a 
+               -> UserDataRepr b
 evalKernel kernel a = evalResults b finalEnv 
    where 
-     finalEnv = evalCode code emptyEnv  
-     ((b,arraySize),code) = runKernel (kernel (fromRepr a))
+     finalEnv = evalCode arraySize emptyEnv code   
+     ((b,(_,arraySize)),code) = runKernel (kernel (fromRepr a))
 
 
 
-evalCode Skip env = env 
-evalCode (Seq  store code) env = evalCode code newEnv
+evalCode _         env Skip              = env 
+evalCode arraySize env (Seq  store code) = evalCode arraySize newEnv code
   where 
-    newEnv = evalStore store env 
+    newEnv = evalStore arraySize env store  
     
-evalStore (Store _ ws) env = evalWrites ws env     
+    
+evalStore arraySize env (Store _ ws) = evalWrites arraySize env ws      
 
-evalWrites ws env = concatMap (evalWrite env) ws 
 
-evalWrite env (Write targ source _) = 
+evalWrites arraySize env ws = concatMap (evalWrite arraySize env) ws 
+
+------------------------------------------------------------------------------
+-- evalWrite. The heart of the eval function 
+evalWrite arraySize env (Write targ source _) = 
   case lookup rn env  of 
     (Just arr) -> error "do something"
-    Nothing -> (rn,elems) : env 
-               
-      
+    Nothing -> (rn,elems) : env                      
   where
-    elems = [toRepr (source ! (Literal ix)) env | ix <- [0..staticLength source - 1 ]]
-    --t  = typeOf (source ! (variable "X"))
+    elems   = allUpdates [ (targIx targ ix,toRepr (source ! (Literal ix)) env) 
+                         | ix <- [0..staticLength source - 1 ]]
+                         defList
+                                 
+    defList = defaultList arraySize rn (evalClosedExp (source ! (Literal 0))) -- [toRepr (source ! (Literal ix)) env | ix <- [0..staticLength source - 1 ]]
     rn = rootName (targ (variable "X"))
-       
-
+    
+defaultList :: ArraySizes -> Name -> Value -> [Value] 
+defaultList arraySize name a = 
+  case (Map.lookup name arraySize) of 
+    (Just n) -> replicate (fromIntegral n) a
+  
+    
+targIx :: (Exp Word32 -> Exp a) -> Word32 -> Word32
+targIx tIxf i = 
+  case (tIxf (Literal i)) of 
+    (Index (_,[e])) -> fromValue$ evalClosedExp e
+    _               -> error "targIx: If this happens a lot, change the Write datatype"
+                       
+------------------------------------------------------------------------------ 
+-- This one does not deserve to be a function
 evalResults :: UserData b =>  b -> Env ->  UserDataRepr b
 evalResults b env = toRepr b env
+
+
+------------------------------------------------------------------------------
+-- Updating env and lists 
+    
+updateEnv name val env = 
+  case lookup name env of 
+    (Just x) -> (name,val) : (delete (name,x) env)
+    Nothing  -> (name,val) : env 
+      
+updateList []   _      = error "updateList"
+updateList (x:xs) (0,y) = y:xs
+updateList (x:xs) (i,y) = x:updateList xs (i-1,y) 
+
+
+allUpdates [] a = a 
+allUpdates (x:xs) a = allUpdates xs (updateList a x)
 
 
  
 ------------------------------------------------------------------------------
 -- EvalExp 
-evalExp ::(UserDataRepr (Exp a) ~ Value,  UserData (Exp a)) =>  Exp a -> Env -> (UserDataRepr (Exp a))
+evalClosedExp ::(UserDataRepr (Exp a) ~ Value,  UserData (Exp a)) 
+                =>  Exp a 
+                -> (UserDataRepr (Exp a))
+evalClosedExp e = evalExp e [] 
+
+evalExp ::(UserDataRepr (Exp a) ~ Value,  UserData (Exp a)) 
+          =>  Exp a 
+          -> Env 
+          -> (UserDataRepr (Exp a))
 evalExp (Literal a) env = toValue a 
 evalExp exp@(Index (name,[e])) env = 
   case lookup name env of 
