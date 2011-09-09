@@ -126,5 +126,5 @@ genOpenCLKernel name kernel a = opencl
     c' = sc +++ outCode
     sc = syncPoints c 
     
-    opencl = getOpenCL (config threadBudget mm (size m)) c' name ins outs
+    opencl = getOpenCL (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
     

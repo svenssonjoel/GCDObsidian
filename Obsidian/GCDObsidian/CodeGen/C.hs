@@ -25,13 +25,12 @@ getC :: Config -> Code a -> Name -> [(String,Type)] -> [(String,Type)] -> String
 getC conf c name ins outs = 
   runPP (kernelHead name ins outs >>  
          begin >>
-        -- tidLine >> newline >>
-        -- bidLine >> newline >>
          sBase (configLocalMem conf) >> newline >> 
          genCBody conf c >>
          free_sBase >>
          end ) 0 
 
+------------------------------------------------------------------------------
 
 genCBody :: Config -> Code a -> PP () 
 genCBody _ Skip  = return () 
@@ -57,7 +56,7 @@ genStore conf (Store nt ws) =
 forEach :: MemMap -> Exp Word32 -> PP ()   
 forEach mm e = line ("for (uint32_t tid = 0; tid < " ++ concat (genExp mm e) ++"; ++tid)")
 
-
+------------------------------------------------------------------------------
 
 genWrite :: MemMap -> Word32 -> Write a -> PP () 
 genWrite mm nt (Write name ll _) = 
@@ -71,14 +70,8 @@ genWrite mm nt (Write name ll _) =
   where 
     nAssigns     = (staticLength ll) `div` nt 
 
-
-tidLine = line "unsigned int tid = get_local_id(0);"
-
--- To get something that corresponds to bid in C 
--- you need the "blocksize" 
-bidLine = line "unsigned int bid = (get_global_id(0)-tid) / get_local_size(0)" 
-
---here the shared memory size is needed (I think) 
+------------------------------------------------------------------------------
+    
 sBase size = 
   do 
     line "unsigned char *sbase;" 
@@ -129,5 +122,5 @@ genCKernel name kernel a = seqc
     c' = c +++ outCode
     -- sc = syncPoints c 
     
-    seqc = getC (config threadBudget mm (size m)) c' name (("bid",Word32):ins) outs
+    seqc = getC (config threadBudget mm (size m)) c' name (("bid",Word32):(map fst2 ins)) (map fst2 outs)
     

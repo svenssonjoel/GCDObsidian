@@ -14,10 +14,15 @@ import Obsidian.GCDObsidian.Elem
 
 import Control.Monad.State
 
+
+------------------------------------------------------------------------------
+-- TINY TOOLS 
+fst2 (x,y,z) = (x,y) 
+
 ------------------------------------------------------------------------------ 
 {- 
   This module contains some function to print an Exp as a 
-  C-Style code. Used by CUDA and OpenCL code generation 
+  C-Style code. Used by CUDA, OpenCL and C code generation 
 
 -} 
 
