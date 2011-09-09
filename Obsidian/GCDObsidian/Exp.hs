@@ -192,8 +192,6 @@ data Op a where
   Gt  :: Ord a => Op ((a,a) -> Bool) 
   GEq :: Ord a => Op ((a,a) -> Bool) 
   
-  -- Boolean 
-  -- TODO: Add them 
   -- Bitwise 
   BitwiseAnd :: Bits a => Op ((a,a) -> a) 
   BitwiseOr  :: Bits a => Op ((a,a) -> a)

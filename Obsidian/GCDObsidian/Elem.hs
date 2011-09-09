@@ -1,13 +1,14 @@
 
 
-module Obsidian.GCDObsidian.Elem where
-
+module Obsidian.GCDObsidian.Elem where 
+       
 import Data.Word
 
-class Show a => Elem a
 
-instance Elem Bool    
-instance Elem Int    
+class Show a => Elem a where 
+  
+instance Elem Bool 
+instance Elem Int 
 instance Elem Float
 instance Elem Double
 instance Elem Word8 
