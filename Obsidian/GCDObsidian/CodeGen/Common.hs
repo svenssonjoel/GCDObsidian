@@ -28,15 +28,15 @@ mappedName :: Name -> Bool
 mappedName name = isPrefixOf "arr" name
 
 
-genType Int = "int"
-genType Float = "float"
-genType Double = "double"
-genType Bool = "int" 
-genType Word8 = "uint8_t"
-genType Word16 = "uint16_t"
-genType Word32 = "uint32_t"
-genType Word64 = "uint64_t" 
-genType (Pointer t) = genType t ++ " *"
+genType Int = "int "
+genType Float = "float "
+genType Double = "double "
+genType Bool = "int " 
+genType Word8 = "uint8_t "
+genType Word16 = "uint16_t "
+genType Word32 = "uint32_t "
+genType Word64 = "uint64_t " 
+genType (Pointer t) = genType t ++ "*"
 genType (Global t) = "__global " ++ genType t
 
 genCast  t = "(" ++ genType t ++ ")"
@@ -162,8 +162,9 @@ runPP pp i = snd$ execState pp (i,"")
 ------------------------------------------------------------------------------
 -- Configurations, threads,memorymap 
 
-data Config = Config {configThreads :: NumThreads, 
-                      configMM      :: MemMap} 
+data Config = Config {configThreads  :: NumThreads, 
+                      configMM       :: MemMap,
+                      configLocalMem :: Word64} 
 config = Config
 
 

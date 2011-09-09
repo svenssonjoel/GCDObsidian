@@ -137,5 +137,5 @@ genCUDAKernel name kernel a = cuda
     c' = sc +++ outCode
     sc = syncPoints c 
     
-    cuda = getCUDA (config threadBudget mm) c' name ins outs
+    cuda = getCUDA (config threadBudget mm (size m)) c' name ins outs
     

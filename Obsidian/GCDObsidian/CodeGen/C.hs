@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs, RankNTypes, TypeOperators, TypeFamilies #-} 
 
-module Obsidian.GCDObsidian.CodeGen.OpenCL where 
+module Obsidian.GCDObsidian.CodeGen.C where 
 
 import Data.List
 import Data.Word 
@@ -19,46 +19,44 @@ import Obsidian.GCDObsidian.Elem
 
 
 ------------------------------------------------------------------------------
--- Generate OpenCL code to a String 
+-- sequential C code generation
 
-getOpenCL :: Config -> Code Syncthreads -> Name -> [(String,Type)] -> [(String,Type)] -> String 
-getOpenCL conf c name ins outs = 
+getC :: Config -> Code a -> Name -> [(String,Type)] -> [(String,Type)] -> String 
+getC conf c name ins outs = 
   runPP (kernelHead name ins outs >>  
          begin >>
-         tidLine >> newline >>
-         bidLine >> newline >>
-         sBase >> newline >> 
-         genOpenCLBody conf c >>
+        -- tidLine >> newline >>
+        -- bidLine >> newline >>
+         sBase (configLocalMem conf) >> newline >> 
+         genCBody conf c >>
+         free_sBase >>
          end ) 0 
 
 
-genOpenCLBody :: Config -> Code Syncthreads -> PP () 
-genOpenCLBody _ Skip  = return () 
-genOpenCLBody conf (Seq store code) = 
+genCBody :: Config -> Code a -> PP () 
+genCBody _ Skip  = return () 
+genCBody conf (Seq store code) = 
   do 
     genStore conf store 
-    if storeNeedsSync store 
-      then line "barrier(CLK_LOCAL_MEM_FENCE);" >> newline
-      else return () 
-    genOpenCLBody conf code  
+    genCBody conf code  
 
 ------------------------------------------------------------------------------
 -- New
 genStore :: Config -> Store a -> PP () 
 genStore conf (Store nt ws) = 
   do 
-    case compare nt blockSize of 
-      LT -> do
-            cond mm (tid <* (fromIntegral nt))
-            begin
-            mapM_ (genWrite mm nt) ws
-            end
-      EQ -> mapM_ (genWrite mm nt) ws
-      GT -> error "genStore: OpenCL code generation is broken somewhere" 
-    
+    forEach mm (fromIntegral nt) 
+    begin
+    mapM_ (genWrite mm nt) ws
+    end
+
     where 
       mm = configMM conf
       blockSize = configThreads conf
+
+forEach :: MemMap -> Exp Word32 -> PP ()   
+forEach mm e = line ("for (uint32_t tid = 0; tid < " ++ concat (genExp mm e) ++"; ++tid)")
+
 
 
 genWrite :: MemMap -> Word32 -> Write a -> PP () 
@@ -73,17 +71,22 @@ genWrite mm nt (Write name ll _) =
   where 
     nAssigns     = (staticLength ll) `div` nt 
 
-  
 
 tidLine = line "unsigned int tid = get_local_id(0);"
 
--- To get something that corresponds to bid in OpenCL 
+-- To get something that corresponds to bid in C 
 -- you need the "blocksize" 
 bidLine = line "unsigned int bid = (get_global_id(0)-tid) / get_local_size(0)" 
 
 --here the shared memory size is needed (I think) 
-sBase = line "__local unsigned char sbase[###SOMETHING NEEDED HERE###]" 
+sBase size = 
+  do 
+    line "unsigned char *sbase;" 
+    newline  
+    line ("sbase = (unsigned char*) malloc(" ++ show size ++ ");")
+             
 
+free_sBase = line "free(sbase);" 
 
 
 ------------------------------------------------------------------------------
@@ -94,20 +97,20 @@ kernelHead :: Name ->
               PP () 
 kernelHead name ins outs = 
   do 
-    line ("__kernel void " ++ name ++ "(" ++ types ++ ")" )   
+    line ("void " ++ name ++ "(" ++ types ++ ")" )   
   where 
     types = concat (intersperse "," (typeList (ins ++ outs)))
     typeList :: [(String,Type)] -> [String] 
     typeList []              = [] 
-    typeList ((a,t):xs)      = (genType (Global t) ++ a) : typeList xs
+    typeList ((a,t):xs)      = (genType t ++ a) : typeList xs
   
   
 ------------------------------------------------------------------------------
 -- make "runnable" code 
--- Gives a string that should be a runnable OpenCL kernel
+-- Gives a string that should be a runnable C kernel
 
-genOpenCLKernel :: (InOut a, InOut b) => String -> (a -> Kernel b) -> a -> String 
-genOpenCLKernel name kernel a = opencl 
+genCKernel :: (InOut a, InOut b) => String -> (a -> Kernel b) -> a -> String 
+genCKernel name kernel a = seqc 
   where 
     (input,ins)  = runInOut (createInputs a) (0,[])
   
@@ -121,10 +124,10 @@ genOpenCLKernel name kernel a = opencl
         
     (m,mm) = mapMemory lc sharedMem mapArraySize(Map.empty)
     (outCode,outs)   = 
-      runInOut (writeOutputs threadBudget res nosync) (0,[])
+      runInOut (writeOutputs threadBudget res ()) (0,[])
       
-    c' = sc +++ outCode
-    sc = syncPoints c 
+    c' = c +++ outCode
+    -- sc = syncPoints c 
     
-    opencl = getOpenCL (config threadBudget mm (size m)) c' name ins outs
+    seqc = getC (config threadBudget mm (size m)) c' name (("bid",Word32):ins) outs
     
