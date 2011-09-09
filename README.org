@@ -1,7 +1,8 @@
 
 * GCDObsidian
   + Embedded DSL for implementation of GPU Kernels
-  + Generates CUDA kernels
+  + Generates CUDA/OpenCL kernels
+  + Generates Sequential C code for testing purposes
     
 * News in GCDObsidian 
   + Sync can be performed on groups of arrays. This leads 
@@ -18,10 +19,11 @@
 
     
 * Work in progress
-  + OpenCL generation is unfinished
-  + CUDA generation is "untested" 
+  + OpenCL generation is unfinished and untested
+  + CUDA generation is untested
+  + C generation is untested
   + More library functions needed
   
-* Thoughts 
- + Add storeCat
+
+
     
