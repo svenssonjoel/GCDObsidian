@@ -7,6 +7,14 @@ import Obsidian.GCDObsidian.Tuple
 
 import Data.Bits
 
+
+
+
+
+
+arrayMap f arr = Array (\ix -> f (arr ! ix)) (len arr) 
+
+
 ------------------------------------------------------------------------------
 -- Reverse an array by indexing in it backwards
 rev :: Array a -> Array a 

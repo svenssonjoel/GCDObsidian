@@ -9,7 +9,6 @@ import qualified Obsidian.GCDObsidian.CodeGen.CUDA   as CUDA
 import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as OpenCL
 import qualified Obsidian.GCDObsidian.CodeGen.C as C 
 
-
 import Prelude hiding (zipWith,splitAt)
 import Data.Word
   
@@ -82,4 +81,3 @@ run5CL =
 run5C =    
   putStrLn$ C.genCKernel "sklansky" (sklansky 5)(namedArray "apa" 32)
     
-

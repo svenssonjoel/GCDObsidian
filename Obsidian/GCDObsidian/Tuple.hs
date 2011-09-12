@@ -20,7 +20,7 @@ infixr :.
 
 data Tuple t a where
   Nil :: Tuple t ()
-  (:.) :: Elem a => t a -> Tuple t b -> Tuple t (a,b) 
+  (:.) :: Elem a => t a -> Tuple t b -> Tuple t (a,b)
 
 data TupIx t a where 
   ZeroIx :: TupIx (s,t) s

@@ -1,9 +1,8 @@
 
 
 module Obsidian.GCDObsidian.Elem where 
-       
-import Data.Word
 
+import Data.Word
 
 class Show a => Elem a where 
   
