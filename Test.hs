@@ -48,11 +48,11 @@ run3 =
   
   
     
---testStoreIlv :: (Array Int, Array Int) -> Kernel (Array Int) 
---testStoreIlv inputs = (storeIlvF ->- pure rev ->- sync) (zipp inputs)
+testStoreIlv :: (Array Int, Array Int) -> Kernel (Array Int, Array Int) 
+testStoreIlv inputs = (storeIlv ->- pure (unzipp . rev)) (zipp inputs)
 
---run4 = 
---  putStrLn$ CUDA.genCUDAKernel "storeIlv" testStoreIlv (namedArray "apa" 32,namedArray "apa" 32)
+run4 = 
+  putStrLn$ CUDA.genCUDAKernel "storeIlv" testStoreIlv (namedArray "apa" 32,namedArray "apa" 32)
    
 --run4CL =    
 --  putStrLn$ OpenCL.genOpenCLKernel "storeIlv" testStoreIlv (namedArray "apa" 32,namedArray "apa" 32)

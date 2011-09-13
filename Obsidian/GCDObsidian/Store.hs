@@ -5,7 +5,7 @@ module Obsidian.GCDObsidian.Store
         sync2, 
         store,
         storeP,
---        storeIlv,
+        storeIlv,
 --        storeIlvF,
 --        storeCatZ
         )  where 
@@ -75,10 +75,6 @@ singleStore ll@(LLArray ixf n m d) =
     let ws = mkWrite id ll ()
     
     return (mkStore newName (m*elmsize) [ws],newArray) 
-
-
---writeInto :: Scalar a => Name -> LLArray a -> (Write a (),LLArray a  
---writeInto name ll 
   
 sync2 :: (OArray a e, Scalar e, 
           OArray a' e', Scalar e') 
@@ -102,14 +98,13 @@ sync2 (a1,a2)  =
              
 ------------------------------------------------------------------------------
 --
-{-
 storeIlv ::( Scalar e) 
              => (Array (e,e)) 
              -> Kernel (Array (e,e)) 
 storeIlv arr = do 
   (w,(r1,r2)) <- writeIlv ll1 ll2
   
-  tell$ code$ Store numThreads w
+  tell$ code$ w
   
   return$ zipp (fromLL r1,fromLL r2)
   
@@ -117,7 +112,7 @@ storeIlv arr = do
     (a1,a2) = unzipp arr
     ll1 = toLL a1 
     ll2 = toLL a2
-    numThreads = staticLength ll1
+   
 
 
 writeIlv ll1@(LLArray ixf n m d) 
@@ -130,11 +125,17 @@ writeIlv ll1@(LLArray ixf n m d)
     newName <- newArray (elmsize1 * (m+m'))
     let newArray1 = LLArray (\ix -> Index (newName,[ix*2])) n m d 
         newArray2 = LLArray (\ix -> Index (newName,[ix*2+1])) n' m' d' 
+        numThreads = staticLength ll1
         
-    return ([Write (\ix -> index newName (ix*2)) ll1 (),
-             Write (\ix -> index newName (ix*2+1)) ll2 ()],(newArray1,newArray2))
+    return (SyncUnit numThreads 
+                     (StoreListCons
+                      (Store newName 
+                             (2*elmsize1*numThreads) 
+                             [Write (*2) ll1 (),
+                             Write (\ix -> ix*2+1) ll2 ()])
+                      StoreListNil),(newArray1,newArray2))
 
-
+{- 
 storeIlvF ::( Scalar e) 
              => (Array (e,e)) 
              -> Kernel (Array e) 
