@@ -5,9 +5,9 @@ module Obsidian.GCDObsidian.Store
         sync2, 
         store,
         storeP,
-        storeIlv,
-        storeIlvF,
-        storeCatZ
+--        storeIlv,
+--        storeIlvF,
+--        storeCatZ
         )  where 
 
 import Obsidian.GCDObsidian.Exp 
@@ -20,6 +20,7 @@ import Obsidian.GCDObsidian.Library
 import Control.Monad.State
 import Control.Monad.Writer
 
+import Data.Word
 
 
 ------------------------------------------------------------------------------
@@ -42,10 +43,42 @@ sync arr =
   do 
     let ll@(LLArray ixf n m d) = toLL arr 
     
-    (w,r) <- writeNT ll 
-    tell$ code$ Store m w 
+    (s,r) <- singleSyncUnit ll -- writeNT ll 
+    tell$ code$ s -- Store m w 
     return$ fromLL r
     
+singleSyncUnit ll@(LLArray ixf n m d) = 
+  do 
+    let elmsize = fromIntegral$ sizeOf (ixf (variable "X"))
+    newName <- newArray (elmsize * m) 
+    let newArray = LLArray (\ix -> Index (newName,[ix])) n m d 
+                
+    return (SyncUnit m 
+               (StoreListCons 
+                  (Store newName 
+                         (m*elmsize) 
+                         [write newName ll ()]) StoreListNil),newArray)
+                    
+-- A number of writes into a single named C-Style array      
+mkStore :: Name -> Word32 -> [Write a extra] -> Store a extra   
+mkStore name bytes ws = Store name bytes ws 
+
+mkWrite :: Scalar a => (Exp Word32 -> Exp Word32) -> LLArray a -> extra -> Write a extra
+mkWrite targf ll e = Write targf ll e 
+
+singleStore ll@(LLArray ixf n m d) = 
+  do
+    let elmsize = fromIntegral$ sizeOf (ixf (variable "X"))
+    newName <- newArray (elmsize * m)  -- TODO: no longer need the ArraysSizes map
+    let newArray = LLArray (\ix -> Index (newName,[ix])) n m d 
+    
+    let ws = mkWrite id ll ()
+    
+    return (mkStore newName (m*elmsize) [ws],newArray) 
+
+
+--writeInto :: Scalar a => Name -> LLArray a -> (Write a (),LLArray a  
+--writeInto name ll 
   
 sync2 :: (OArray a e, Scalar e, 
           OArray a' e', Scalar e') 
@@ -53,10 +86,11 @@ sync2 :: (OArray a e, Scalar e,
          -> Kernel (a e,a' e') 
 sync2 (a1,a2)  = 
   do         
-    (w1,r1) <- writeNT ll1
-    (w2,r2) <- writeNT ll2
+    (w1,r1) <- singleStore ll1 
+    (w2,r2) <- singleStore ll2
     
-    tell$ code$ Store numThreads (w1++w2)
+    tell$ code$ SyncUnit numThreads (StoreListCons w1  
+                                      (StoreListCons w2 StoreListNil))
     
     return$ (fromLL r1,fromLL r2)  
     where 
@@ -68,7 +102,7 @@ sync2 (a1,a2)  =
              
 ------------------------------------------------------------------------------
 --
-
+{-
 storeIlv ::( Scalar e) 
              => (Array (e,e)) 
              -> Kernel (Array (e,e)) 
@@ -168,17 +202,6 @@ writeCatZ ll1@(LLArray ixf n m d)
 
 ------------------------------------------------------------------------------
 --
-writeNT ll@(LLArray ixf n m d) = 
-  do 
-    --i <- get 
-    --put (i+1) 
-    --let newName  = "arr" ++ show i
-    let elmsize = fromIntegral$ sizeOf (ixf (variable "X"))
-    newName <- newArray (elmsize * m) 
-    let newArray = LLArray (\ix -> Index (newName,[ix])) n m d 
-                
-    return ([write newName ll () ],newArray)
-                    
   
 ------------------------------------------------------------------------------  
 -- Combination of store and two 
@@ -186,3 +209,4 @@ writeNT ll@(LLArray ixf n m d) =
 twoK' :: Int -> (Array a -> Array b) -> Array a -> Kernel (Array b) 
 twoK' = undefined 
 
+-}

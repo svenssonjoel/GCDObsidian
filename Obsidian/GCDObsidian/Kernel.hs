@@ -35,54 +35,83 @@ type NumThreads = Word32
 
 ------------------------------------------------------------------------------
 -- Ways to write data into GPU memory
-data  Write extra where  
-  Write :: forall a extra . Scalar a
-            => (Exp Word32 -> Exp a) -- Name  -- target storage
+data  Write a extra where  
+  Write :: Scalar a
+            => (Exp Word32 -> Exp Word32)  -- target location transformation
             -> LLArray a -- array to store
             -> extra 
-            -> Write extra 
-  Permute :: forall a extra . Scalar a 
-            => (Exp Word32 -> Exp a)    -- target storage
+            -> Write a extra 
+  Permute :: Scalar a 
+            => (Exp Word32 -> Exp Word32)    -- target storage
             -> LLArray a -- Data 
             -> LLArray Int -- Permutation
             -> extra 
-            -> Write extra 
+            -> Write a extra 
             
 ------------------------------------------------------------------------------            
 -- Extract extra information from a write 
-getExtra :: Write extra -> extra 
+getExtra :: Write a extra -> extra 
 getExtra (Write _ _  e ) = e 
 
+getLLArray :: Scalar a => Write a extra -> LLArray a 
+getLLArray (Write _ ll _) = ll
 
 ------------------------------------------------------------------------------
 -- Convenience
-write :: Scalar a => Name -> LLArray a -> extra -> Write extra 
+write :: Scalar a => Name -> LLArray a -> extra -> Write a extra 
 write nom ll@(LLArray ixf n m d) e 
-  = Write (index nom) ll e 
+  = Write (\ix -> ix) ll e    -- do not transform location
 
     
 ------------------------------------------------------------------------------
--- A Store ... (Is this really needed ?) 
-data Store extra = Store NumThreads [Write extra]  
+-- A Store 
+
+data Store a extra = Store {storeName    :: Name,
+                            storeSize    :: Word32,
+                            storeWrites  :: [Write a extra]}  
+
+
+
+data StoreList extra = StoreListNil 
+               | forall a. Scalar a => StoreListCons (Store a extra) (StoreList extra) 
+storeListConcat :: StoreList e -> StoreList e -> StoreList e                   
+storeListConcat (StoreListNil) sl = sl
+storeListConcat (StoreListCons s sl) sl' = StoreListCons s (storeListConcat sl sl')
+
+
+data SyncUnit extra = forall a. SyncUnit {syncThreads :: Word32, 
+                                          syncStores  :: StoreList extra} 
+
+syncUnitFuseGCD :: SyncUnit e -> SyncUnit e -> SyncUnit e 
+syncUnitFuseGCD (SyncUnit nt sl) (SyncUnit nt' sl')  = 
+    SyncUnit (gcd nt nt') (storeListConcat sl sl')
+
+syncUnitGetExtra :: SyncUnit extra -> (extra -> extra -> extra) -> extra -> extra 
+syncUnitGetExtra su f base = storeListGetExtra (syncStores su) f base
+
+-- looks like fold... see if something is possible there
+storeListGetExtra :: StoreList extra -> (extra -> extra -> extra) -> extra -> extra 
+storeListGetExtra StoreListNil combf base = base
+storeListGetExtra (StoreListCons s rest) combf base = 
+  getExtraStore s combf  `combf` (storeListGetExtra rest combf base)
 
 ------------------------------------------------------------------------------- 
 -- Get the extra information from a store 
 -- by combining the extra information of each of its writes
-getExtraStore :: Store extra -> (extra -> extra -> extra) ->  extra
+getExtraStore :: Store a extra -> (extra -> extra -> extra) ->  extra
 getExtraStore store f = foldl1 f (map getExtra (getWrites store)) 
 
 -------------------------------------------------------------------------------
 -- Get the writes out from a store
-getWrites :: Store extra -> [Write extra] 
-getWrites (Store n ws) = ws    
-
+getWrites :: Store a extra -> [Write a extra] 
+getWrites = storeWrites    
 
 ------------------------------------------------------------------------------
 -- The GPU program is just a list of stores...  (for now) 
 -- Just a list 
 data Code extra where 
   Skip :: Code extra 
-  Seq  :: Store extra -> Code extra -> Code extra 
+  Seq  :: SyncUnit extra -> Code extra -> Code extra 
 
 
 (+++) :: Code a -> Code a -> Code a 
@@ -91,7 +120,7 @@ Skip +++ a = a
 
 ------------------------------------------------------------------------------
 -- Turn a Store into a Code
-code :: Store a -> Code a 
+code :: SyncUnit extra -> Code extra
 code s = Seq s Skip       
 
 
@@ -141,16 +170,34 @@ type Liveness = Set.Set String
 liveness :: Code a -> Code Liveness 
 liveness (s `Seq` c) = lives `Seq` livec 
     where 
-      lives = livenessStore aliveNext s  
+      lives = livenessSyncUnit aliveNext s  
       livec = liveness c
       aliveNext = whatsAliveNext livec
 
 liveness Skip = Skip 
 
-livenessStore :: Liveness -> Store a -> Store Liveness
-livenessStore aliveNext (Store nt ws) = 
-    Store nt (map (livenessWrite aliveNext) ws) 
+livenessSyncUnit aliveNext (SyncUnit nt stores) = 
+  SyncUnit nt (livenessStoreList aliveNext stores)
 
+livenessStoreList :: Liveness -> StoreList extra -> StoreList Liveness 
+livenessStoreList _ StoreListNil = StoreListNil
+livenessStoreList aliveNext (StoreListCons s rest) = 
+  StoreListCons (livenessStore aliveNext s) 
+    (livenessStoreList aliveNext rest)
+
+livenessStore :: Scalar a => Liveness -> Store a extra -> Store a Liveness
+livenessStore aliveNext (Store name size ws) = 
+    Store name size (map (addLiveness aliveNext) ws) -- HACK 
+    where 
+      arrays = concatMap (collectArrays . (! tid) . getLLArray ) ws
+      tmp    = Set.fromList arrays `Set.union` aliveNext 
+      livingArrs = name `Set.delete` tmp
+
+-- HACK 
+addLiveness :: Liveness -> Write a extra -> Write a Liveness
+addLiveness live (Write targf ll _) = Write targf ll live 
+
+{- 
 livenessWrite :: Liveness -> Write a -> Write Liveness 
 livenessWrite aliveNext (Write n ff e) 
   = Write n ff livingArrs 
@@ -162,24 +209,27 @@ livenessWrite aliveNext (Write n ff e)
 
 rootName (Index (name,_)) = name
 rootName _ = error "livenessWrite: malformed assignment location"
+-} 
 
 whatsAliveNext :: Code Liveness -> Liveness
 whatsAliveNext Skip = Set.empty
-whatsAliveNext (s `Seq` _) = Set.unions$ map getExtra$  getWrites s
+whatsAliveNext (s `Seq` _) =  syncUnitGetExtra s Set.union Set.empty
+    -- map getExtra$  getWrites s
   
 
 ------------------------------------------------------------------------------
 -- Memory layout
 
-type Address = Word64
-type Bytes   = Word64 
+type Address = Word32
+type Bytes   = Word32 
 
 data Memory = Memory {freeList  :: [(Address,Bytes)] ,
                       allocated :: [(Address,Bytes)] , 
-                      size      :: Bytes} 
+                      size      :: Bytes} -- how much used
               
               
-sharedMem = Memory [(0,48000)] [] 0
+-- 48 kilobytes of smem              
+sharedMem = Memory [(0,49152)] [] 0
 
 updateMax :: Memory -> Memory 
 updateMax mem = let m = maximum [a+b|(a,b) <- allocated mem]
@@ -242,6 +292,21 @@ merge ((x,b):(y,b2):xs) = if (x+b == y) then merge ((x,b+b2):xs)
 
 type MemMap = Map.Map Name (Address,Type) 
 
+-- TODO: if strange behaviour look here first !! 
+mapMemory :: Code Liveness -> Memory -> MemMap -> (Memory,MemMap) 
+mapMemory Skip m mm = (m,mm) 
+mapMemory (su `Seq` code) m mm = mapMemory code m' mm' 
+  where 
+    (m'',mm') = mapMemoryStoreList (syncStores su) m mm 
+    aliveNext = whatsAliveNext code
+    aliveNow  = syncUnitGetExtra su Set.union Set.empty
+    diff      = aliveNow Set.\\ aliveNext
+    diffAddr  = mapM (\x -> Map.lookup x mm') (filter (not . (isPrefixOf "input")) (Set.toList diff))
+    m'        = 
+      case diffAddr of 
+        (Just addys) -> freeAll m'' (map fst addys)
+        Nothing      -> error "atleast one array does not exist in memorymap" 
+{-
 mapMemory :: Code Liveness -> Memory -> ArraySizes -> MemMap -> (Memory,MemMap)
 mapMemory Skip m as mm = (m,mm) 
 mapMemory (store `Seq` code) m as mm = mapMemory code m'' as mm' 
@@ -254,11 +319,23 @@ mapMemory (store `Seq` code) m as mm = mapMemory code m'' as mm'
     m''       = case diffAddr of 
                    (Just addys) -> freeAll m' (map fst addys)
                    Nothing      -> error "atleast one array does not exist in memorymap" 
-      
-mapMemoryStore :: Store Liveness -> Memory -> ArraySizes -> MemMap -> (Memory,MemMap)
-mapMemoryStore (Store nt ws) m as mm = allocateWrites ws m as mm 
+-}  
+     
+mapMemoryStoreList StoreListNil m mm = (m,mm)
+mapMemoryStoreList (StoreListCons s rest) m mm = mapMemoryStoreList rest m' mm' 
+  where
+    (m',mm') = mapMemoryStore s m mm 
 
-
+mapMemoryStore :: Scalar a => Store a Liveness -> Memory -> MemMap -> (Memory,MemMap)
+mapMemoryStore (Store name size ws) m  mm = (m',mm')  --allocateWrites ws m as mm 
+  where 
+    (m'',addr) = allocate m size
+    t = Pointer$ typeOf$ getLLArray (head ws) ! tid
+    (m',mm') = 
+      case Map.lookup name mm of 
+        Nothing      -> (m'',Map.insert name (addr,t) mm)
+        (Just (a,t)) -> (m,mm) -- what does this case really mean ? -
+{-
 allocateWrites :: [Write extra] -> Memory -> ArraySizes -> MemMap -> (Memory,MemMap)
 allocateWrites [] m as mm = (m,mm) 
 allocateWrites ((Write n ll _):ws) m as mm = allocateWrites ws m' as mm'
@@ -271,11 +348,8 @@ allocateWrites ((Write n ll _):ws) m as mm = allocateWrites ws m' as mm'
            (Just b) -> (allocate m (fromIntegral b),Map.insert (rootName (n (variable "X"))) (addr,t) mm)
        (Just (a,t)) -> ((m,a),mm)
     name = rootName (n (variable "X"))
-
-    --bytesNeeded = fromIntegral s * fromIntegral (staticLength ll) 
-    --s = sizeOf (ll ! tid) -- If I am doing this a lot rethink having the array  
     t = Pointer (typeOf (ll ! tid)) -- in the write "object" 
-    -- Add a "Pointer" type associated to the "array" into the MM 
+-}
     
 
 
@@ -283,5 +357,5 @@ allocateWrites ((Write n ll _):ws) m as mm = allocateWrites ws m' as mm'
 -- numbers of threads needed to compute a kernel
 threadsNeeded :: Code a -> Word32
 threadsNeeded Skip = 0
-threadsNeeded ((Store nt _)  `Seq` c2) = nt `max` threadsNeeded c2 
+threadsNeeded ((SyncUnit nt _)  `Seq` c2) = nt `max` threadsNeeded c2 
 

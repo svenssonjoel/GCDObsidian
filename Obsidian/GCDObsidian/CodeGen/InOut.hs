@@ -31,7 +31,7 @@ class InOut a where
   writeOutputs :: NumThreads -> 
                   a -> 
                   e -> 
-                  State (Int,[(String,Type,Word32)]) (Code e) 
+                  State (Int,[(String,Type,Word32)]) (SyncUnit e) 
   
   -- is this a hack ?
   gcdThreads :: a -> Word32
@@ -63,7 +63,8 @@ instance Scalar a => InOut (Array a) where
     
     let targ   = \ix -> index name (bid * (fromIntegral arrLen) + ix) 
         maxGCD = maximum [gcd arrLen i| i <- [1..threadBudget]]
-    return$ code$ Store maxGCD [Write targ llArr e] 
+    return$ SyncUnit maxGCD (StoreListCons (Store name arrLen [Write targ llArr e])
+                             StoreListNil)
     
     
   gcdThreads arr = len arr
@@ -76,10 +77,10 @@ instance (InOut a, InOut b) => InOut (a, b) where
       return (a0',a1')
   
   writeOutputs threadBudget (a0,a1) e = do   
-    c0 <- writeOutputs threadBudget a0 e
-    c1 <- writeOutputs threadBudget a1 e
+    s0 <- writeOutputs threadBudget a0 e
+    s1 <- writeOutputs threadBudget a1 e
     
-    return$ c0 +++ c1
+    return$ syncUnitFuseGCD s0 s1
    
   gcdThreads (a0,a1) = gcd (gcdThreads a0) (gcdThreads a1)
   

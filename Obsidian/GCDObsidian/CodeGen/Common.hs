@@ -169,7 +169,7 @@ runPP pp i = snd$ execState pp (i,"")
 
 data Config = Config {configThreads  :: NumThreads, 
                       configMM       :: MemMap,
-                      configLocalMem :: Word64} 
+                      configLocalMem :: Word32} 
 config = Config
 
 
@@ -204,21 +204,33 @@ nosync      = Syncthreads False
                    
 syncPoints :: Code a -> Code Syncthreads
 syncPoints Skip = Skip
-syncPoints (store `Seq` code) = syncPointsStore store `Seq` 
+syncPoints (su `Seq` code) = syncPointsSyncUnit su `Seq` 
                                 syncPoints code
                                 
+syncPointsSyncUnit :: SyncUnit a -> SyncUnit Syncthreads
+syncPointsSyncUnit (SyncUnit nt sl)  = SyncUnit nt (syncPointsStoreList sl)
+
+syncPointsStoreList :: StoreList a -> StoreList Syncthreads
+syncPointsStoreList StoreListNil = StoreListNil
+syncPointsStoreList (StoreListCons s rest) = StoreListCons (syncPointsStore s)
+                                               (syncPointsStoreList rest)
                                 
-storeNeedsSync :: Store Syncthreads -> Bool                                 
-storeNeedsSync (Store _ ws) = any writeNeedsSync ws
 
 
-syncPointsStore :: Store a -> Store Syncthreads
-syncPointsStore (Store nt ws) = Store nt (map syncPointsWrite ws)
+storeListNeedsSync StoreListNil = False
+storeListNeedsSync (StoreListCons s r) = storeNeedsSync s || storeListNeedsSync r
 
-writeNeedsSync :: Write Syncthreads -> Bool 
+storeNeedsSync :: Store a Syncthreads -> Bool                                 
+storeNeedsSync (Store _ _ ws) = any writeNeedsSync ws
+
+
+syncPointsStore :: Store a extra -> Store a Syncthreads
+syncPointsStore (Store name size ws) = Store name size (map syncPointsWrite ws)
+
+writeNeedsSync :: Write a Syncthreads -> Bool 
 writeNeedsSync (Write _ _ s) = needsSync s
 
-syncPointsWrite :: Write a -> Write Syncthreads
+syncPointsWrite :: Write a extra -> Write a Syncthreads
 syncPointsWrite (Write targ arr _) = 
   Write targ arr syncthreads
   

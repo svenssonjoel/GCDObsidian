@@ -12,8 +12,10 @@ import  Obsidian.GCDObsidian.Array
 ------------------------------------------------------------------------------
 -- Print Code
 printCode :: Show a => Code a -> IO ()
-printCode c = putStrLn$ codeToString c 
+printCode c = putStrLn "hello world"  -- putStrLn$ codeToStr
 
+
+{-
 codeToString :: Show a => Code a -> String
 codeToString Skip = "\n" 
 codeToString (Seq s c) = storeToString s ++ codeToString c
@@ -28,3 +30,4 @@ writeToString (Write n ll e) =
   show e ++ "\n"
   where 
     exp = ll ! tid
+-}

@@ -48,27 +48,39 @@ getCUDA conf c name ins outs =
 
 genCUDABody :: Config -> Code Syncthreads -> PP () 
 genCUDABody _ Skip  = return () 
-genCUDABody conf (Seq store code) = 
+genCUDABody conf (su `Seq` code) = 
   do 
-    genStore conf store 
-    if storeNeedsSync store 
-      then line "__syncthreads();" >> newline
-      else return () 
+    genSyncUnit conf su
     genCUDABody conf code  
 
         
 ------------------------------------------------------------------------------
 -- New
-genStore :: Config -> Store a -> PP () 
-genStore conf (Store nt ws) = 
+    
+genSyncUnit :: Config -> SyncUnit Syncthreads -> PP ()
+genSyncUnit conf (SyncUnit nt stores) = 
+  do 
+    genStoreList conf nt stores
+    if storeListNeedsSync stores 
+      then line "__syncthreads();" >> newline
+      else return () 
+    
+genStoreList conf nt StoreListNil = return ()
+genStoreList conf nt (StoreListCons s rest) = 
+  do 
+    genStore conf nt s  
+    genStoreList conf nt rest
+    
+genStore :: Config -> Word32 -> Store a extra -> PP () 
+genStore conf nt (Store name size ws) = 
   do 
     case compare nt blockSize of 
       LT -> do
             cond mm (tid <* (fromIntegral nt))
             begin
-            mapM_ (genWrite mm nt) ws
+            mapM_ (genWrite mm nt name) ws
             end
-      EQ -> mapM_ (genWrite mm nt) ws
+      EQ -> mapM_ (genWrite mm nt name) ws
       GT -> error "genStore: CUDA code generation is broken somewhere" 
 
     where 
@@ -76,11 +88,11 @@ genStore conf (Store nt ws) =
       blockSize = configThreads conf
 
 
-genWrite :: MemMap -> Word32 -> Write a -> PP () 
-genWrite mm nt (Write name ll _) = 
+genWrite :: MemMap -> Word32 -> Name -> Write a extra -> PP () 
+genWrite mm nt name (Write targf ll _) = 
   sequence_  [let n  = fromIntegral nAssigns
                   ix = fromIntegral i 
-              in assign mm (name (tid * n + ix))
+              in assign mm (index name (targf (tid * n + ix)))
                  (ll ! (tid * n + ix)) >> 
                  newline 
              | i <- [0..nAssigns-1]]
@@ -130,11 +142,11 @@ genCUDAKernel name kernel a = cuda
         Skip -> gcdThreads res
         a  -> threadsNeeded c 
         
-    (m,mm) = mapMemory lc sharedMem mapArraySize (Map.empty)
+    (m,mm) = mapMemory lc sharedMem  (Map.empty)
     (outCode,outs)   = 
       runInOut (writeOutputs threadBudget res nosync) (0,[])
       
-    c' = sc +++ outCode
+    c' = sc +++ (code$ outCode)
     sc = syncPoints c 
     
     cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
