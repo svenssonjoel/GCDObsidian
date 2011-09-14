@@ -64,13 +64,14 @@ genSyncUnit conf (SyncUnit nt stores) =
     if storeListNeedsSync stores 
       then line "__syncthreads();" >> newline
       else return () 
-    
+        
 genStoreList conf nt StoreListNil = return ()
 genStoreList conf nt (StoreListCons s rest) = 
   do 
     genStore conf nt s  
     genStoreList conf nt rest
     
+--TODO: Maybe the conditional here can be moved out into genSyncUnit
 genStore :: Config -> Word32 -> Store a extra -> PP () 
 genStore conf nt (Store name size ws) = 
   do 
@@ -134,7 +135,7 @@ genCUDAKernel name kernel a = cuda
   where 
     (input,ins)  = runInOut (createInputs a) (0,[])
   
-    ((res,(_,mapArraySize)),c)  = runKernel (kernel input)
+    ((res,_),c)  = runKernel (kernel input)
     lc = liveness c
    
     threadBudget = 

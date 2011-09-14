@@ -7,7 +7,7 @@ import Obsidian.GCDObsidian.Evaluate
 
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA   as CUDA
 --import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as OpenCL
---import qualified Obsidian.GCDObsidian.CodeGen.C as C 
+import qualified Obsidian.GCDObsidian.CodeGen.C as C 
 
 import Prelude hiding (zipWith,splitAt)
 import Data.Word
@@ -24,6 +24,9 @@ run1 =
    
 --run1CL =   
 --  putStrLn$ OpenCL.genOpenCLKernel "sync" testSync (namedArray "apa" 128)
+run1C =    
+  putStrLn$ C.genCKernel "sync" testSync (namedArray "apa" 128)
+
   
 testTwo :: Array Int -> Kernel (Array Int) 
 testTwo arr = do 
@@ -78,6 +81,6 @@ run5 =
 --  putStrLn$ OpenCL.genOpenCLKernel "sklansky" (sklansky 5)(namedArray "apa" 32)
   
   
---run5C =    
---  putStrLn$ C.genCKernel "sklansky" (sklansky 5)(namedArray "apa" 32)
+run5C = 
+  putStrLn$ C.genCKernel "sklansky" (sklansky 5)(namedArray "apa" 32)
     

@@ -74,6 +74,7 @@ data Store a extra = Store {storeName    :: Name,
 
 data StoreList extra = StoreListNil 
                | forall a. Scalar a => StoreListCons (Store a extra) (StoreList extra) 
+                 
 storeListConcat :: StoreList e -> StoreList e -> StoreList e                   
 storeListConcat (StoreListNil) sl = sl
 storeListConcat (StoreListCons s sl) sl' = StoreListCons s (storeListConcat sl sl')
@@ -132,15 +133,14 @@ instance Monoid (Code a) where
 ------------------------------------------------------------------------------
 -- KERNEL
   
-type ArraySizes = Map.Map Name Word32 
 
-type Kernel a = StateT (Integer,ArraySizes) (Writer (Code ())) a   
+type Kernel a = StateT Integer (Writer (Code ())) a   
 
 newArray :: Word32 -> Kernel Name 
 newArray nBytes = do
-  (i,ns) <- get
+  i <- get
   let newName = "arr" ++ show i 
-  put (i+1,Map.insert newName nBytes ns)  
+  put (i+1)
   return newName
 
 
@@ -153,7 +153,7 @@ type a :-> b = a -> Kernel b
 pure f a = return (f a) 
 
 --runKernel :: Kernel a -> ((a,(Int,Map.Map Name Word32)),Code ()) 
-runKernel k = runWriter (runStateT k (0,Map.empty) )
+runKernel k = runWriter (runStateT k 0 )
 
 ------------------------------------------------------------------------------  
 -- Tid. Probably not really needed here

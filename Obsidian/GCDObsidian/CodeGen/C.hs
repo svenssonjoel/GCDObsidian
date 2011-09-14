@@ -34,19 +34,31 @@ getC conf c name ins outs =
 
 genCBody :: Config -> Code a -> PP () 
 genCBody _ Skip  = return () 
-genCBody conf (Seq store code) = 
+genCBody conf (su `Seq` code) = 
   do 
-    genStore conf store 
+    genSyncUnit conf su
     genCBody conf code  
 
 ------------------------------------------------------------------------------
 -- New
-genStore :: Config -> Store a -> PP () 
-genStore conf (Store nt ws) = 
+    
+genSyncUnit :: Config -> SyncUnit a -> PP ()     
+genSyncUnit conf (SyncUnit nt stores) = 
+  do 
+    genStoreList conf nt stores
+  
+genStoreList conf nt StoreListNil = return ()
+genStoreList conf nt (StoreListCons s rest) = 
+  do 
+    genStore conf nt s 
+    genStoreList conf nt rest
+    
+genStore :: Config -> Word32 -> Store a extra -> PP () 
+genStore conf nt (Store name size ws) = 
   do 
     forEach mm (fromIntegral nt) 
     begin
-    mapM_ (genWrite mm nt) ws
+    mapM_ (genWrite mm nt name) ws
     end
 
     where 
@@ -58,11 +70,11 @@ forEach mm e = line ("for (uint32_t tid = 0; tid < " ++ concat (genExp mm e) ++"
 
 ------------------------------------------------------------------------------
 
-genWrite :: MemMap -> Word32 -> Write a -> PP () 
-genWrite mm nt (Write name ll _) = 
+genWrite :: MemMap -> Word32 -> Name -> Write a extra -> PP () 
+genWrite mm nt name (Write targf ll _) = 
   sequence_  [let n  = fromIntegral nAssigns
                   ix = fromIntegral i 
-              in assign mm (name (tid * n + ix))
+              in assign mm (index name (targf (tid * n + ix)))
                  (ll ! (tid * n + ix)) >> 
                  newline 
              | i <- [0..nAssigns-1]]
@@ -107,7 +119,7 @@ genCKernel name kernel a = seqc
   where 
     (input,ins)  = runInOut (createInputs a) (0,[])
   
-    ((res,(_,mapArraySize)),c)  = runKernel (kernel input)
+    ((res,_),c)  = runKernel (kernel input)
     lc = liveness c
    
     threadBudget = 
@@ -115,11 +127,11 @@ genCKernel name kernel a = seqc
         Skip -> gcdThreads res
         a  -> threadsNeeded c 
         
-    (m,mm) = mapMemory lc sharedMem mapArraySize(Map.empty)
+    (m,mm) = mapMemory lc sharedMem Map.empty
     (outCode,outs)   = 
       runInOut (writeOutputs threadBudget res ()) (0,[])
       
-    c' = c +++ outCode
+    c' = c +++ (code$ outCode)
     -- sc = syncPoints c 
     
     seqc = getC (config threadBudget mm (size m)) c' name (("bid",Word32):(map fst2 ins)) (map fst2 outs)
