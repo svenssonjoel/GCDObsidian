@@ -27,33 +27,45 @@ getOpenCL conf c name ins outs =
          begin >>
          tidLine >> newline >>
          bidLine >> newline >>
-         sBase >> newline >> 
+         sBase (configLocalMem conf) >> newline >> 
          genOpenCLBody conf c >>
          end ) 0 
 
 
 genOpenCLBody :: Config -> Code Syncthreads -> PP () 
 genOpenCLBody _ Skip  = return () 
-genOpenCLBody conf (Seq store code) = 
+genOpenCLBody conf (su `Seq` code) = 
   do 
-    genStore conf store 
-    if storeNeedsSync store 
-      then line "barrier(CLK_LOCAL_MEM_FENCE);" >> newline
-      else return () 
+    genSyncUnit conf su
     genOpenCLBody conf code  
-
+  
 ------------------------------------------------------------------------------
 -- New
-genStore :: Config -> Store a -> PP () 
-genStore conf (Store nt ws) = 
+genSyncUnit :: Config -> SyncUnit Syncthreads -> PP ()
+genSyncUnit conf (SyncUnit nt stores) =     
+  do
+    genStoreList conf nt stores 
+    if storeListNeedsSync stores 
+      then line "barrier(CLK_LOCAL_MEM_FENCE);" >> newline
+      else return () 
+
+genStoreList conf nt StoreListNil = return () 
+genStoreList conf nt (StoreListCons s rest) = 
+  do 
+    genStore conf nt s 
+    genStoreList conf nt rest
+
+
+genStore :: Config -> Word32 -> Store a extra -> PP () 
+genStore conf nt (Store name size ws) = 
   do 
     case compare nt blockSize of 
       LT -> do
             cond mm (tid <* (fromIntegral nt))
             begin
-            mapM_ (genWrite mm nt) ws
+            mapM_ (genWrite mm nt name) ws
             end
-      EQ -> mapM_ (genWrite mm nt) ws
+      EQ -> mapM_ (genWrite mm nt name) ws
       GT -> error "genStore: OpenCL code generation is broken somewhere" 
     
     where 
@@ -61,11 +73,11 @@ genStore conf (Store nt ws) =
       blockSize = configThreads conf
 
 
-genWrite :: MemMap -> Word32 -> Write a -> PP () 
-genWrite mm nt (Write name ll _) = 
+genWrite :: MemMap -> Word32 -> Name -> Write a extra -> PP () 
+genWrite mm nt name (Write targf ll _) = 
   sequence_  [let n  = fromIntegral nAssigns
                   ix = fromIntegral i 
-              in assign mm (name (tid * n + ix))
+              in assign mm (index name (targf (tid * n + ix)))
                  (ll ! (tid * n + ix)) >> 
                  newline 
              | i <- [0..nAssigns-1]]
@@ -82,7 +94,7 @@ tidLine = line "unsigned int tid = get_local_id(0);"
 bidLine = line "unsigned int bid = (get_global_id(0)-tid) / get_local_size(0)" 
 
 --here the shared memory size is needed (I think) 
-sBase = line "__local unsigned char sbase[###SOMETHING NEEDED HERE###]" 
+sBase size = line$ "__local unsigned char sbase[" ++ show size ++ "];" 
 
 
 
@@ -106,12 +118,12 @@ kernelHead name ins outs =
 -- make "runnable" code 
 -- Gives a string that should be a runnable OpenCL kernel
 
-genOpenCLKernel :: (InOut a, InOut b) => String -> (a -> Kernel b) -> a -> String 
-genOpenCLKernel name kernel a = opencl 
+genKernel :: (InOut a, InOut b) => String -> (a -> Kernel b) -> a -> String 
+genKernel name kernel a = opencl 
   where 
     (input,ins)  = runInOut (createInputs a) (0,[])
   
-    ((res,(_,mapArraySize)),c)  = runKernel (kernel input)
+    ((res,_),c)  = runKernel (kernel input)
     lc = liveness c
    
     threadBudget = 
@@ -119,11 +131,11 @@ genOpenCLKernel name kernel a = opencl
         Skip -> gcdThreads res
         a  -> threadsNeeded c 
         
-    (m,mm) = mapMemory lc sharedMem mapArraySize(Map.empty)
+    (m,mm) = mapMemory lc sharedMem Map.empty
     (outCode,outs)   = 
       runInOut (writeOutputs threadBudget res nosync) (0,[])
       
-    c' = sc +++ outCode
+    c' = sc +++ (code outCode)
     sc = syncPoints c 
     
     opencl = getOpenCL (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)

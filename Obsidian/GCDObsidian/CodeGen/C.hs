@@ -114,8 +114,8 @@ kernelHead name ins outs =
 -- make "runnable" code 
 -- Gives a string that should be a runnable C kernel
 
-genCKernel :: (InOut a, InOut b) => String -> (a -> Kernel b) -> a -> String 
-genCKernel name kernel a = seqc 
+genKernel :: (InOut a, InOut b) => String -> (a -> Kernel b) -> a -> String 
+genKernel name kernel a = seqc 
   where 
     (input,ins)  = runInOut (createInputs a) (0,[])
   

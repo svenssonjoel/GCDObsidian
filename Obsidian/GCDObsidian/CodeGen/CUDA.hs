@@ -1,6 +1,6 @@
 {-# LANGUAGE GADTs, RankNTypes, TypeOperators, TypeFamilies #-} 
 
-module Obsidian.GCDObsidian.CodeGen.CUDA (genCUDAKernel, getCUDA ) where 
+module Obsidian.GCDObsidian.CodeGen.CUDA (genKernel, getCUDA ) where 
 
 import Data.List
 import Data.Word 
@@ -130,8 +130,8 @@ kernelHead name ins outs =
 -- make "runnable" code 
 -- Gives a string that should be a runnable CUDA kernel
 
-genCUDAKernel :: (InOut a, InOut b) => String -> (a -> Kernel b) -> a -> String 
-genCUDAKernel name kernel a = cuda 
+genKernel :: (InOut a, InOut b) => String -> (a -> Kernel b) -> a -> String 
+genKernel name kernel a = cuda 
   where 
     (input,ins)  = runInOut (createInputs a) (0,[])
   

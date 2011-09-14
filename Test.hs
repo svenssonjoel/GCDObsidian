@@ -6,12 +6,15 @@ import Obsidian.GCDObsidian.Printing
 import Obsidian.GCDObsidian.Evaluate
 
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA   as CUDA
---import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as OpenCL
+import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as OpenCL
 import qualified Obsidian.GCDObsidian.CodeGen.C as C 
 
 import Prelude hiding (zipWith,splitAt)
 import Data.Word
   
+------------------------------------------------------------------------------
+--
+
 vectorAdd :: (Array Int, Array Int) -> Kernel (Array Int)   
 vectorAdd (a,b) = return$ zipWith (+) a b 
   
@@ -20,12 +23,12 @@ testSync :: Array Int -> Kernel (Array Int)
 testSync arr = sync arr 
 
 run1 =    
-  putStrLn$ CUDA.genCUDAKernel "sync" testSync (namedArray "apa" 128)
+  putStrLn$ CUDA.genKernel "sync" testSync (namedArray "apa" 128)
    
---run1CL =   
---  putStrLn$ OpenCL.genOpenCLKernel "sync" testSync (namedArray "apa" 128)
+run1CL =   
+  putStrLn$ OpenCL.genKernel "sync" testSync (namedArray "apa" 128)
 run1C =    
-  putStrLn$ C.genCKernel "sync" testSync (namedArray "apa" 128)
+  putStrLn$ C.genKernel "sync" testSync (namedArray "apa" 128)
 
   
 testTwo :: Array Int -> Kernel (Array Int) 
@@ -34,32 +37,42 @@ testTwo arr = do
   sync arr1 -- and a sync for fun
 
 run2 = 
-  putStrLn$ CUDA.genCUDAKernel "two" testTwo (namedArray "apa" 32)
+  putStrLn$ CUDA.genKernel "two" testTwo (namedArray "apa" 32)
    
---run2CL =    
---  putStrLn$ OpenCL.genOpenCLKernel "two" testTwo (namedArray "apa" 32)
+run2CL =    
+  putStrLn$ OpenCL.genKernel "two" testTwo (namedArray "apa" 32)
+
+run2C =    
+  putStrLn$ C.genKernel "two" testTwo (namedArray "apa" 32)
 
 
 testComp :: Array Int -> Kernel (Array Int) 
 testComp = (pure rev) ->- sync ->- (pure rev)
 
 run3 = 
-  putStrLn$ CUDA.genCUDAKernel "comp" testComp (namedArray "apa" 32)
+  putStrLn$ CUDA.genKernel "comp" testComp (namedArray "apa" 32)
    
---run3CL =    
---  putStrLn$ OpenCL.genOpenCLKernel "comp" testComp (namedArray "apa" 32)
+run3CL =    
+  putStrLn$ OpenCL.genKernel "comp" testComp (namedArray "apa" 32)
   
+run3C =    
+  putStrLn$ C.genKernel "comp" testComp (namedArray "apa" 32)
+
+
   
     
 testStoreIlv :: (Array Int, Array Int) -> Kernel (Array Int, Array Int) 
 testStoreIlv inputs = (storeIlv ->- pure (unzipp . rev)) (zipp inputs)
 
 run4 = 
-  putStrLn$ CUDA.genCUDAKernel "storeIlv" testStoreIlv (namedArray "apa" 32,namedArray "apa" 32)
+  putStrLn$ CUDA.genKernel "storeIlv" testStoreIlv (namedArray "apa" 32,namedArray "apa" 32)
    
---run4CL =    
---  putStrLn$ OpenCL.genOpenCLKernel "storeIlv" testStoreIlv (namedArray "apa" 32,namedArray "apa" 32)
+run4CL =    
+  putStrLn$ OpenCL.genKernel "storeIlv" testStoreIlv (namedArray "apa" 32,namedArray "apa" 32)
   
+run4C =    
+  putStrLn$ C.genKernel "storeIlv" testStoreIlv (namedArray "apa" 32,namedArray "apa" 32)
+
 
 
 sklansky :: Int -> Array Word32 -> Kernel (Array Word32)
@@ -75,12 +88,12 @@ sklansky n = pure (twoK (n-1) fan) ->- store ->- sklansky (n-1)
                     
             
 run5 = 
-  putStrLn$ CUDA.genCUDAKernel "sklansky" (sklansky 5) (namedArray "apa" 32)
+  putStrLn$ CUDA.genKernel "sklansky" (sklansky 5) (namedArray "apa" 32)
    
---run5CL =    
---  putStrLn$ OpenCL.genOpenCLKernel "sklansky" (sklansky 5)(namedArray "apa" 32)
+run5CL =    
+  putStrLn$ OpenCL.genKernel "sklansky" (sklansky 5)(namedArray "apa" 32)
   
   
 run5C = 
-  putStrLn$ C.genCKernel "sklansky" (sklansky 5)(namedArray "apa" 32)
+  putStrLn$ C.genKernel "sklansky" (sklansky 5)(namedArray "apa" 32)
     
