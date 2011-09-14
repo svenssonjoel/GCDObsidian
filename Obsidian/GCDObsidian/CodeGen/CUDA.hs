@@ -30,7 +30,8 @@ import Obsidian.GCDObsidian.Elem
 --          * First by merging with previous if possible
 --          * Can apply more effort if wanted and "sort" the assignments
 --            In dependency order before doing merging. 
-
+-- TODO: Move the conditionals into genSyncUnit. That is a partial solution 
+--       to the TODO item above as well
 
 ------------------------------------------------------------------------------
 -- Generate CUDA code to a String 

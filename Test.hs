@@ -103,13 +103,30 @@ testSyncP :: (Array Int,Array Int) -> Kernel (Array Int, Array Int)
 testSyncP inputs = sync2 inputs
 
 run6 = 
-  putStrLn$ CUDA.genKernel "syncP" (testSyncP) (namedArray "apa" 32,namedArray "apa" 8)
+  putStrLn$ CUDA.genKernel "syncP" testSyncP (namedArray "apa" 32,namedArray "apa" 8)
    
 run6CL =    
-  putStrLn$ OpenCL.genKernel "syncP" (testSyncP) (namedArray "apa" 32, namedArray "apa" 8)
+  putStrLn$ OpenCL.genKernel "syncP" testSyncP (namedArray "apa" 32, namedArray "apa" 8)
   
   
 run6C = 
-  putStrLn$ C.genKernel "syncP" (testSyncP) (namedArray "apa" 32, namedArray "apa" 8)
+  putStrLn$ C.genKernel "syncP" testSyncP (namedArray "apa" 32, namedArray "apa" 8)
     
+
+testSyncP2 :: (Array Int,Array Int) -> Kernel (Array Int, Array Int) 
+testSyncP2 inputs = do 
+  arr <- sync2 inputs 
+  sync (fst inputs)
+  return arr
+
+run7 = 
+  putStrLn$ CUDA.genKernel "syncP" testSyncP2 (namedArray "apa" 32,namedArray "apa" 8)
+   
+run7CL =    
+  putStrLn$ OpenCL.genKernel "syncP" testSyncP2 (namedArray "apa" 32, namedArray "apa" 8)
+  
+  
+run7C = 
+  putStrLn$ C.genKernel "syncP" testSyncP2 (namedArray "apa" 32, namedArray "apa" 8)
+
 
