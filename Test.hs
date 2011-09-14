@@ -97,3 +97,19 @@ run5CL =
 run5C = 
   putStrLn$ C.genKernel "sklansky" (sklansky 5)(namedArray "apa" 32)
     
+
+
+testSyncP :: (Array Int,Array Int) -> Kernel (Array Int, Array Int) 
+testSyncP inputs = sync2 inputs
+
+run6 = 
+  putStrLn$ CUDA.genKernel "syncP" (testSyncP) (namedArray "apa" 32,namedArray "apa" 8)
+   
+run6CL =    
+  putStrLn$ OpenCL.genKernel "syncP" (testSyncP) (namedArray "apa" 32, namedArray "apa" 8)
+  
+  
+run6C = 
+  putStrLn$ C.genKernel "syncP" (testSyncP) (namedArray "apa" 32, namedArray "apa" 8)
+    
+

@@ -61,7 +61,7 @@ instance Scalar a => InOut (Array a) where
     
     name <- newInOut "result" (cTypeOfArray arr) arrLen
     
-    let targ   = \ix -> index name (bid * (fromIntegral arrLen) + ix) 
+    let targ   = \ix -> (bid * (fromIntegral arrLen) + ix) 
         maxGCD = maximum [gcd arrLen i| i <- [1..threadBudget]]
     return$ SyncUnit maxGCD (StoreListCons (Store name arrLen [Write targ llArr e])
                              StoreListNil)
