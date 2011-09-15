@@ -28,6 +28,7 @@
 
     
 * Latest changes
+  + Merged with Experimental!
   + What used to be (Array Int) is now (Array (Exp Int) or 
     (Array (Data Int)), whichever is preferable. 
     This means the Array datatype changed from 
