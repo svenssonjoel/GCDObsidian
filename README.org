@@ -27,3 +27,15 @@
 
 
     
+* Latest changes
+  + What used to be (Array Int) is now (Array (Exp Int) or 
+    (Array (Data Int)), whichever is preferable. 
+    This means the Array datatype changed from 
+    data Array a = Array (Exp Word32 -> Exp a) Word32 
+    to 
+    data Array a = Array (Exp Word32 -> a) Word32 
+    
+    LLarrays still have the (Exp Word32 -> Exp a) indexing function 
+    so big parts of the code could be reused. 
+
+

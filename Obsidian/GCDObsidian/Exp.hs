@@ -31,7 +31,17 @@ data Type = Bool | Int | Word8 | Word16 | Word32 | Word64
                     deriving Show
 
 ------------------------------------------------------------------------------
---
+-- some synonyms
+type Data a = Exp a 
+
+type IntE    = Exp Int      
+type FloatE  = Exp Float  
+type DoubleE = Exp Double 
+type BoolE   = Exp Bool    
+type UByteE  = Exp Word8   
+type UShortE = Exp Word16 
+type UWordE  = Exp Word32 
+type ULongE  = Exp Word64 
 
 ------------------------------------------------------------------------------
 -- Class Scalar. (Things that are not tuples) 
@@ -279,9 +289,14 @@ instance Bits (Exp Word32) where
 (>*)  a b = Op Gt  $ tup2 (a,b)
 (>=*) a b = Op GEq $ tup2 (a,b)
 
-ifThenElse (Literal False) e1 e2 = e2
-ifThenElse (Literal True)  e1 e2 = e1
-ifThenElse b e1 e2 = Op If $ tup3 (b,e1,e2)
+
+class Choice a where 
+  ifThenElse :: Exp Bool -> a -> a -> a 
+
+instance Elem a => Choice (Exp a) where  
+  ifThenElse (Literal False) e1 e2 = e2
+  ifThenElse (Literal True)  e1 e2 = e1
+  ifThenElse b e1 e2 = Op If $ tup3 (b,e1,e2)
 
 
 

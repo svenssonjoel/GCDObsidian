@@ -95,7 +95,7 @@ genWrite mm nt name (Write targf ll _) =
   sequence_  [let n  = fromIntegral nAssigns
                   ix = fromIntegral i 
               in assign mm (index name (targf (tid * n + ix)))
-                 (ll ! (tid * n + ix)) >> 
+                 (ll `llIndex` (tid * n + ix)) >> 
                  newline 
              | i <- [0..nAssigns-1]]
  

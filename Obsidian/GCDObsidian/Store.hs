@@ -29,16 +29,16 @@ import Data.Word
 
 ------------------------------------------------------------------------------
 -- Store
-store :: (OArray a e, Scalar e) => a e -> Kernel (a e)
+store :: (OArray a e, Scalar e) => a (Exp e) -> Kernel (a (Exp e))
 store = sync
         
 storeP :: (OArray a e, Scalar e, 
            OArray a' e', Scalar e') 
-          => (a e,a' e') 
-          -> Kernel (a e,a' e') 
+          => (a (Exp e),a' (Exp e')) 
+          -> Kernel (a (Exp e),a' (Exp e')) 
 storeP = sync2
 
-sync :: (OArray a e, Scalar e) => a e -> Kernel (a e)
+sync :: (OArray a  e, Scalar e) => a (Exp e) -> Kernel (a (Exp e))
 sync arr = 
   do 
     let ll@(LLArray ixf n m d) = toLL arr 
@@ -78,8 +78,8 @@ singleStore ll@(LLArray ixf n m d) =
   
 sync2 :: (OArray a e, Scalar e, 
           OArray a' e', Scalar e') 
-         => (a e,a' e') 
-         -> Kernel (a e,a' e') 
+         => (a (Exp e),a' (Exp e')) 
+         -> Kernel (a (Exp e),a' (Exp e')) 
 sync2 (a1,a2)  = 
   do         
     (w1,r1) <- singleStore ll1 
@@ -98,9 +98,9 @@ sync2 (a1,a2)  =
              
 ------------------------------------------------------------------------------
 --
-storeIlv ::( Scalar e) 
-             => (Array (e,e)) 
-             -> Kernel (Array (e,e)) 
+storeIlv ::(OArray Array e,  Scalar e) 
+             => (Array (Exp (e,e))) 
+             -> Kernel (Array (Exp (e,e))) 
 storeIlv arr = do 
   (w,(r1,r2)) <- writeIlv ll1 ll2
   

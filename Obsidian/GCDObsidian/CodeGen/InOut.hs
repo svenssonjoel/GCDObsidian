@@ -1,4 +1,5 @@
-
+{-# LANGUAGE FlexibleInstances, 
+             FlexibleContexts#-}
 
 module Obsidian.GCDObsidian.CodeGen.InOut where 
 
@@ -17,7 +18,7 @@ bid :: Exp Word32
 bid = variable "bid" 
 
 
-cTypeOfArray :: Scalar a =>  Array a -> Type 
+cTypeOfArray :: Scalar a =>  Array (Exp a) -> Type 
 cTypeOfArray arr = Pointer (typeOf (arr ! variable "X")) 
 
 
@@ -49,7 +50,7 @@ runInOut f s = (a,reverse xs)
   where 
     (a,(_,xs)) = runState f s
 
-instance Scalar a => InOut (Array a) where
+instance (OArray Array a, Scalar a) => InOut (Array (Exp a)) where
   createInputs arr  = do 
     name <- newInOut "input" (cTypeOfArray arr) (len arr)
     let n = fromIntegral (len arr) 

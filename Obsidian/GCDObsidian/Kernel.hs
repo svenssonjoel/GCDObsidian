@@ -189,7 +189,7 @@ livenessStore :: Scalar a => Liveness -> Store a extra -> Store a Liveness
 livenessStore aliveNext (Store name size ws) = 
     Store name size (map (addLiveness aliveNext) ws) -- HACK 
     where 
-      arrays = concatMap (collectArrays . (! tid) . getLLArray ) ws
+      arrays = concatMap (collectArrays . ((flip llIndex) tid) . getLLArray ) ws
       tmp    = Set.fromList arrays `Set.union` aliveNext 
       livingArrs = name `Set.delete` tmp
 
@@ -330,7 +330,7 @@ mapMemoryStore :: Scalar a => Store a Liveness -> Memory -> MemMap -> (Memory,Me
 mapMemoryStore (Store name size ws) m  mm = (m',mm')  --allocateWrites ws m as mm 
   where 
     (m'',addr) = allocate m size
-    t = Pointer$ typeOf$ getLLArray (head ws) ! tid
+    t = Pointer$ typeOf$ getLLArray (head ws) `llIndex`  tid
     (m',mm') = 
       case Map.lookup name mm of 
         Nothing      -> (m'',Map.insert name (addr,t) mm)

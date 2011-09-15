@@ -15,11 +15,14 @@ import Data.Word
 ------------------------------------------------------------------------------
 --
 
-vectorAdd :: (Array Int, Array Int) -> Kernel (Array Int)   
+
+
+
+vectorAdd :: (Array IntE, Array IntE) -> Kernel (Array IntE)   
 vectorAdd (a,b) = return$ zipWith (+) a b 
   
 
-testSync :: Array Int -> Kernel (Array Int) 
+testSync :: Array IntE -> Kernel (Array IntE) 
 testSync arr = sync arr 
 
 run1 =    
@@ -31,7 +34,7 @@ run1C =
   putStrLn$ C.genKernel "sync" testSync (namedArray "apa" 128)
 
   
-testTwo :: Array Int -> Kernel (Array Int) 
+testTwo :: Array IntE -> Kernel (Array IntE) 
 testTwo arr = do 
   arr1 <- return$ twoK 1 rev arr  
   sync arr1 -- and a sync for fun
@@ -46,7 +49,7 @@ run2C =
   putStrLn$ C.genKernel "two" testTwo (namedArray "apa" 32)
 
 
-testComp :: Array Int -> Kernel (Array Int) 
+testComp :: Array IntE -> Kernel (Array IntE) 
 testComp = (pure rev) ->- sync ->- (pure rev)
 
 run3 = 
@@ -61,7 +64,7 @@ run3C =
 
   
     
-testStoreIlv :: (Array Int, Array Int) -> Kernel (Array Int, Array Int) 
+testStoreIlv :: (Array IntE, Array IntE) -> Kernel (Array IntE, Array IntE) 
 testStoreIlv inputs = (storeIlv ->- pure (unzipp . rev)) (zipp inputs)
 
 run4 = 
@@ -75,7 +78,7 @@ run4C =
 
 
 
-sklansky :: Int -> Array Word32 -> Kernel (Array Word32)
+sklansky :: Int -> Array (Data Word32) -> Kernel (Array (Data Word32))
 sklansky 0 = pure id 
 sklansky n = pure (twoK (n-1) fan) ->- store ->- sklansky (n-1)
   where fan arr = conc (a1,a2')
@@ -99,7 +102,7 @@ run5C =
     
 
 
-testSyncP :: (Array Int,Array Int) -> Kernel (Array Int, Array Int) 
+testSyncP :: (Array IntE,Array IntE) -> Kernel (Array IntE, Array IntE) 
 testSyncP inputs = sync2 inputs
 
 run6 = 
@@ -113,7 +116,7 @@ run6C =
   putStrLn$ C.genKernel "syncP" testSyncP (namedArray "apa" 32, namedArray "apa" 8)
     
 
-testSyncP2 :: (Array Int,Array Int) -> Kernel (Array Int, Array Int) 
+testSyncP2 :: (Array IntE,Array IntE) -> Kernel (Array IntE, Array IntE) 
 testSyncP2 inputs = do 
   arr <- sync2 inputs 
   sync (fst inputs)

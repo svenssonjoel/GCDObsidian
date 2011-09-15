@@ -11,7 +11,8 @@ import Data.Bits
 
 
 
-
+instance Functor Array where 
+  fmap f arr = Array (\ix -> f (arr ! ix)) (len arr) 
 arrayMap f arr = Array (\ix -> f (arr ! ix)) (len arr) 
 
 
@@ -36,7 +37,7 @@ splitAt n arr = (Array (\ix -> arr ! ix) (fromIntegral n) ,
 
 ------------------------------------------------------------------------------
 --
-conc :: Elem a => (Array a, Array a) -> Array a 
+conc :: Choice a => (Array a, Array a) -> Array a 
 conc (a1,a2) = Array (\ix -> ifThenElse (ix <* (fromIntegral n1)) 
                              (a1 ! ix) 
                              (a2 ! (ix - (fromIntegral n1)))) (n1+n2)
@@ -54,15 +55,15 @@ conc (a1,a2) = Array (\ix -> ifThenElse (ix <* (fromIntegral n1))
     
 ------------------------------------------------------------------------------
 -- zipp unzipp
-unzipp :: (Elem a , Elem b) =>  Array (a,b) -> (Array a, Array b)       
+unzipp :: (Elem a , Elem b) =>  Array (Exp (a,b)) -> (Array (Exp a), Array (Exp b))       
 unzipp arr = (Array (\ix -> fst (untup2 (arr ! ix))) (len arr),
               Array (\ix -> snd (untup2 (arr ! ix))) (len arr))
               
-zipp :: (Elem a, Elem b) => (Array a, Array b) -> Array (a,b)             
+zipp :: (Elem a, Elem b) => (Array (Exp a), Array (Exp b)) -> Array (Exp (a,b))             
 zipp (arr1,arr2) = Array (\ix -> tup2 (arr1 ! ix, arr2 ! ix)) (len arr1)
     
     
-zipWith :: (Exp a -> Exp b -> Exp c) -> Array a -> Array b -> Array c
+zipWith :: (a -> b -> c) -> Array a -> Array b -> Array c
 zipWith op a1 a2 = Array (\ix -> (a1 ! ix) `op` (a2 ! ix)) (len a1)
     
 ------------------------------------------------------------------------------    
