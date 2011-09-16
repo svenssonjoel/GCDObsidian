@@ -329,7 +329,8 @@ mapMemoryStore :: Scalar a => Store a Liveness -> Memory -> MemMap -> (Memory,Me
 mapMemoryStore (Store name size ws) m  mm = (m',mm')  --allocateWrites ws m as mm 
   where 
     (m'',addr) = allocate m size
-    t = Pointer$ typeOf$ getLLArray (head ws) `llIndex`  tid
+    -- TODO: maybe create Global arrays if Local memory is full.
+    t = Pointer$ Local$ typeOf$ getLLArray (head ws) `llIndex`  tid
     (m',mm') = 
       case Map.lookup name mm of 
         Nothing      -> (m'',Map.insert name (addr,t) mm)

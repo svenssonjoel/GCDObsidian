@@ -18,7 +18,6 @@ import Data.Word
 vectorAdd :: (Array IntE, Array IntE) -> Kernel (Array IntE)   
 vectorAdd (a,b) = return$ zipWith (+) a b 
   
-
 testSync :: Array IntE -> Kernel (Array IntE) 
 testSync arr = sync arr 
 

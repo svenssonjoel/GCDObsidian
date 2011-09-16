@@ -19,7 +19,7 @@ bid = variable "bid"
 
 
 cTypeOfArray :: Scalar a =>  Array (Exp a) -> Type 
-cTypeOfArray arr = Pointer (typeOf (arr ! variable "X")) 
+cTypeOfArray arr = Pointer (typeOf (arr ! variable "X"))
 
 
 -----------------------------------------------------------------------------

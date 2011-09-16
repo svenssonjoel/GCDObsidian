@@ -36,6 +36,8 @@ import Obsidian.GCDObsidian.Elem
 ------------------------------------------------------------------------------
 -- Generate CUDA code to a String 
 
+gc = genConfig "" ""
+
 getCUDA :: Config -> Code Syncthreads -> Name -> [(String,Type)] -> [(String,Type)] -> String 
 getCUDA conf c name ins outs = 
   runPP (kernelHead name ins outs >>  
@@ -78,7 +80,7 @@ genStore conf nt (Store name size ws) =
   do 
     case compare nt blockSize of 
       LT -> do
-            cond mm (tid <* (fromIntegral nt))
+            cond gc mm (tid <* (fromIntegral nt))
             begin
             mapM_ (genWrite mm nt name) ws
             end
@@ -94,7 +96,7 @@ genWrite :: MemMap -> Word32 -> Name -> Write a extra -> PP ()
 genWrite mm nt name (Write targf ll _) = 
   sequence_  [let n  = fromIntegral nAssigns
                   ix = fromIntegral i 
-              in assign mm (index name (targf (tid * n + ix)))
+              in assign gc mm (index name (targf (tid * n + ix)))
                  (ll `llIndex` (tid * n + ix)) >> 
                  newline 
              | i <- [0..nAssigns-1]]
@@ -124,7 +126,7 @@ kernelHead name ins outs =
     types = concat (intersperse "," (typeList (ins ++ outs)))
     typeList :: [(String,Type)] -> [String] 
     typeList []              = [] 
-    typeList ((a,t):xs)      = (genType t ++ a) : typeList xs
+    typeList ((a,t):xs)      = (genType gc t ++ a) : typeList xs
   
   
 ------------------------------------------------------------------------------

@@ -17,6 +17,7 @@ import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil))
 import Obsidian.GCDObsidian.Elem
 
 
+gc = genConfig "__global" "__local"
 
 ------------------------------------------------------------------------------
 -- Generate OpenCL code to a String 
@@ -61,7 +62,7 @@ genStore conf nt (Store name size ws) =
   do 
     case compare nt blockSize of 
       LT -> do
-            cond mm (tid <* (fromIntegral nt))
+            cond gc mm (tid <* (fromIntegral nt))
             begin
             mapM_ (genWrite mm nt name) ws
             end
@@ -77,7 +78,7 @@ genWrite :: MemMap -> Word32 -> Name -> Write a extra -> PP ()
 genWrite mm nt name (Write targf ll _) = 
   sequence_  [let n  = fromIntegral nAssigns
                   ix = fromIntegral i 
-              in assign mm (index name (targf (tid * n + ix)))
+              in assign gc mm (index name (targf (tid * n + ix)))
                  (ll `llIndex` (tid * n + ix)) >> 
                  newline 
              | i <- [0..nAssigns-1]]
@@ -111,7 +112,7 @@ kernelHead name ins outs =
     types = concat (intersperse "," (typeList (ins ++ outs)))
     typeList :: [(String,Type)] -> [String] 
     typeList []              = [] 
-    typeList ((a,t):xs)      = (genType (Global t) ++ a) : typeList xs
+    typeList ((a,t):xs)      = (genType gc (Global t) ++ a) : typeList xs
   
   
 ------------------------------------------------------------------------------

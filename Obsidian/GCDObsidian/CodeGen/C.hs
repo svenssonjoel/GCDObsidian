@@ -16,7 +16,7 @@ import qualified Obsidian.GCDObsidian.Tuple as Tuples
 import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil))
 import Obsidian.GCDObsidian.Elem
 
-
+gc = genConfig "" ""
 
 ------------------------------------------------------------------------------
 -- sequential C code generation
@@ -56,7 +56,7 @@ genStoreList conf nt (StoreListCons s rest) =
 genStore :: Config -> Word32 -> Store a extra -> PP () 
 genStore conf nt (Store name size ws) = 
   do 
-    forEach mm (fromIntegral nt) 
+    forEach gc mm (fromIntegral nt) 
     begin
     mapM_ (genWrite mm nt name) ws
     end
@@ -65,8 +65,8 @@ genStore conf nt (Store name size ws) =
       mm = configMM conf
       blockSize = configThreads conf
 
-forEach :: MemMap -> Exp Word32 -> PP ()   
-forEach mm e = line ("for (uint32_t tid = 0; tid < " ++ concat (genExp mm e) ++"; ++tid)")
+forEach :: GenConfig -> MemMap -> Exp Word32 -> PP ()   
+forEach gc mm e = line ("for (uint32_t tid = 0; tid < " ++ concat (genExp gc mm e) ++"; ++tid)")
 
 ------------------------------------------------------------------------------
 
@@ -74,7 +74,7 @@ genWrite :: MemMap -> Word32 -> Name -> Write a extra -> PP ()
 genWrite mm nt name (Write targf ll _) = 
   sequence_  [let n  = fromIntegral nAssigns
                   ix = fromIntegral i 
-              in assign mm (index name (targf (tid * n + ix)))
+              in assign gc mm (index name (targf (tid * n + ix)))
                  (ll `llIndex` (tid * n + ix)) >> 
                  newline 
              | i <- [0..nAssigns-1]]
@@ -107,7 +107,7 @@ kernelHead name ins outs =
     types = concat (intersperse "," (typeList (ins ++ outs)))
     typeList :: [(String,Type)] -> [String] 
     typeList []              = [] 
-    typeList ((a,t):xs)      = (genType t ++ a) : typeList xs
+    typeList ((a,t):xs)      = (genType gc t ++ a) : typeList xs
   
   
 ------------------------------------------------------------------------------

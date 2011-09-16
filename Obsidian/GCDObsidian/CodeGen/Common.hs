@@ -20,11 +20,10 @@ import Control.Monad.State
 fst2 (x,y,z) = (x,y) 
 
 ------------------------------------------------------------------------------ 
-{- 
-  This module contains some function to print an Exp as a 
-  C-Style code. Used by CUDA, OpenCL and C code generation 
-
--} 
+data GenConfig = GenConfig { global :: String,
+                             local  :: String };
+  
+genConfig = GenConfig
 
 
 ------------------------------------------------------------------------------
@@ -33,35 +32,36 @@ mappedName :: Name -> Bool
 mappedName name = isPrefixOf "arr" name
 
 
-genType Int = "int "
-genType Float = "float "
-genType Double = "double "
-genType Bool = "int " 
-genType Word8 = "uint8_t "
-genType Word16 = "uint16_t "
-genType Word32 = "uint32_t "
-genType Word64 = "uint64_t " 
-genType (Pointer t) = genType t ++ "*"
-genType (Global t) = "__global " ++ genType t
+genType _ Int = "int "
+genType _ Float = "float "
+genType _ Double = "double "
+genType _ Bool = "int " 
+genType _ Word8 = "uint8_t "
+genType _ Word16 = "uint16_t "
+genType _ Word32 = "uint32_t "
+genType _ Word64 = "uint64_t " 
+genType gc (Pointer t) = genType gc t ++ "*"
+genType gc (Global t) = global gc ++" "++ genType gc t  -- "__global " ++ genType t
+genType gc (Local t)  = local gc  ++" "++ genType gc t 
 
-genCast  t = "(" ++ genType t ++ ")"
+genCast gc t = "(" ++ genType gc t ++ ")"
 
 parens s = "(" ++ s ++ ")"
 
 ------------------------------------------------------------------------------
 -- genExp C-style 
-genExp :: Elem a => MemMap -> Exp a -> [String]
-genExp _ (Literal a) = [show a] 
-genExp _ (Index (name,[])) = [name]
-genExp mm exp@(Index (name,es)) = 
-  [name' ++ genIndices mm es]
+genExp :: Elem a => GenConfig -> MemMap -> Exp a -> [String]
+genExp gc _ (Literal a) = [show a] 
+genExp gc _ (Index (name,[])) = [name]
+genExp gc mm exp@(Index (name,es)) = 
+  [name' ++ genIndices gc mm es]
   where 
     (offs,t)  = 
       case Map.lookup name mm of  
         Nothing -> error "array does not excist in map" 
         (Just x) -> x
     name' = if mappedName name 
-            then parens$ genCast t ++ 
+            then parens$ genCast gc t ++ 
                  if offs > 0 
                  then "(sbase+" ++ show offs ++ ")"             
                  else "sbase"
@@ -69,12 +69,12 @@ genExp mm exp@(Index (name,es)) =
 
    
                  
-genExp mm (Op op e) = [genOp op (genExp mm e)]
-genExp mm (Tuple t) = genTup mm t
+genExp gc mm (Op op e) = [genOp op (genExp gc mm e)]
+genExp gc mm (Tuple t) = genTup gc mm t
 
-genIndices mm es = concatMap (pIndex mm) es  
+genIndices gc mm es = concatMap (pIndex mm) es  
   where 
-    pIndex mm e = "[" ++ concat (genExp mm e) ++ "]"
+    pIndex mm e = "[" ++ concat (genExp gc mm e) ++ "]"
 
 
 ------------------------------------------------------------------------------
@@ -115,9 +115,9 @@ unOp  f a   = "(" ++ f ++ a ++ ")"
  
 
 
-genTup :: forall t. MemMap -> Tuple.Tuple Exp t -> [String]
-genTup _ Nil = []
-genTup mm (a :. t) = genExp mm a ++ (genTup mm t) 
+genTup :: forall t. GenConfig -> MemMap -> Tuple.Tuple Exp t -> [String]
+genTup _  _ Nil = []
+genTup gc mm (a :. t) = genExp gc mm a ++ (genTup gc mm t) 
   
 genPrj = undefined 
 
@@ -173,13 +173,13 @@ data Config = Config {configThreads  :: NumThreads,
 config = Config
 
 
-assign :: Elem a => MemMap -> Exp a -> Exp a -> PP () 
-assign mm name val = line ((concat (genExp mm name)) ++ 
-                           " = " ++  concat (genExp mm val) ++ 
+assign :: Elem a => GenConfig -> MemMap -> Exp a -> Exp a -> PP () 
+assign gc mm name val = line ((concat (genExp gc mm name)) ++ 
+                           " = " ++  concat (genExp gc mm val) ++ 
                            ";") 
                                                     
-cond :: MemMap -> Exp Bool -> PP ()  
-cond mm e = line ("if " ++ concat (genExp mm e))  
+cond :: GenConfig -> MemMap -> Exp Bool -> PP ()  
+cond gc mm e = line ("if " ++ concat (genExp gc mm e))  
 
 begin :: PP () 
 begin = line "{" >> indent >> newline
