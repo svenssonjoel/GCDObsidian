@@ -13,10 +13,7 @@ import Prelude hiding (zipWith,splitAt)
 import Data.Word
   
 ------------------------------------------------------------------------------
---
-
-
-
+--Some tests of GCDObsidian functionality
 
 vectorAdd :: (Array IntE, Array IntE) -> Kernel (Array IntE)   
 vectorAdd (a,b) = return$ zipWith (+) a b 
@@ -133,3 +130,29 @@ run7C =
   putStrLn$ C.genKernel "syncP" testSyncP2 (namedArray "apa" 32, namedArray "apa" 8)
 
 
+
+
+testStoreIlvF :: (Array IntE, Array IntE) -> Kernel (Array IntE) 
+testStoreIlvF inputs = storeIlvF (zipp inputs)
+
+run8 = 
+  putStrLn$ CUDA.genKernel "storeIlv" testStoreIlvF (namedArray "apa" 32,namedArray "apa" 32)
+   
+run8CL =    
+  putStrLn$ OpenCL.genKernel "storeIlv" testStoreIlvF (namedArray "apa" 32,namedArray "apa" 32)
+  
+run8C =    
+  putStrLn$ C.genKernel "storeIlv" testStoreIlvF (namedArray "apa" 32,namedArray "apa" 32)
+
+
+testStoreCatZ :: (Array IntE, Array IntE) -> Kernel (Array IntE) 
+testStoreCatZ inputs = storeCatZ (zipp inputs)
+
+run9 = 
+  putStrLn$ CUDA.genKernel "storeCat" testStoreCatZ (namedArray "apa" 32,namedArray "apa" 32)
+   
+run9CL =    
+  putStrLn$ OpenCL.genKernel "storeCat" testStoreCatZ (namedArray "apa" 32,namedArray "apa" 32)
+  
+run9C =    
+  putStrLn$ C.genKernel "storeCat" testStoreCatZ (namedArray "apa" 32,namedArray "apa" 32)

@@ -6,8 +6,8 @@ module Obsidian.GCDObsidian.Store
         store,
         storeP,
         storeIlv,
---        storeIlvF,
---        storeCatZ
+        storeIlvF,
+        storeCatZ
         )  where 
 
 import Obsidian.GCDObsidian.Exp 
@@ -118,9 +118,6 @@ storeIlv arr = do
 writeIlv ll1@(LLArray ixf n m d) 
          ll2@(LLArray ixf' n' m' d') = 
   do 
-    --i <- get 
-    --put (i+1) 
-    --let newName  = "arr" ++ show i
     let elmsize1 = fromIntegral$ sizeOf$ ixf (variable "X")
     newName <- newArray (elmsize1 * (m+m'))
     let newArray1 = LLArray (\ix -> Index (newName,[ix*2])) n m d 
@@ -135,14 +132,14 @@ writeIlv ll1@(LLArray ixf n m d)
                              Write (\ix -> ix*2+1) ll2 ()])
                       StoreListNil),(newArray1,newArray2))
 
-{- 
+
 storeIlvF ::( Scalar e) 
-             => (Array (e,e)) 
-             -> Kernel (Array e) 
+             => (Array (Exp (e,e))) 
+             -> Kernel (Array (Exp e)) 
 storeIlvF arr = do 
-  (w,r) <- writeIlvF ll1 ll2
+  (su,r) <- writeIlvF ll1 ll2
   
-  tell$ code$ Store numThreads w
+  tell$ code$ su -- Store numThreads w
   
   return$ fromLL r
   
@@ -156,25 +153,28 @@ storeIlvF arr = do
 writeIlvF ll1@(LLArray ixf n m d) 
           ll2@(LLArray ixf' n' m' d') = 
   do 
-    --i <- get 
-    --put (i+1) 
-    
-    --let newName  = "arr" ++ show i
     let elmsize1 = fromIntegral$ sizeOf (ixf (variable "X"))
     newName <- newArray (elmsize1 * (m+m'))
     let newArray = LLArray (\ix -> Index (newName,[ix])) (n+n') (m+m') d 
+        numThreads = m -- TODO: see that this is right 
         
-    return ([Write (\ix -> index newName (ix*2)) ll1 (),
-             Write (\ix -> index newName (ix*2+1)) ll2 ()] ,newArray)
-
+    return (SyncUnit numThreads    
+                     (StoreListCons 
+                      (Store newName
+                             (2*elmsize1*numThreads)
+                             [Write (\ix -> (ix*2)) ll1 (),
+                              Write (\ix -> (ix*2+1)) ll2 ()])
+                      StoreListNil),newArray)
+      
+    
 
 storeCatZ ::( Scalar e) 
-             => (Array (e,e)) 
-             -> Kernel (Array e) 
+             => (Array (Exp (e,e))) 
+             -> Kernel (Array (Exp e)) 
 storeCatZ arr = do 
-  (w,r) <- writeCatZ ll1 ll2
+  (su,r) <- writeCatZ ll1 ll2
   
-  tell$ code$ Store numThreads w
+  tell$ code$ su -- Store numThreads w
   
   return$ fromLL r
   
@@ -188,26 +188,25 @@ storeCatZ arr = do
 writeCatZ ll1@(LLArray ixf n m d) 
           ll2@(LLArray ixf' n' m' d') = 
   do 
-    --i <- get 
-    --put (i+1) 
-    --let newName  = "arr" ++ show i
     let elmsize1 = fromIntegral$ sizeOf (ixf (variable "X"))
     newName <- newArray (elmsize1 * (m+m'))               
                    
     let newArray = LLArray (\ix -> Index (newName,[ix])) (n+n') (m+m') d 
-        -- newArray2 = LLArray (\ix -> Index (newName,[ix*2+1])) n' m' d' 
-    return ([Write (\ix -> index newName (ix)) ll1 (),
-             Write (\ix -> index newName (ix+(fromIntegral m))) ll2 ()] ,newArray)
+        numThreads = m 
+    
+    return (SyncUnit numThreads
+                     (StoreListCons 
+                      (Store newName 
+                             (2*elmsize1*numThreads)
+                             [Write (\ix -> ix) ll1 (),
+                              Write (\ix -> (ix+(fromIntegral m))) ll2 ()])
+                       StoreListNil),newArray)
+   
 
-
-
-------------------------------------------------------------------------------
---
   
 ------------------------------------------------------------------------------  
--- Combination of store and two 
+-- 
   
 twoK' :: Int -> (Array a -> Array b) -> Array a -> Kernel (Array b) 
 twoK' = undefined 
 
--}
