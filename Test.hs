@@ -31,6 +31,9 @@ run1C =
   putStrLn$ C.genKernel "sync" testSync (namedArray "apa" 128)
 
   
+  
+------------------------------------------------------------------------------  
+--
 testTwo :: Array IntE -> Kernel (Array IntE) 
 testTwo arr = do 
   arr1 <- return$ twoK 1 rev arr  
@@ -45,7 +48,8 @@ run2CL =
 run2C =    
   putStrLn$ C.genKernel "two" testTwo (namedArray "apa" 32)
 
-
+------------------------------------------------------------------------------
+--
 testComp :: Array IntE -> Kernel (Array IntE) 
 testComp = (pure rev) ->- sync ->- (pure rev)
 
@@ -60,7 +64,8 @@ run3C =
 
 
   
-    
+------------------------------------------------------------------------------    
+--
 testStoreIlv :: (Array IntE, Array IntE) -> Kernel (Array IntE, Array IntE) 
 testStoreIlv inputs = (storeIlv ->- pure (unzipp . rev)) (zipp inputs)
 
@@ -74,7 +79,8 @@ run4C =
   putStrLn$ C.genKernel "storeIlv" testStoreIlv (namedArray "apa" 32,namedArray "apa" 32)
 
 
-
+------------------------------------------------------------------------------
+--
 sklansky :: Int -> Array (Data Word32) -> Kernel (Array (Data Word32))
 sklansky 0 = pure id 
 sklansky n = pure (twoK (n-1) fan) ->- store ->- sklansky (n-1)
@@ -98,7 +104,8 @@ run5C =
   putStrLn$ C.genKernel "sklansky" (sklansky 5)(namedArray "apa" 32)
     
 
-
+------------------------------------------------------------------------------
+--
 testSyncP :: (Array IntE,Array IntE) -> Kernel (Array IntE, Array IntE) 
 testSyncP inputs = sync2 inputs
 
@@ -113,6 +120,8 @@ run6C =
   putStrLn$ C.genKernel "syncP" testSyncP (namedArray "apa" 32, namedArray "apa" 8)
     
 
+------------------------------------------------------------------------------
+--
 testSyncP2 :: (Array IntE,Array IntE) -> Kernel (Array IntE, Array IntE) 
 testSyncP2 inputs = do 
   arr <- sync2 inputs 
@@ -131,7 +140,8 @@ run7C =
 
 
 
-
+------------------------------------------------------------------------------
+--
 testStoreIlvF :: (Array IntE, Array IntE) -> Kernel (Array IntE) 
 testStoreIlvF inputs = storeIlvF (zipp inputs)
 
@@ -145,6 +155,8 @@ run8C =
   putStrLn$ C.genKernel "storeIlv" testStoreIlvF (namedArray "apa" 32,namedArray "apa" 32)
 
 
+------------------------------------------------------------------------------
+--
 testStoreCatZ :: (Array IntE, Array IntE) -> Kernel (Array IntE) 
 testStoreCatZ inputs = storeCatZ (zipp inputs)
 
