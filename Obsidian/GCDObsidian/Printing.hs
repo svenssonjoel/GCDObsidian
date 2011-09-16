@@ -1,3 +1,4 @@
+{-# LANGUAGE FlexibleContexts #-}
 
 module Obsidian.GCDObsidian.Printing  where 
 
@@ -12,22 +13,32 @@ import  Obsidian.GCDObsidian.Array
 ------------------------------------------------------------------------------
 -- Print Code
 printCode :: Show a => Code a -> IO ()
-printCode c = putStrLn "hello world"  -- putStrLn$ codeToStr
+printCode c = putStrLn$ codeToString c
 
 
-{-
-codeToString :: Show a => Code a -> String
-codeToString Skip = "\n" 
-codeToString (Seq s c) = storeToString s ++ codeToString c
+codeToString :: Show extra => Code extra -> String
+codeToString Skip = "SKIP\n" 
+codeToString (su `Seq` code) = syncunitToString su ++ codeToString code
 
-storeToString :: Show a => Store a -> String 
-storeToString (Store nt ws) = "Using " ++ show nt ++ " threads compute {\n" ++
-                              concatMap writeToString ws ++ "}\n" 
+syncunitToString (SyncUnit nt sl) = 
+  "SYNCUNIT " ++ show nt ++ "{ \n" ++ 
+  storelistToString sl ++ "\n}\n"
+  
+storelistToString StoreListNil = ""
+storelistToString (StoreListCons store sl) = 
+  storeToString store ++ "\n" ++ storelistToString sl
 
-writeToString :: Show a => Write a -> String 
-writeToString (Write n ll e) = 
-  printExp (n tid) ++ " = " ++ printExp exp ++ "\n" ++ 
-  show e ++ "\n"
+
+storeToString :: Show extra => Store a extra  -> String 
+storeToString (Store name size ws) = name++ "[" ++ show size ++ "]\n" ++ 
+                                     concatMap writeToString ws ++ "}\n"  
+
+
+writeToString :: Show extra => Write a extra -> String 
+writeToString (Write targf ll e) = 
+  "whereStore: \\ix -> " ++ printExp (targf (variable "ix")) ++ "\n" ++
+  "ToCompute: " ++  printExp exp ++ "\n" ++ 
+  "extra: " ++ show e ++ "\n"
   where 
-    exp = ll ! tid
--}
+    exp = ll `llIndex` tid
+

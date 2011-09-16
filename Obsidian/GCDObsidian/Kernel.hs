@@ -80,8 +80,8 @@ storeListConcat (StoreListNil) sl = sl
 storeListConcat (StoreListCons s sl) sl' = StoreListCons s (storeListConcat sl sl')
 
 
-data SyncUnit extra = forall a. SyncUnit {syncThreads :: Word32, 
-                                          syncStores  :: StoreList extra} 
+data SyncUnit extra = SyncUnit {syncThreads :: Word32, 
+                                syncStores  :: StoreList extra} 
 
 syncUnitFuseGCD :: SyncUnit e -> SyncUnit e -> SyncUnit e 
 syncUnitFuseGCD (SyncUnit nt sl) (SyncUnit nt' sl')  = 
@@ -152,7 +152,6 @@ type a :-> b = a -> Kernel b
 
 pure f a = return (f a) 
 
---runKernel :: Kernel a -> ((a,(Int,Map.Map Name Word32)),Code ()) 
 runKernel k = runWriter (runStateT k 0 )
 
 ------------------------------------------------------------------------------  
@@ -187,7 +186,7 @@ livenessStoreList aliveNext (StoreListCons s rest) =
 
 livenessStore :: Scalar a => Liveness -> Store a extra -> Store a Liveness
 livenessStore aliveNext (Store name size ws) = 
-    Store name size (map (addLiveness aliveNext) ws) -- HACK 
+    Store name size (map (addLiveness livingArrs {-aliveNext-}) ws) -- HACK 
     where 
       arrays = concatMap (collectArrays . ((flip llIndex) tid) . getLLArray ) ws
       tmp    = Set.fromList arrays `Set.union` aliveNext 
