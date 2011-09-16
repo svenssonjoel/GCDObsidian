@@ -41,7 +41,7 @@ int main(int argc, char **argv)
   cl_device_id cldev;
   clGetDeviceIDs(clpf, CL_DEVICE_TYPE_GPU, 1, &cldev, NULL);
 
-  // Show informaion about found device
+  // Show information about found device
   char cBuffer[1024];
   clGetDeviceInfo(cldev, CL_DEVICE_NAME, sizeof(cBuffer), &cBuffer, NULL);
   printf("CL_DEVICE_NAME:\t%s\n", cBuffer);
