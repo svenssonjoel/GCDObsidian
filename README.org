@@ -36,3 +36,10 @@
     so big parts of the code could be reused. 
 
 
+* Notes
+  + OpenCL: The kind of pointer arithmetic + casting, that has worked so well 
+    in CUDA, seems to not work in OpenCL on the local memory. 
+    Will need to scan the specification/documentation to find exactly what is 
+    allowed and not on pointers to local memory in an OpenCL kernel. 
+  + Obsidian Int are 64bit on 64bit architectures. Is it also true that 
+    a CUDA int is 64bit on 64bit architectures?
