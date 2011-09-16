@@ -91,7 +91,7 @@ tidLine = line "unsigned int tid = get_local_id(0);"
 
 -- To get something that corresponds to bid in OpenCL 
 -- you need the "blocksize" 
-bidLine = line "unsigned int bid = (get_global_id(0)-tid) / get_local_size(0)" 
+bidLine = line "unsigned int bid = (get_global_id(0)-tid) / get_local_size(0);" 
 
 --here the shared memory size is needed (I think) 
 sBase size = line$ "__local unsigned char sbase[" ++ show size ++ "];" 

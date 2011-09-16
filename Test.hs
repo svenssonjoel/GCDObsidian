@@ -81,7 +81,7 @@ run4C =
 
 ------------------------------------------------------------------------------
 --
-sklansky :: Int -> Array (Data Word32) -> Kernel (Array (Data Word32))
+sklansky :: Int -> Array (Data Int) -> Kernel (Array (Data Int))
 sklansky 0 = pure id 
 sklansky n = pure (twoK (n-1) fan) ->- store ->- sklansky (n-1)
   where fan arr = conc (a1,a2')
