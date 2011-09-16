@@ -19,14 +19,10 @@
 
     
 * Work in progress
-  + OpenCL generation is unfinished and untested
-  + CUDA generation is untested
-  + C generation is untested
+  + Small generated kernels have been executed 
+    successfully using C, OpenCL and CUDA. 
   + More library functions needed
-  
-
-
-    
+      
 * Latest changes
   + Merged with Experimental!
   + What used to be (Array Int) is now (Array (Exp Int) or 
