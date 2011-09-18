@@ -7,7 +7,7 @@ import Obsidian.GCDObsidian.Tuple
 
 import Data.Bits
 
-
+import Prelude hiding (splitAt)
 
 
 
@@ -28,12 +28,11 @@ rev arr = Array (\ix -> arr ! ((fromIntegral (n-1)) - ix)) n
 splitAt :: Integral i => i -> Array a -> (Array a, Array a) 
 splitAt n arr = (Array (\ix -> arr ! ix) (fromIntegral n) , 
                  Array (\ix -> arr ! (ix + fromIntegral n)) (len arr - (fromIntegral n)))
---split :: Int -> Arr a -> (Arr a,Arr a)
---split  m arr = 
---    let n  = len arr
---        h1 = mkArr (\ix -> arr ! ix)  m
---        h2 = mkArr (\ix -> arr ! (ix + (fromIntegral m))) (n-m)
---    in  (h1,h2)
+
+halve arr = splitAt n2 arr
+  where 
+    n = len arr
+    n2 = n `div` 2
 
 ------------------------------------------------------------------------------
 --
