@@ -32,7 +32,7 @@ runm =
 
 
 vsort :: Int -> Array (Exp Int) -> Kernel (Array (Exp Int))
-vsort n = composeS [ pure (iv (n-i) (i-j) max min)| i <- [1..n], j <- [1..i]]
+vsort n = composeS [ pure (iv (n-i) (i-j) min max)| i <- [1..n], j <- [1..i]]
 
 
 composeS [f] = f
