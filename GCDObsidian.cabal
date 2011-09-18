@@ -34,9 +34,13 @@ Library
 		 , Obsidian.GCDObsidian.Kernel 
                  , Obsidian.GCDObsidian.Exp  
                  , Obsidian.GCDObsidian.Elem 
+		 , Obsidian.GCDObsidian.Tuple
+		 , Obsidian.GCDObsidian.Printing
+		 , Obsidian.GCDObsidian.Store
 		 , Obsidian.GCDObsidian.CodeGen.Common
 		 , Obsidian.GCDObsidian.CodeGen.OpenCL
 		 , Obsidian.GCDObsidian.CodeGen.CUDA 
+		 , Obsidian.GCDObsidian.CodeGen.C
 		 
 
 
