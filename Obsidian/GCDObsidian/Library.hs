@@ -63,7 +63,7 @@ zipp :: (Elem a, Elem b) => (Array (Exp a), Array (Exp b)) -> Array (Exp (a,b))
 zipp (arr1,arr2) = Array (\ix -> tup2 (arr1 ! ix, arr2 ! ix)) (len arr1)
     
     
-zipWith :: (a -> b -> c) -> Array a -> Array b -> Array c
+zipWith :: (Exp a -> Exp b -> Exp c) -> Array (Exp a) -> Array (Exp b) -> Array (Exp c)
 zipWith op a1 a2 = Array (\ix -> (a1 ! ix) `op` (a2 ! ix)) (len a1)
     
 ------------------------------------------------------------------------------    

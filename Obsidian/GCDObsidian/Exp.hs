@@ -51,11 +51,13 @@ class Elem a => Scalar a where
 
 
 instance Scalar Bool where 
-  sizeOf _ = Storable.sizeOf (undefined :: Int)
+  --sizeOf _ = Storable.sizeOf (undefined :: Int)
+  sizeOf _ = 4
   typeOf _ = Bool 
 
 instance Scalar Int where 
-  sizeOf _ = Storable.sizeOf (undefined :: Int)
+  --sizeOf _ = Storable.sizeOf (undefined :: Int)
+  sizeOf _ = 4
   typeOf _ = Int
   
 instance Scalar Float where
@@ -120,8 +122,6 @@ data Exp a where
              -> Exp a 
              -> Exp b
              
-  
-
 ------------------------------------------------------------------------------
 -- Operations
 
@@ -137,6 +137,7 @@ data Op a where
   
   
   -- Comparisons
+  Eq  :: Ord a => Op ((a,a) -> Bool)
   Lt  :: Ord a => Op ((a,a) -> Bool) 
   LEq :: Ord a => Op ((a,a) -> Bool) 
   Gt  :: Ord a => Op ((a,a) -> Bool) 
@@ -154,9 +155,7 @@ data Op a where
   Min        :: Ord a => Op ((a,a) -> a) 
   Max        :: Ord a => Op ((a,a) -> a) 
 
-                
-  
-  
+
 ------------------------------------------------------------------------------
 -- helpers 
 
@@ -282,6 +281,8 @@ instance Bits (Exp Word32) where
   
 ------------------------------------------------------------------------------  
   
+(==*) (Literal a) (Literal b) = Literal (a == b) 
+(==*) a b = Op Eq $ tup2 (a,b)
 (<*)  (Literal a) (Literal b) = Literal (a < b) 
 (<*)  a b = Op Lt  $ tup2 (a,b)
 (<=*) (Literal a) (Literal b) = Literal (a <= b) 
@@ -298,6 +299,8 @@ instance Elem a => Choice (Exp a) where
   ifThenElse (Literal True)  e1 e2 = e1
   ifThenElse b e1 e2 = Op If $ tup3 (b,e1,e2)
 
+------------------------------------------------------------------------------ 
+-- Built-ins
 
 
 ------------------------------------------------------------------------------
@@ -323,6 +326,7 @@ printOp Mul = " * "
 
 printOp If  = " if "
 
+printOp Eq  = " == "
 printOp Lt  = " < " 
 printOp LEq = " <= " 
 printOp Gt  = " > "
@@ -331,8 +335,7 @@ printOp GEq = " >= "
 printOp BitwiseAnd = " & "
 printOp BitwiseOr  = " | " 
 printOp BitwiseXor = " ^ " 
-printOp BitwiseNeg = " ~ " 
- 
+printOp BitwiseNeg = " ~ "  
 
 printTup t = "(" ++ (concat . intersperse "," . printTup') t ++ ")" 
 

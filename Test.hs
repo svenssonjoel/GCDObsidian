@@ -167,3 +167,20 @@ run9CL =
   
 run9C =    
   putStrLn$ C.genKernel "storeCat" testStoreCatZ (namedArray "apa" 32,namedArray "apa" 32)
+
+
+testEquality :: (Array IntE, Array IntE) -> Kernel (Array IntE) 
+testEquality (a,b) = return$ zipWith fun a b 
+  where 
+    fun :: Exp Int -> Exp Int -> Exp Int
+    fun x y = ifThenElse (x ==* y) 1 0 
+
+run10 = 
+  putStrLn$ CUDA.genKernel "equality" testEquality (namedArray "apa" 32,namedArray "apa" 32)
+   
+run10CL =    
+  putStrLn$ OpenCL.genKernel "equality" testEquality (namedArray "apa" 32,namedArray "apa" 32)
+  
+run10C =    
+  putStrLn$ C.genKernel "equality" testEquality (namedArray "apa" 32,namedArray "apa" 32)
+

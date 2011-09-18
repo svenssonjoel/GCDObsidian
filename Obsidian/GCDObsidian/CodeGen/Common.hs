@@ -90,6 +90,7 @@ genOp If      [b,e1,e2] = b ++ " ? " ++ e1 ++ " : " ++ e2
 genOp Sin     [a]   = func "sin" a 
 
 -- Bool ops
+genOp Eq      [a,b] = oper "==" a b 
 genOp Lt      [a,b] = oper "<" a b 
 genOp LEq     [a,b] = oper "<=" a b 
 genOp Gt      [a,b] = oper ">" a b
