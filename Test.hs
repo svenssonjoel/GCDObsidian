@@ -92,6 +92,17 @@ sklansky n = pure (twoK (n-1) fan) ->- store ->- sklansky (n-1)
             a2' = (Array (\ix -> (a2 ! ix) + e) (len a2))
                     
             
+sklansky' :: Int -> Array (Data Int) -> Kernel (Array (Data Int))
+sklansky' n = inplaceRepeat n (\i -> twoK (i-1) fan) 
+  where fan arr = conc (a1,a2')
+          where 
+            (a1,a2) = splitAt middle arr  
+            middle = len arr `div` 2 
+            n = len a1          
+            e = a1 ! (fromIntegral (n-1)) 
+            a2' = (Array (\ix -> (a2 ! ix) + e) (len a2))
+                    
+
 run5 = 
   putStrLn$ CUDA.genKernel "sklansky" (sklansky 5) (namedArray "apa" 32)
    
@@ -102,6 +113,18 @@ run5CL =
 run5C = 
   putStrLn$ C.genKernel "sklansky" (sklansky 5)(namedArray "apa" 32)
     
+
+run5' = 
+  putStrLn$ CUDA.genKernel "sklansky" (sklansky' 5) (namedArray "apa" 32)
+   
+run5CL' =    
+  putStrLn$ OpenCL.genKernel "sklansky" (sklansky' 5)(namedArray "apa" 32)
+  
+  
+run5C' = 
+  putStrLn$ C.genKernel "sklansky" (sklansky' 5)(namedArray "apa" 32)
+    
+
 
 ------------------------------------------------------------------------------
 --

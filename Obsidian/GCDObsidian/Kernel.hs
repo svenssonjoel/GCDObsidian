@@ -40,10 +40,10 @@ data  Write a extra where
             => (Exp Word32 -> Exp Word32)  -- target location transformation
             -> LLArray a -- array to store
             -> extra 
-            -> Write a extra 
+            -> Write a extra                 
   Permute :: Scalar a 
             => (Exp Word32 -> Exp Word32)    -- target storage
-            -> LLArray a -- Data 
+            -> LLArray a   -- Data 
             -> LLArray Int -- Permutation
             -> extra 
             -> Write a extra 
@@ -69,8 +69,6 @@ write nom ll@(LLArray ixf n m d) e
 data Store a extra = Store {storeName    :: Name,
                             storeSize    :: Word32,
                             storeWrites  :: [Write a extra]}  
-
-
 
 data StoreList extra = StoreListNil 
                | forall a. Scalar a => StoreListCons (Store a extra) (StoreList extra) 
@@ -108,8 +106,7 @@ getWrites :: Store a extra -> [Write a extra]
 getWrites = storeWrites    
 
 ------------------------------------------------------------------------------
--- The GPU program is just a list of stores...  (for now) 
--- Just a list 
+-- The GPU program is just a list of "SyncUnits"...  (for now)  
 data Code extra where 
   Skip :: Code extra 
   Seq  :: SyncUnit extra -> Code extra -> Code extra 

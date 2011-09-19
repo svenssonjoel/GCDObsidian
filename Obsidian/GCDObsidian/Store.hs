@@ -7,7 +7,8 @@ module Obsidian.GCDObsidian.Store
         storeP,
         storeIlv,
         storeIlvF,
-        storeCatZ
+        storeCatZ,
+        inplaceRepeat
         )  where 
 
 import Obsidian.GCDObsidian.Exp 
@@ -24,7 +25,7 @@ import Data.Word
 
 
 ------------------------------------------------------------------------------
--- TODO: Start looking at what porblems the "dynamic" arrays might cause
+-- TODO: Start looking at what problems the "dynamic" arrays might cause
 
 
 ------------------------------------------------------------------------------
@@ -210,3 +211,31 @@ writeCatZ ll1@(LLArray ixf n m d)
 twoK' :: Int -> (Array a -> Array b) -> Array a -> Kernel (Array b) 
 twoK' = undefined 
 
+
+
+------------------------------------------------------------------------------
+-- For 
+
+inplaceRepeat :: Scalar a => Int -> (Int -> Array (Exp a) -> Array (Exp a)) -> Array (Exp a) -> Kernel (Array (Exp a))  
+inplaceRepeat n f a = 
+  do
+    name <- newArray 100
+    inplaceRepeat' name n f a 
+                      
+                      
+inplaceRepeat' name 0 f a = return a
+inplaceRepeat' name n f a = 
+  do 
+    let ll = toLL$ f n a
+    (w,r) <- singleStoreNamed name ll 
+    tell$ code$ SyncUnit (staticLength ll) (StoreListCons w StoreListNil)
+   
+    inplaceRepeat' name (n-1) f (fromLL r)          
+    
+singleStoreNamed name  ll@(LLArray ixf n m d) = 
+  do
+    let elmsize = fromIntegral$ sizeOf (ixf (variable "X"))
+    let newArray = LLArray (\ix -> Index (name,[ix])) n m d 
+    let ws = mkWrite id ll ()
+    
+    return (mkStore name (m*elmsize) [ws],newArray) 
