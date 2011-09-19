@@ -9,8 +9,6 @@ module Obsidian.GCDObsidian.Store
         storeIlvF,
         storeCatZ,
         inplaceRepeat,
-        zipper, 
-        zipper2
         )  where 
 
 import Obsidian.GCDObsidian.Exp 
@@ -243,32 +241,13 @@ singleStoreNamed name  ll@(LLArray ixf n m d) =
     return (mkStore name (m*elmsize) [ws],newArray) 
 
 
-------------------------------------------------------------------------------
--- Special zipper
 
-zipper :: Array (Exp Word32)     -- from location
-          -> Array (Exp Word32)  -- from location
-          -> Array (Exp Word32)  -- to location
-          -> (Exp a -> Exp b -> Exp c) -- zip function
-          -> Array (Exp a) -- source1
-          -> Array (Exp b) -- source2 
-          -> Kernel (Array (Exp c)) 
-          
-zipper from1 from2 to f a b = new
-  where 
-    new = undefined
-    
-    
-    
-    
-zipper2 :: Array (Exp Word32, Exp Word32)   
-           -> Array (Exp Word32, Exp Word32)
-           -> Array (Exp Word32,Exp Word32) 
-           -> (Exp a -> Exp b -> Exp c) 
-           -> (Exp a -> Exp b -> Exp c) 
-           -> Array (Exp a) 
-           -> Array (Exp b) 
-           -> Kernel (Array (Exp c)) 
-zipper2 from1 from2 to f g a b = new        
-  where 
-    new = undefined 
+------------------------------------------------------------------------------
+-- 
+
+predicated :: (Exp Word32 -> Exp Bool) 
+              -> (Array (Exp a) -> Array (Exp b)) -- True
+              -> (Array (Exp a) -> Array (Exp b)) -- False
+              -> Array (Exp a) -> Array (Exp b)
+predicated = undefined 
+

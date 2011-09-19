@@ -40,15 +40,15 @@ iv_pattern i j n = ([ix
                     
 iv_pattern' :: Int -> Int -> Int -> ([(Int,Int)],[(Int,Int)])
 iv_pattern' i j n = ([(ix,prim ix) 
-                    | ix <- [0..n]
+                    | ix <- [0..n-1]
                     , ix .&. (2^(i+j)) == 0], 
                     [(ix,prim ix) 
-                    | ix <- [0..n]
+                    | ix <- [0..n-1]
                     , ix .&. (2^(i+j)) /= 0])
   where 
     j' = ((2^(j+1))-1) `shiftL` i
     prim ix = ix `xor` j'
-    
+
 isOkPermutation :: Int -> Int -> Int -> Bool   
 isOkPermutation i j n = isTotal$ iv_pattern i j n 
 
