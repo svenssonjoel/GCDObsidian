@@ -36,17 +36,12 @@ runm =
 
 
 -- don't know if a final store (or syncThreads) is needed?
+-- (JS) No, this should be ok. 
 composeS [f] = f
 composeS (f:fs) = f ->- store ->- composeS fs
 
 compose [f] = f
 compose (f:fs) = f ->- compose fs
-
-composeG [f] s = f 
-composeG (f:fs) s = f ->- s ->- compose fs
-
-
-
 
 -- similar to twoK
 -- I have trouble deciding if I want the parameter to indicate the size
@@ -130,25 +125,6 @@ xblock arr = conc (a1',a2')
     a1' = zipWith min a1 a2
     a2' = zipWith max a1 a2
 
-------------------------------------------------------------------------------
--- Added by js 
-xblock' :: Array (Data Int) -> Array (Data (Int,Int))
-xblock' arr = zipp (a1',a2')
-  where
-    (a1,a2) = splitAt middle arr
-    middle = len arr `div` 2 
-    a1' = zipWith min a1 a2
-    a2' = zipWith max a1 a2
-
-
-bmerge3' :: Int -> Array (Data Int) -> Kernel (Array (Data Int))
-bmerge3' n = compose [pure (twoK i xblock') ->- storeCatZ | i <- [0..(n-1)]]
-
-run9' =
-  putStrLn$ CUDA.genKernel "mm" (bmerge3' 5) (namedArray "apa" 32)
-
-
-------------------------------------------------------------------------------
 
 
 cswapA :: Array (Data Int) -> Array (Data Int)
