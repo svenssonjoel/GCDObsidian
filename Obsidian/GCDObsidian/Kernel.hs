@@ -359,9 +359,14 @@ newArrayP  = do
 
 
 ------------------------------------------------------------------------------
+threadsNeededP :: PCode e -> Word32
+threadsNeededP PSkip = 0
+threadsNeededP (PSeq (PSyncUnit nt _ _) c) = 
+  max nt (threadsNeededP c)
+
 threadsNeededPSU :: Program -> Word32 
 threadsNeededPSU (Assign name n a) = 1
-threadsNeededPSU (ForAll f n) = n  -- If (f x) is also a ForAll, that one is sequential!
+threadsNeededPSU (ForAll f n) = n  
 threadsNeededPSU (psu1 `ProgramSeq` psu2) = max (threadsNeededPSU psu1) 
                                           (threadsNeededPSU psu2)
 

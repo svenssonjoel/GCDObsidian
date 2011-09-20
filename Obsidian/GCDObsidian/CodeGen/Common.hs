@@ -235,3 +235,9 @@ syncPointsWrite :: Write a extra -> Write a Syncthreads
 syncPointsWrite (Write targ arr _) = 
   Write targ arr syncthreads
   
+  
+syncPointsP :: PCode a -> PCode Syncthreads
+syncPointsP PSkip = PSkip
+syncPointsP ((PSyncUnit nt ps e) `PSeq` code) = 
+   PSyncUnit nt ps syncthreads  `PSeq` (syncPointsP code)
+  

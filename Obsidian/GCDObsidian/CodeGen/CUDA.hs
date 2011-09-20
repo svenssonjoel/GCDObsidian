@@ -1,9 +1,10 @@
-{-# LANGUAGE GADTs, RankNTypes, TypeOperators, TypeFamilies #-} 
+{-# LANGUAGE GADTs, RankNTypes, TypeOperators, TypeFamilies, ScopedTypeVariables #-} 
 
-module Obsidian.GCDObsidian.CodeGen.CUDA (genKernel, getCUDA ) where 
+module Obsidian.GCDObsidian.CodeGen.CUDA (genPKernel, genKernel, getCUDA ) where 
 
 import Data.List
 import Data.Word 
+import Data.Monoid
 import qualified Data.Map as Map
 
 import Obsidian.GCDObsidian.Kernel 
@@ -155,5 +156,85 @@ genKernel name kernel a = cuda
     
     cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
     
+------------------------------------------------------------------------------    
+-- CUDA Code from PKernel
     
+    
+genPKernel :: (InOut a, InOut b) => String -> (a -> PKernel b) -> a -> String 
+genPKernel name kernel a = cuda 
+  where 
+    (input,ins)  = runInOut (createInputs a) (0,[])
+  
+    ((res,_),c)  = runPKernel (kernel input)
+    lc = livenessP c
+   
+    threadBudget = 
+      case c of 
+        PSkip -> gcdThreads res
+        a  -> threadsNeededP c 
+        
+    (m,mm) = mapMemoryP lc sharedMem  (Map.empty)
+    (outCode,outs)   = 
+      runInOut (writeOutputsP threadBudget res nosync) (0,[])
 
+    c' = sc `mappend` (outCode `PSeq` PSkip) 
+    sc = syncPointsP c 
+    
+    cuda = getCUDAP (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
+
+
+getCUDAP :: Config -> PCode a -> Name -> [(String,Type)] -> [(String,Type)] -> String 
+getCUDAP conf c name ins outs = 
+  runPP (kernelHead name ins outs >>  
+         begin >>
+         tidLine >> newline >>
+         bidLine >> newline >>
+         sBase >> newline >> 
+         genCUDABodyP conf c >>
+         end ) 0 
+
+
+genCUDABodyP :: Config -> PCode a -> PP () 
+genCUDABodyP _ PSkip  = return () 
+genCUDABodyP conf (su `PSeq` code) = 
+  do 
+    genPSyncUnit conf su
+    genCUDABodyP conf code  
+
+genPSyncUnit conf (PSyncUnit nt progs e) = 
+  do 
+    case compare nt blockSize of 
+      LT -> do
+            cond gc mm (tid <* (fromIntegral nt))
+            begin
+            mapM_ (genProg mm nt) progs
+            end
+      EQ -> mapM_ (genProg mm nt) progs
+      GT -> error "genStore: CUDA code generation is broken somewhere" 
+
+    where 
+      mm = configMM conf
+      blockSize = configThreads conf
+
+
+genProg :: MemMap -> Word32 ->  Program -> PP () 
+genProg mm nt (Assign name ix a) = 
+  case Map.lookup name mm of 
+    Just (addr,t) -> 
+      do
+        line$  sbaseStr addr t ++ "[" ++ concat (genExp gc mm ix) ++ "] = " ++ 
+          concat (genExp gc mm a) ++ ";" 
+        newline
+    Nothing ->  --- A result array
+      do
+        line$  name ++ "[" ++ concat (genExp gc mm ix) ++ "] = " ++ 
+          concat (genExp gc mm a) ++ ";\n"
+        newline
+genProg mm nt (ForAll f n) = genProg mm nt (f (variable "tid"))
+genProg mm nt (Allocate name size t prg) = genProg mm nt prg
+genProg mm nt (ProgramSeq p1 p2) = 
+  do 
+    genProg mm nt p1
+    genProg mm nt p2
+    
+sbaseStr addr t = genCast gc t ++ "(sbase + " ++ show addr ++ ")" 

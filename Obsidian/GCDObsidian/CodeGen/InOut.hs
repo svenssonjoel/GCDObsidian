@@ -33,6 +33,10 @@ class InOut a where
                   a -> 
                   e -> 
                   State (Int,[(String,Type,Word32)]) (SyncUnit e) 
+  writeOutputsP :: NumThreads -> 
+                   a -> 
+                   e -> 
+                   State (Int,[(String,Type,Word32)]) (PSyncUnit e)
   
   -- is this a hack ?
   gcdThreads :: a -> Word32
@@ -67,7 +71,15 @@ instance (OArray Array a, Scalar a) => InOut (Array (Exp a)) where
     return$ SyncUnit maxGCD (StoreListCons (Store name arrLen [Write targ llArr e])
                              StoreListNil)
     
+  writeOutputsP threadBudget arr e = do   
     
+    name <- newInOut "result" (cTypeOfArray arr) (len arr)
+    
+    let maxGCD = maximum [gcd (len arr) i| i <- [1..threadBudget]]
+        parr = toArrayP arr
+    return$ PSyncUnit maxGCD [pushApp parr (targetArray  name)] e
+    
+                     
   gcdThreads arr = len arr
     
 instance (InOut a, InOut b) => InOut (a, b) where 
@@ -82,6 +94,12 @@ instance (InOut a, InOut b) => InOut (a, b) where
     s1 <- writeOutputs threadBudget a1 e
     
     return$ syncUnitFuseGCD s0 s1
+  writeOutputsP threadBudget (a0,a1) e = do   
+    (PSyncUnit nt1 prgs1 e1) <- writeOutputsP threadBudget a0 e
+    (PSyncUnit nt2 prgs2 e2) <- writeOutputsP threadBudget a1 e
+    
+    return$ PSyncUnit (gcd nt1 nt2)  
+                      (prgs1 ++ prgs2) e1 -- syncUnitFuseGCD s0 s1
    
   gcdThreads (a0,a1) = gcd (gcdThreads a0) (gcdThreads a1)
   
