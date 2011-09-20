@@ -16,7 +16,17 @@ module Obsidian.GCDObsidian.Array ((!)
                                   , staticLength 
                                   , dynamicLength 
                                   , llIndex  
-                                  , len )where 
+                                  , len 
+                                    -- EXTREMELY EXPERIMENTAL                  
+                                  , Program(..)  
+                                  , pushApp
+                                  , targetArray
+                                  , toArrayP
+                                  , concP
+                                  , revP
+                                  , ArrayP(..)
+                                    -------------------------                        
+                                  )where 
 
 
 import Obsidian.GCDObsidian.Elem
@@ -38,6 +48,8 @@ data Array a = Array (Exp Word32 -> a) Word32
 -- PUSHY ARRAYS 
 data ArrayP a = ArrayP ((Exp Word32 -> (a -> Program)) -> Program) Word32
 
+pushApp (ArrayP func n) a = func a 
+
 ------------------------------------------------------------------------------
 
 revP :: ArrayP a -> ArrayP a 
@@ -56,11 +68,40 @@ concP (ArrayP f n1) (ArrayP g n2) =
 
 ------------------------------------------------------------------------------ 
 -- Scalars for now. Learn how to loosen that demand
-data Program where 
-  Assign :: forall a. Scalar a => Name -> Data Word32 -> a -> Program 
-  ProgramSeq :: Program  -> Program  -> Program 
-
+data Program 
+  = forall a. Scalar a => Assign Name (Data Word32) (Data a)
+  | ForAll (Data Word32 -> Program) Word32
+  | Allocate Name Word32 Type Program 
+  | ProgramSeq Program Program  
   
+    
+printProgram :: Program -> String 
+printProgram (Assign n t e) = n ++ "[" ++ show t ++ "]" ++ " = " ++ show e ++ ";\n"  
+printProgram (ForAll f n)   = "forall i 0.." ++ show n ++ " {\n" ++ printProgram (f (variable "tid")) ++ "\n}" 
+printProgram (Allocate name n t p) = "name = malloc(" ++ show n ++ ")\n" ++ printProgram p
+printProgram (ProgramSeq p1 p2) = printProgram p1 ++ printProgram p2
+    
+instance Show Program where 
+  show = printProgram 
+         
+class Pushable a e where 
+  toArrayP :: a e -> ArrayP e 
+
+
+instance Pushable ArrayP e where 
+  toArrayP = id 
+  
+instance Pushable Array e where   
+  toArrayP (Array ixf n) = ArrayP (\func -> ForAll (\i -> func i (ixf i)) n) n 
+
+
+targetArray :: Scalar a => Name -> Exp Word32 -> (Exp a -> Program)
+targetArray n i = \a -> Assign n i a 
+
+
+------------------------------------------------------------------------------
+--
+
 
 namedArray name n = Array (\ix -> index name ix) n 
 indexArray n      = Array (\ix -> ix) n 
@@ -68,7 +109,7 @@ indexArray n      = Array (\ix -> ix) n
 
 data DArray a = DArray (Exp Word32 -> a) (Exp Word32) Word32
 
-data LLArray a = LLArray (Exp Word32 ->Exp a) (Exp Word32) Word32 Dynamic 
+data LLArray a = LLArray (Exp Word32 -> Exp a) (Exp Word32) Word32 Dynamic 
 
 
 class OArray a e  where 
@@ -117,6 +158,9 @@ instance Show  a => Show (Array a) where
                               (concat . intersperse ",") 
                               [show (arr ! (fromIntegral i)) | i <- [0..len arr-1]] ++ 
                               "]"
-           | otherwise     =  undefined
+           | otherwise     =  "[" ++ 
+                              (concat . intersperse ",") 
+                              [show (arr ! (fromIntegral i)) | i <- [0..3]] ++ 
+                              "...]"
 
          

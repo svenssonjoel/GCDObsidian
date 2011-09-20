@@ -156,8 +156,8 @@ runKernel k = runWriter (runStateT k 0 )
 
 tid :: Exp Word32
 tid = variable "tid"
-    
-                             
+      
+      
 ------------------------------------------------------------------------------
 -- Code analysis .... 
 
@@ -193,19 +193,6 @@ livenessStore aliveNext (Store name size ws) =
 addLiveness :: Liveness -> Write a extra -> Write a Liveness
 addLiveness live (Write targf ll _) = Write targf ll live 
 
-{- 
-livenessWrite :: Liveness -> Write a -> Write Liveness 
-livenessWrite aliveNext (Write n ff e) 
-  = Write n ff livingArrs 
-    where 
-      exp = ff ! tid 
-      arrays = collectArrays exp 
-      tmp    = Set.fromList arrays `Set.union` aliveNext
-      livingArrs = rootName (n (variable "X")) `Set.delete` tmp
-
-rootName (Index (name,_)) = name
-rootName _ = error "livenessWrite: malformed assignment location"
--} 
 
 whatsAliveNext :: Code Liveness -> Liveness
 whatsAliveNext Skip = Set.empty
@@ -302,20 +289,6 @@ mapMemory (su `Seq` code) m mm = mapMemory code m' mm'
       case diffAddr of 
         (Just addys) -> freeAll m'' (map fst addys)
         Nothing      -> error "atleast one array does not exist in memorymap" 
-{-
-mapMemory :: Code Liveness -> Memory -> ArraySizes -> MemMap -> (Memory,MemMap)
-mapMemory Skip m as mm = (m,mm) 
-mapMemory (store `Seq` code) m as mm = mapMemory code m'' as mm' 
-  where 
-    (m',mm')  = mapMemoryStore store m as mm 
-    aliveNext = whatsAliveNext code 
-    aliveNow  = getExtraStore store Set.union
-    diff      = aliveNow Set.\\ aliveNext
-    diffAddr  = mapM (\x -> Map.lookup x mm') (filter (not . (isPrefixOf "input")) (Set.toList diff))
-    m''       = case diffAddr of 
-                   (Just addys) -> freeAll m' (map fst addys)
-                   Nothing      -> error "atleast one array does not exist in memorymap" 
--}  
      
 mapMemoryStoreList StoreListNil m mm = (m,mm)
 mapMemoryStoreList (StoreListCons s rest) m mm = mapMemoryStoreList rest m' mm' 
@@ -332,22 +305,6 @@ mapMemoryStore (Store name size ws) m  mm = (m',mm')  --allocateWrites ws m as m
       case Map.lookup name mm of 
         Nothing      -> (m'',Map.insert name (addr,t) mm)
         (Just (a,t)) -> (m,mm) -- what does this case really mean ? -
-{-
-allocateWrites :: [Write extra] -> Memory -> ArraySizes -> MemMap -> (Memory,MemMap)
-allocateWrites [] m as mm = (m,mm) 
-allocateWrites ((Write n ll _):ws) m as mm = allocateWrites ws m' as mm'
-  where 
-    -- TODO: This is still wrong. (the array sizes will be wrong) 
-    ((m',addr),mm') = case Map.lookup name mm of 
-       Nothing -> 
-         case Map.lookup name as of 
-           Nothing -> error "bad implementation" 
-           (Just b) -> (allocate m (fromIntegral b),Map.insert (rootName (n (variable "X"))) (addr,t) mm)
-       (Just (a,t)) -> ((m,a),mm)
-    name = rootName (n (variable "X"))
-    t = Pointer (typeOf (ll ! tid)) -- in the write "object" 
--}
-    
 
 
 ------------------------------------------------------------------------------
@@ -356,3 +313,221 @@ threadsNeeded :: Code a -> Word32
 threadsNeeded Skip = 0
 threadsNeeded ((SyncUnit nt _)  `Seq` c2) = nt `max` threadsNeeded c2 
 
+
+
+
+
+
+
+------------------------------------------------------------------------------
+-- Pushy Kernels
+
+
+data PSyncUnit extra = PSyncUnit {pSyncThreads :: Word32, 
+                                  pSyncPrograms :: [Program],
+                                  pSyncExtra    :: extra }
+                 deriving Show
+                          
+pSyncUnit :: Word32 -> [Program] -> PSyncUnit ()                          
+pSyncUnit w ps = PSyncUnit w ps ()
+
+
+data PCode extra = PSkip -- nothing to do 
+                 | (PSyncUnit extra) `PSeq` (PCode extra) 
+                 deriving Show                    
+                   
+instance Monoid (PCode extra) where                    
+  mempty = PSkip
+  mappend PSkip a = a 
+  mappend a PSkip = a 
+  mappend (ps `PSeq` c) c2 = ps `PSeq` (mappend c c2)
+                   
+type PKernel a = StateT Integer (Writer (PCode ())) a   
+
+runPKernel k = runWriter (runStateT k 0)
+
+newArrayP :: PKernel Name 
+newArrayP  = do
+  i <- get
+  let newName = "arr" ++ show i 
+  put (i+1)
+  return newName
+
+
+(->>-) :: (a -> PKernel b) -> (b -> PKernel c) -> (a -> PKernel c) 
+(->>-) = (>=>) 
+
+
+------------------------------------------------------------------------------
+threadsNeededPSU :: Program -> Word32 
+threadsNeededPSU (Assign name n a) = 1
+threadsNeededPSU (ForAll f n) = n  -- If (f x) is also a ForAll, that one is sequential!
+threadsNeededPSU (psu1 `ProgramSeq` psu2) = max (threadsNeededPSU psu1) 
+                                          (threadsNeededPSU psu2)
+
+
+
+------------------------------------------------------------------------------
+-- Syncs in the new setting 
+
+-- Work on the Scalar a thing!!!
+pSyncArray  :: Scalar a => Array (Exp a) -> PKernel (Array (Exp a))
+pSyncArray arr = 
+  do 
+    name <- newArrayP 
+    
+    tell$ PSeq (pSyncUnit (len arr) 
+                [Allocate name (es * (len arr)) t 
+                  (pushApp parr (targetArray name))]) PSkip
+            
+    return (Array (index name) (len arr))
+      
+  where 
+    es = fromIntegral$ sizeOf (arr ! 0) 
+    t  = Pointer$ Local$ typeOf (arr ! 0)
+
+    parr = toArrayP arr 
+        
+
+-- THE GCD THING
+pSyncArrays :: (Scalar a, Scalar b) => (Array (Exp a),Array (Exp b)) -> PKernel (Array (Exp a), Array (Exp b))
+pSyncArrays (a1,a2) = 
+  do 
+    name1 <- newArrayP 
+    name2 <- newArrayP 
+    
+    tell$ PSeq (pSyncUnit n [Allocate name1 (es1 * (len a1)) t1
+                             (pushApp pa1 (targetArray name1))
+                            ,Allocate name2 (es2 * (len a2)) t2
+                             (pushApp pa2 (targetArray name2))]) PSkip
+            
+    return (Array (index name1) (len a1)
+           ,Array (index name2) (len a2))
+      
+  where  
+    es1 = fromIntegral$ sizeOf (a1 ! 0) 
+    es2 = fromIntegral$ sizeOf (a2 ! 0) 
+    t1  = Pointer$ Local$ typeOf (a1 ! 0)
+    t2  = Pointer$ Local$ typeOf (a2 ! 0)
+    n   = gcd (len a1) (len a2) 
+    pa1 = toArrayP a1 
+    pa2 = toArrayP a2    
+
+    
+pSyncArrayP :: Scalar a => ArrayP (Exp a) -> PKernel (Array (Exp a)) 
+pSyncArrayP arr@(ArrayP func n)  = 
+  do 
+    name <- newArrayP 
+    
+    let result = Array (index name) n         
+        es = fromIntegral$ sizeOf (result ! 0) 
+        t  = Pointer$ Local$ typeOf (result ! 0)
+
+
+    tell$ PSeq (pSyncUnit n 
+                [Allocate name (es * n) t 
+                 (pushApp arr (targetArray name))]) PSkip
+    return result
+
+------------------------------------------------------------------------------
+-- LIVENESS on PCODE 
+
+
+livenessP :: PCode a -> PCode Liveness 
+livenessP (s `PSeq` c) = lives `PSeq` livec 
+    where 
+      lives = livenessPSyncUnit aliveNext s  
+      livec = livenessP c
+      aliveNext = whatsAliveNextP livec
+
+livenessP PSkip = PSkip 
+
+livenessPSyncUnit aliveNext (PSyncUnit nt prgs _) = 
+  PSyncUnit nt prgs alive
+  where alive = foldr Set.union Set.empty (livenessPrograms aliveNext prgs)
+  
+livenessPrograms aliveNext = map (livenessProgram aliveNext) 
+
+livenessProgram aliveNext (Assign name ix e)  = livingArrs
+  where 
+    arrays = collectArrays e
+    tmp    = Set.fromList arrays `Set.union` aliveNext
+    livingArrs = name `Set.delete` tmp
+livenessProgram aliveNext (ForAll f n) = livenessProgram aliveNext (f (variable "X"))    
+livenessProgram aliveNext (Allocate name size t prg) = livenessProgram aliveNext prg
+livenessProgram aliveNext (prg1 `ProgramSeq` prg2) = 
+  livenessProgram aliveNext prg1 `Set.union` livenessProgram aliveNext prg2
+
+
+
+whatsAliveNextP :: PCode Liveness -> Liveness
+whatsAliveNextP PSkip = Set.empty
+whatsAliveNextP (s `PSeq` _) = pSyncExtra s
+
+------------------------------------------------------------------------------ 
+
+
+
+
+------------------------------------------------------------------------------
+-- Create a memory map on PCODE 
+
+
+mapMemoryP :: PCode Liveness -> Memory -> MemMap -> (Memory,MemMap) 
+mapMemoryP PSkip m mm = (m,mm) 
+mapMemoryP (su `PSeq` code) m mm = mapMemoryP code m' mm' 
+  where 
+    (m'',mm') = mapMemoryPSyncUnit su m mm 
+    aliveNext = whatsAliveNextP code
+    aliveNow  = pSyncExtra su 
+    diff      = aliveNow Set.\\ aliveNext
+    diffAddr  = mapM (\x -> Map.lookup x mm') (filter (not . (isPrefixOf "input")) (Set.toList diff))
+    m'        = 
+      case diffAddr of 
+        (Just addys) -> freeAll m'' (map fst addys)
+        Nothing      -> error "atleast one array does not exist in memorymap" 
+     
+    
+    
+mapMemoryPSyncUnit (PSyncUnit nt ps e) m mm  = mapMemoryPrograms ps m mm 
+
+mapMemoryPrograms [] m mm = (m,mm) 
+mapMemoryPrograms (p:ps) m mm = mapMemoryPrograms ps m' mm'
+  where 
+    (m',mm') = mapMemoryProgram p m mm
+    
+mapMemoryProgram (Assign name i a) m mm = (m,mm) 
+mapMemoryProgram (ForAll f n) m mm = mapMemoryProgram (f (variable "X")) m mm       
+mapMemoryProgram (Allocate name size t program) m mm = mapMemoryProgram program m' mm'
+  where 
+    (m'',addr) = allocate m size
+    -- TODO: maybe create Global arrays if Local memory is full.
+    -- t = Pointer$ Local$ typeOf$ getLLArray (head ws) `llIndex`  tid
+    (m',mm') = 
+      case Map.lookup name mm of 
+        Nothing      -> (m'',Map.insert name (addr,t) mm)
+        (Just (a,t)) -> (m,mm) -- what does this case really mean ? -
+mapMemoryProgram (prg1 `ProgramSeq` prg2) m mm = mapMemoryProgram prg2 m' mm'
+  where 
+    (m',mm') = mapMemoryProgram prg1 m mm 
+
+
+{-       
+mapMemoryStoreList StoreListNil m mm = (m,mm)
+mapMemoryStoreList (StoreListCons s rest) m mm = mapMemoryStoreList rest m' mm' 
+  where
+    (m',mm') = mapMemoryStore s m mm 
+
+mapMemoryStore :: Scalar a => Store a Liveness -> Memory -> MemMap -> (Memory,MemMap)
+mapMemoryStore (Store name size ws) m  mm = (m',mm')  --allocateWrites ws m as mm 
+  where 
+    (m'',addr) = allocate m size
+    -- TODO: maybe create Global arrays if Local memory is full.
+    t = Pointer$ Local$ typeOf$ getLLArray (head ws) `llIndex`  tid
+    (m',mm') = 
+      case Map.lookup name mm of 
+        Nothing      -> (m'',Map.insert name (addr,t) mm)
+        (Just (a,t)) -> (m,mm) -- what does this case really mean ? -
+
+
+-}
