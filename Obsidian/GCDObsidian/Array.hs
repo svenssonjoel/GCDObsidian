@@ -1,7 +1,9 @@
 {-# LANGUAGE MultiParamTypeClasses, 
              FlexibleInstances, 
              FlexibleContexts, 
-             UndecidableInstances #-} 
+             UndecidableInstances, 
+             RankNTypes, 
+             GADTs #-} 
 
 module Obsidian.GCDObsidian.Array ((!)
                                   , namedArray
@@ -32,12 +34,41 @@ type Dynamic = Bool
 
 data Array a = Array (Exp Word32 -> a) Word32 
 
+
+-- PUSHY ARRAYS 
+data ArrayP a = ArrayP ((Exp Word32 -> (a -> Program)) -> Program) Word32
+
+------------------------------------------------------------------------------
+
+revP :: ArrayP a -> ArrayP a 
+revP (ArrayP h n) = ArrayP (revHelp (\ix -> (fromIntegral (n-1)) - ix) h) n 
+  where 
+    revHelp f p = \func -> p (\i -> func (f i))
+    
+    
+concP :: ArrayP a -> ArrayP a -> ArrayP a     
+concP (ArrayP f n1) (ArrayP g n2) = 
+  ArrayP (\func -> ProgramSeq ( f func )
+                              ( g (\i -> func (fromIntegral n1 + i))))
+                       (n1+n2)
+  
+ 
+
+------------------------------------------------------------------------------ 
+-- Scalars for now. Learn how to loosen that demand
+data Program where 
+  Assign :: forall a. Scalar a => Name -> Data Word32 -> a -> Program 
+  ProgramSeq :: Program  -> Program  -> Program 
+
+  
+
 namedArray name n = Array (\ix -> index name ix) n 
 indexArray n      = Array (\ix -> ix) n 
 
 
 data DArray a = DArray (Exp Word32 -> a) (Exp Word32) Word32
-data LLArray a = LLArray (Exp Word32 -> Exp a) (Exp Word32) Word32 Dynamic 
+
+data LLArray a = LLArray (Exp Word32 ->Exp a) (Exp Word32) Word32 Dynamic 
 
 
 class OArray a e  where 
