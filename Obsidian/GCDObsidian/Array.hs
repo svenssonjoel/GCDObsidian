@@ -81,7 +81,7 @@ class Pushable a e where
 
 instance Pushable ArrayP e where 
   toArrayP = id 
-  toArrayP' = undefined
+  toArrayP' = error "toArrayP' on an ArrayP is hard to implement so let us say it is forbidden" 
   
 instance Pushable Array e where   
   toArrayP (Array ixf n) = ArrayP (\func -> ForAll (\i -> func i (ixf i)) n) n 

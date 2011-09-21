@@ -61,7 +61,7 @@ instance Scalar a => InOut (Array (Exp a)) where
     name <- newInOut "result" (cTypeOfArray arr) (len arr)
     
     let maxGCD = maximum [gcd (len arr) i| i <- [1..threadBudget]]
-        parr = toArrayP arr
+        parr = toArrayP' ((len arr) `div` maxGCD)  arr
     return$ SyncUnit maxGCD [pushApp parr (targetArray  name)] e
     
                      
