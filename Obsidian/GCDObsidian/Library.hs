@@ -10,7 +10,6 @@ import Data.Bits
 import Prelude hiding (splitAt)
 
 
-
 instance Functor Array where 
   fmap f arr = Array (\ix -> f (arr ! ix)) (len arr) 
 arrayMap f arr = Array (\ix -> f (arr ! ix)) (len arr) 
@@ -44,13 +43,6 @@ conc (a1,a2) = Array (\ix -> ifThenElse (ix <* (fromIntegral n1))
     n1 = len a1
     n2 = len a2 
 
---conc :: Choice a => (Arr a, Arr a) -> Arr a
---conc (arr1,arr2) = 
---    let (n,n') = (len arr1,len arr2)
---    in mkArr (\ix -> ifThenElse (ix <* fromIntegral n) 
---                                (arr1 !  ix)
---                                (arr2 !  (ix - fromIntegral n))) (n+n')
-   
     
 ------------------------------------------------------------------------------
 -- zipp unzipp
@@ -94,3 +86,26 @@ ivt i j f arr = Array g nl
     mask k = k  `shiftL` (ij+1) - k `shiftL` i
     bit = fromIntegral $ 2^ij
     ij = i+j
+
+
+
+
+----------------------------------------------------------------------------
+-- PUSHY LIBRARY 
+----------------------------------------------------------------------------
+
+revP :: ArrayP a -> ArrayP a 
+revP (ArrayP h n) = ArrayP (revHelp (\ix -> (fromIntegral (n-1)) - ix) h) n 
+  where 
+    revHelp f p = \func -> p (\i -> func (f i))
+    
+    
+concP :: ArrayP a -> ArrayP a -> ArrayP a     
+concP (ArrayP f n1) (ArrayP g n2) = 
+  ArrayP (\func -> ProgramSeq ( f func )
+                              ( g (\i -> func (fromIntegral n1 + i))))
+                       (n1+n2)
+
+
+-- TODO: Are there cool versions of twoK and ivt on that produce 
+--       Pushy Arrays

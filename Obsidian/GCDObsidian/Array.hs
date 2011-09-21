@@ -15,8 +15,6 @@ module Obsidian.GCDObsidian.Array ((!)
                                   , targetArray
                                   , toArrayP
                                   , toArrayP'
-                                  , concP
-                                  , revP
                                   , ArrayP(..)
   
                                   )where 
@@ -30,34 +28,20 @@ import Data.Word
 
 ------------------------------------------------------------------------------
 -- Arrays!
-
-
-type Dynamic = Bool 
-
 data Array a = Array (Exp Word32 -> a) Word32 
-
 
 -- PUSHY ARRAYS 
 data ArrayP a = ArrayP ((Exp Word32 -> (a -> Program)) -> Program) Word32
 
 pushApp (ArrayP func n) a = func a 
 
-------------------------------------------------------------------------------
 
-revP :: ArrayP a -> ArrayP a 
-revP (ArrayP h n) = ArrayP (revHelp (\ix -> (fromIntegral (n-1)) - ix) h) n 
-  where 
-    revHelp f p = \func -> p (\i -> func (f i))
-    
-    
-concP :: ArrayP a -> ArrayP a -> ArrayP a     
-concP (ArrayP f n1) (ArrayP g n2) = 
-  ArrayP (\func -> ProgramSeq ( f func )
-                              ( g (\i -> func (fromIntegral n1 + i))))
-                       (n1+n2)
 
------------------------------------------------------------------------------- 
+----------------------------------------------------------------------------
 -- Scalars for now. Learn how to loosen that demand
+-- TODO: really need to loosen it ??? 
+-- TODO: This might be related to the issue of having Tuples 
+--       in the Exp type or not... Look into this! 
 data Program 
   = forall a. Scalar a => Assign Name (Data Word32) (Data a)
   | ForAll (Data Word32 -> Program) Word32
@@ -95,7 +79,7 @@ targetArray :: Scalar a => Name -> Exp Word32 -> (Exp a -> Program)
 targetArray n i = \a -> Assign n i a 
 
 
-------------------------------------------------------------------------------
+----------------------------------------------------------------------------
 --
 
 namedArray name n = Array (\ix -> index name ix) n 
