@@ -1,8 +1,3 @@
-{-# LANGUAGE TypeOperators,
-             GADTs ,              
-             RankNTypes, 
-             FlexibleContexts,
-             FlexibleInstances #-}
 
 module Obsidian.GCDObsidian.Kernel where 
 
@@ -72,20 +67,13 @@ newArray  = do
 
 pure f a = return (f a) 
 
------------------------------------------------------------------------------- Figure out how many threads a piece of Code requires
+----------------------------------------------------------------------------
+-- Figure out how many threads a piece of Code requires
 threadsNeeded :: Code e -> Word32
 threadsNeeded Skip = 0
 threadsNeeded (Seq (SyncUnit nt _ _) c) = 
   max nt (threadsNeeded c)
 
-{-
-threadsNeededPSU :: Program -> Word32 
-threadsNeededPSU (Assign name n a) = 1
-threadsNeededPSU (ForAll f n) = n  
-threadsNeededPSU (psu1 `ProgramSeq` psu2) = max (threadsNeededPSU psu1) 
-                                                (threadsNeededPSU psu2)
-
--}
 ------------------------------------------------------------------------------
 -- Memory layout
 
@@ -157,7 +145,7 @@ merge ((x,b):(y,b2):xs) = if (x+b == y) then merge ((x,b+b2):xs)
 
 
 ------------------------------------------------------------------------------
--- LIVENESS on PCODE 
+-- LIVENESS on CODE 
 
 type Liveness = Set.Set Name
 
@@ -198,9 +186,7 @@ whatsAliveNext (s `Seq` _) = syncExtra s
 
 
 ------------------------------------------------------------------------------
--- Create a memory map on PCODE 
-
-
+-- Create a memory map on CODE 
 mapMemory :: Code Liveness -> Memory -> MemMap -> (Memory,MemMap) 
 mapMemory Skip m mm = (m,mm) 
 mapMemory (su `Seq` code) m mm = mapMemory code m' mm' 

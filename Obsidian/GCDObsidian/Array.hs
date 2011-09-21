@@ -30,7 +30,7 @@ import Data.Word
 -- Arrays!
 data Array a = Array (Exp Word32 -> a) Word32 
 
--- PUSHY ARRAYS 
+-- PUSHY ARRAYS! 
 data ArrayP a = ArrayP ((Exp Word32 -> (a -> Program)) -> Program) Word32
 
 pushApp (ArrayP func n) a = func a 
@@ -61,7 +61,6 @@ instance Show Program where
 class Pushable a e where 
   toArrayP :: a e -> ArrayP e 
   toArrayP' :: Word32 -> a e -> ArrayP e  
-
 
 instance Pushable ArrayP e where 
   toArrayP = id 
