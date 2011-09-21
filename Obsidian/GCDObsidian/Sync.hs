@@ -53,9 +53,14 @@ pSyncArrays (a1,a2) =
     t1  = Pointer$ Local$ typeOf (a1 ! 0)
     t2  = Pointer$ Local$ typeOf (a2 ! 0)
     n   = gcd (len a1) (len a2) 
-    pa1 = toArrayP a1 
-    pa2 = toArrayP a2    
-
+    pa1 = toArrayP' w1 a1 
+    pa2 = toArrayP' w2 a2    
+    (w1,w2) = nWrites n (pa1,pa2)
+    
+nWrites m (p1@(ArrayP _ n1),p2@(ArrayP _ n2)) = (p1Writes, p2Writes)
+  where 
+    p1Writes = n1 `div` m
+    p2Writes = n2 `div` m
     
 pSyncArrayP :: Scalar a => ArrayP (Exp a) -> Kernel (Array (Exp a)) 
 pSyncArrayP arr@(ArrayP func n)  = 

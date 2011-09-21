@@ -3,7 +3,11 @@ module Obsidian.GCDObsidian
         module Obsidian.GCDObsidian.Library,
         module Obsidian.GCDObsidian.Kernel,
         module Obsidian.GCDObsidian.Exp,
-        module Obsidian.GCDObsidian.Elem
+        module Obsidian.GCDObsidian.Elem,
+        
+        module Obsidian.GCDObsidian.Sync,
+        
+
         ) where 
 
 
@@ -12,3 +16,4 @@ import Obsidian.GCDObsidian.Library
 import Obsidian.GCDObsidian.Kernel 
 import Obsidian.GCDObsidian.Exp  
 import Obsidian.GCDObsidian.Elem 
+import Obsidian.GCDObsidian.Sync

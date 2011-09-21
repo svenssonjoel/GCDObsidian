@@ -14,6 +14,7 @@ module Obsidian.GCDObsidian.Array ((!)
                                   , pushApp
                                   , targetArray
                                   , toArrayP
+                                  , toArrayP'
                                   , concP
                                   , revP
                                   , ArrayP(..)
@@ -54,8 +55,6 @@ concP (ArrayP f n1) (ArrayP g n2) =
   ArrayP (\func -> ProgramSeq ( f func )
                               ( g (\i -> func (fromIntegral n1 + i))))
                        (n1+n2)
-  
- 
 
 ------------------------------------------------------------------------------ 
 -- Scalars for now. Learn how to loosen that demand
@@ -77,14 +76,20 @@ instance Show Program where
          
 class Pushable a e where 
   toArrayP :: a e -> ArrayP e 
+  toArrayP' :: Word32 -> a e -> ArrayP e  
 
 
 instance Pushable ArrayP e where 
   toArrayP = id 
+  toArrayP' = undefined
   
 instance Pushable Array e where   
   toArrayP (Array ixf n) = ArrayP (\func -> ForAll (\i -> func i (ixf i)) n) n 
-
+  toArrayP' m (Array ixf n) = 
+    ArrayP (\func -> ForAll (\i -> foldr1 ProgramSeq [func (i+(fromIntegral j))  
+                                                      (ixf (i+(fromIntegral j)))
+                                                     | j<-  [0..m-1]
+                                                     ]) (n `div` m)) n
 
 targetArray :: Scalar a => Name -> Exp Word32 -> (Exp a -> Program)
 targetArray n i = \a -> Assign n i a 

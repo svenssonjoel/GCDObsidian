@@ -1,14 +1,14 @@
 
 module TestP where 
 
-import Obsidian.GCDObsidian.Kernel 
-import Obsidian.GCDObsidian.Array 
-import Obsidian.GCDObsidian.Library 
-import Obsidian.GCDObsidian.Exp 
-import Obsidian.GCDObsidian.Sync
+import Obsidian.GCDObsidian
+
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 
-  
+
+----------------------------------------------------------------------------
+--  
+
 small1 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
 small1 (arr1,arr2) = pSyncArrayP part
   where
