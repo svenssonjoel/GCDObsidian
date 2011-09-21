@@ -70,6 +70,7 @@ newArray  = do
 (->-) :: (a -> Kernel b) -> (b -> Kernel c) -> (a -> Kernel c) 
 (->-) = (>=>) 
 
+pure f a = return (f a) 
 
 ------------------------------------------------------------------------------ Figure out how many threads a piece of Code requires
 threadsNeeded :: Code e -> Word32

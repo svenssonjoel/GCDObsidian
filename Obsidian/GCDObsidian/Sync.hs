@@ -10,7 +10,10 @@ import Control.Monad.Writer
 ------------------------------------------------------------------------------
 -- Syncs in the new setting 
 
--- Work on the Scalar a thing!!!
+sync :: Scalar a => Array (Exp a) -> Kernel (Array (Exp a))
+sync = pSyncArray
+
+-- Work on the Scalar a thing!!!y
 pSyncArray  :: Scalar a => Array (Exp a) -> Kernel (Array (Exp a))
 pSyncArray arr = 
   do 

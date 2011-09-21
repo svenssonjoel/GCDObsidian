@@ -1,11 +1,10 @@
 import Obsidian.GCDObsidian
 import Obsidian.GCDObsidian.Kernel
-import Obsidian.GCDObsidian.Store
-import Obsidian.GCDObsidian.Printing
+-- import Obsidian.GCDObsidian.Printing
+import Obsidian.GCDObsidian.Sync
 
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA   as CUDA
-import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as OpenCL
-
+-- import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as OpenCL
 
 import Prelude hiding (zipWith,splitAt)
 import Data.Word
@@ -74,20 +73,10 @@ vsort n = composeS [ pure (iv (n-i) (i-j) min max)| i <- [1..n], j <- [1..i]]
 
 
 composeS [f] = f
-composeS (f:fs) = f ->- store ->- composeS fs
+composeS (f:fs) = f ->- sync ->- composeS fs
 
 runs = writeFile "sort.cu" $ CUDA.genKernel "vsort" (vsort 9) (namedArray "apa" 512)
 runs' = putStrLn$ CUDA.genKernel "vsort" (vsort 9) (namedArray "apa" 512)
 
 
-------------------------------------------------------------------------------
--- 
-
-composeS' [f] = f
-composeS' (f:fs) = f ->- pure (zipp . halve) ->- storeCatZ ->- composeS' fs
-
-vsort' :: Int -> Array (Exp Int) -> Kernel (Array (Exp Int))
-vsort' n = composeS' [ pure (iv (n-i) (i-j) min max)| i <- [1..n], j <- [1..i]]
-
-runs1 = putStrLn $ CUDA.genKernel "vsort" (vsort 5) (namedArray "apa" 32)
-runs2 = putStrLn $ CUDA.genKernel "vsort'" (vsort' 5) (namedArray "apa" 32)
+------------------------------------------------------------------------------ 
