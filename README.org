@@ -14,10 +14,7 @@
   + Kernel Building blocks: 
     There are pure functions, (Array a -> Array a), that can be composed
     using Haskell functional composition. These are turned into "kernels" using the function pure.
-    There are built in kernel building blocks, (things like, Array a -> Kernel (Array a)).
-    These represents (hopefully) efficient ways to store intermediate values 
-    in GPU shared memory. (store, storeIlv, storeIlvF, storeP - currently) 
-
+    
     
 * Work in progress
   + Small Kernels seem to generate ok CUDA under the new Push array setting.
