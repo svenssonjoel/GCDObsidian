@@ -63,3 +63,17 @@ small5 arr =
 runSmall5 = liveness$ snd$ runKernel (small5 (namedArray "apa" 32) )
                                        
 getSmall5 = putStrLn$ CUDA.genKernel "small5" small5 (namedArray "apa" 32)
+
+
+small6 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
+small6 (a1,a2) = 
+  do 
+    a1' <- pSyncArray a1
+    a2' <- pSyncArray a2
+    pSyncArray  (conc (a1',a2')) -- length is (len a1 + len a2) here 
+    
+    
+-- perform liveness analysis on small5
+runSmall6 = liveness$ snd$ runKernel (small6 (namedArray "apa" 32,namedArray "apa" 32) )
+                                       
+getSmall6 = putStrLn$ CUDA.genKernel "small6" small6 (namedArray "apa" 32, namedArray "apa" 32)

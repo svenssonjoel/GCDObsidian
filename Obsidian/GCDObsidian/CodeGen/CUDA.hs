@@ -26,7 +26,7 @@ import Obsidian.GCDObsidian.Elem
 
 gc = genConfig "" ""
 
-
+syncLine = line "__syncthreads();" >> newline
 
 tidLine = line "unsigned int tid = threadIdx.x;"
 bidLine = line "unsigned int bid = blockIdx.x;" 
@@ -76,7 +76,7 @@ genKernel name kernel a = cuda
     cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
 
 
-getCUDA :: Config -> Code a -> Name -> [(String,Type)] -> [(String,Type)] -> String 
+getCUDA :: Config -> Code Syncthreads -> Name -> [(String,Type)] -> [(String,Type)] -> String 
 getCUDA conf c name ins outs = 
   runPP (kernelHead name ins outs >>  
          begin >>
@@ -87,14 +87,19 @@ getCUDA conf c name ins outs =
          end ) 0 
 
 
-genCUDABody :: Config -> Code a -> PP () 
+genCUDABody :: Config -> Code Syncthreads -> PP () 
 genCUDABody _ Skip  = return () 
 genCUDABody conf (su `Seq` code) = 
   do 
-    genPSyncUnit conf su
+    genSyncUnit conf su
+    if syncUnitNeedsSync su 
+      then syncLine 
+      else return () 
     genCUDABody conf code  
 
-genPSyncUnit conf (SyncUnit nt progs e) = 
+syncUnitNeedsSync (SyncUnit _ _ (Syncthreads s)) = s 
+
+genSyncUnit conf (SyncUnit nt progs e) = 
   do 
     case compare nt blockSize of 
       LT -> do
