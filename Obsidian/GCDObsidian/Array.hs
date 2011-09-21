@@ -1,5 +1,5 @@
 {-# LANGUAGE MultiParamTypeClasses, 
-             FlexibleInstances, 
+             FlexibleInstances,
              FlexibleContexts, 
              UndecidableInstances, 
              RankNTypes, 
@@ -16,7 +16,8 @@ module Obsidian.GCDObsidian.Array ((!)
                                   , toArrayP
                                   , toArrayP'
                                   , ArrayP(..)
-  
+                                  , printProgram
+                                  , programThreads
                                   )where 
 
 import Obsidian.GCDObsidian.Elem
@@ -48,6 +49,11 @@ data Program
   | Allocate Name Word32 Type Program 
   | ProgramSeq Program Program  
   
+programThreads :: Program -> Word32
+programThreads (Assign _ _ _) = 1
+programThreads (ForAll f n) = n -- inner ForAlls are sequential
+programThreads (Allocate _ _ _ p) = programThreads p 
+programThreads (p1 `ProgramSeq` p2) = max (programThreads p1) (programThreads p2)
     
 printProgram :: Program -> String 
 printProgram (Assign n t e) = n ++ "[" ++ show t ++ "]" ++ " = " ++ show e ++ ";\n"  
@@ -69,8 +75,8 @@ instance Pushable ArrayP e where
 instance Pushable Array e where   
   toArrayP (Array ixf n) = ArrayP (\func -> ForAll (\i -> func i (ixf i)) n) n 
   toArrayP' m (Array ixf n) = 
-    ArrayP (\func -> ForAll (\i -> foldr1 ProgramSeq [func (i+(fromIntegral j))  
-                                                      (ixf (i+(fromIntegral j)))
+    ArrayP (\func -> ForAll (\i -> foldr1 ProgramSeq [func (i*(fromIntegral m)+(fromIntegral j))  
+                                                      (ixf (i*(fromIntegral m)+(fromIntegral j)))
                                                      | j<-  [0..m-1]
                                                      ]) (n `div` m)) n
 

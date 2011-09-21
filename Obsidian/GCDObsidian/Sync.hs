@@ -19,9 +19,11 @@ pSyncArray arr =
   do 
     name <- newArray
     
-    tell$ Seq (syncUnit (len arr) 
+    let p = pushApp parr (targetArray name)
+        
+    tell$ Seq (syncUnit  (programThreads p) ---(len arr) 
                 [Allocate name (es * (len arr)) t 
-                  (pushApp parr (targetArray name))]) Skip
+                  p]) Skip
             
     return (Array (index name) (len arr))
       
@@ -70,9 +72,9 @@ pSyncArrayP arr@(ArrayP func n)  =
     let result = Array (index name) n         
         es = fromIntegral$ sizeOf (result ! 0) 
         t  = Pointer$ Local$ typeOf (result ! 0)
+        p  = pushApp arr (targetArray name)
 
-
-    tell$ Seq (syncUnit n 
+    tell$ Seq (syncUnit (programThreads p) 
                [Allocate name (es * n) t 
-                (pushApp arr (targetArray name))]) Skip
+                p]) Skip
     return result

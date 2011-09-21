@@ -2,6 +2,7 @@
 module TestP where 
 
 import Obsidian.GCDObsidian
+import Obsidian.GCDObsidian.Printing
 
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 
@@ -15,6 +16,9 @@ small1 (arr1,arr2) = pSyncArrayP part
     part = concP arr1' arr2'  
     arr1' = toArrayP arr1
     arr2' = toArrayP arr2 
+
+
+showSmall1 = printCode$ snd$ runKernel (small1 (namedArray "apa" 32,namedArray "apa" 32))
 
 getSmall1 = putStrLn$ CUDA.genKernel "small1" small1 (namedArray "apa" 32,namedArray "apa" 32)
   

@@ -60,9 +60,9 @@ instance Scalar a => InOut (Array (Exp a)) where
     
     name <- newInOut "result" (cTypeOfArray arr) (len arr)
     
-    let maxGCD = maximum [gcd (len arr) i| i <- [1..threadBudget]]
-        parr = toArrayP' ((len arr) `div` maxGCD)  arr
-    return$ SyncUnit maxGCD [pushApp parr (targetArray  name)] e
+    let -- maxGCD = maximum [gcd (len arr) i| i <- [1..threadBudget]]
+        parr = toArrayP' ((len arr) `div` threadBudget)  arr
+    return$ SyncUnit threadBudget {-maxGCD-} [pushApp parr (targetArray  name)] e
     
                      
   gcdThreads arr = len arr
@@ -78,7 +78,7 @@ instance (InOut a, InOut b) => InOut (a, b) where
     (SyncUnit nt1 prgs1 e1) <- writeOutputs threadBudget a0 e
     (SyncUnit nt2 prgs2 e2) <- writeOutputs threadBudget a1 e
     
-    return$ SyncUnit (gcd nt1 nt2)  
+    return$ SyncUnit (gcd nt1 nt2)  -- what exactl should this be
                       (prgs1 ++ prgs2) e1 -- syncUnitFuseGCD s0 s1
    
   gcdThreads (a0,a1) = gcd (gcdThreads a0) (gcdThreads a1)
