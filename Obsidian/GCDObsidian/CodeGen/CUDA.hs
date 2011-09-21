@@ -228,7 +228,7 @@ genProg mm nt (Assign name ix a) =
     Nothing ->  --- A result array
       do
         line$  name ++ "[" ++ concat (genExp gc mm ix) ++ "] = " ++ 
-          concat (genExp gc mm a) ++ ";\n"
+          concat (genExp gc mm a) ++ ";"
         newline
 genProg mm nt (ForAll f n) = genProg mm nt (f (variable "tid"))
 genProg mm nt (Allocate name size t prg) = genProg mm nt prg
