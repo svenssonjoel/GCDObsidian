@@ -113,8 +113,6 @@ func  f a = f ++ "(" ++ a ++ ")"
 oper  f a b = "(" ++ a ++ f ++ b ++ ")" 
 unOp  f a   = "(" ++ f ++ a ++ ")"
 
- 
-
 
 genTup :: forall t. GenConfig -> MemMap -> Tuple.Tuple Exp t -> [String]
 genTup _  _ Nil = []
@@ -190,11 +188,6 @@ end =  unindent >> newline >> line "}" >> newline
 
 
 
-
-
-
-
-
 ------------------------------------------------------------------------------
 -- First Synchtreads analysis 
     
@@ -202,42 +195,9 @@ data Syncthreads = Syncthreads {needsSync :: Bool}
                  deriving Show
 syncthreads = Syncthreads True    
 nosync      = Syncthreads False
-                   
+                     
 syncPoints :: Code a -> Code Syncthreads
 syncPoints Skip = Skip
-syncPoints (su `Seq` code) = syncPointsSyncUnit su `Seq` 
-                                syncPoints code
-                                
-syncPointsSyncUnit :: SyncUnit a -> SyncUnit Syncthreads
-syncPointsSyncUnit (SyncUnit nt sl)  = SyncUnit nt (syncPointsStoreList sl)
-
-syncPointsStoreList :: StoreList a -> StoreList Syncthreads
-syncPointsStoreList StoreListNil = StoreListNil
-syncPointsStoreList (StoreListCons s rest) = StoreListCons (syncPointsStore s)
-                                               (syncPointsStoreList rest)
-                                
-
-
-storeListNeedsSync StoreListNil = False
-storeListNeedsSync (StoreListCons s r) = storeNeedsSync s || storeListNeedsSync r
-
-storeNeedsSync :: Store a Syncthreads -> Bool                                 
-storeNeedsSync (Store _ _ ws) = any writeNeedsSync ws
-
-
-syncPointsStore :: Store a extra -> Store a Syncthreads
-syncPointsStore (Store name size ws) = Store name size (map syncPointsWrite ws)
-
-writeNeedsSync :: Write a Syncthreads -> Bool 
-writeNeedsSync (Write _ _ s) = needsSync s
-
-syncPointsWrite :: Write a extra -> Write a Syncthreads
-syncPointsWrite (Write targ arr _) = 
-  Write targ arr syncthreads
-  
-  
-syncPointsP :: PCode a -> PCode Syncthreads
-syncPointsP PSkip = PSkip
-syncPointsP ((PSyncUnit nt ps e) `PSeq` code) = 
-   PSyncUnit nt ps syncthreads  `PSeq` (syncPointsP code)
+syncPoints ((SyncUnit nt ps e) `Seq` code) = 
+   SyncUnit nt ps syncthreads  `Seq` (syncPoints code)
   
