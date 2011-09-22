@@ -79,8 +79,6 @@ runSmall6 = liveness$ snd$ runKernel (small6 (namedArray "apa" 32,namedArray "ap
 getSmall6 = putStrLn$ CUDA.genKernel "small6" small6 (namedArray "apa" 32, namedArray "apa" 32)
 
 
-
-
 -- TODO: small7 displays a bug. The generated should have an if statement 
 --       for the writing of the a2' when a2' has a length shorter that a1.
 --       The same if it is a1' that is shorter than a2'
@@ -95,6 +93,11 @@ small7 (a1,a2) =
     
     
 -- perform liveness analysis on small5
-runSmall7 = liveness$ snd$ runKernel (small7 (namedArray "apa" 32,namedArray "apa" 16) )
-                                       
-getSmall7= putStrLn$ CUDA.genKernel "small7" small7 (namedArray "apa" 32, namedArray "apa" 16)
+    
+inputSmall7 = (namedArray "apa" 32,namedArray "apa" 16)
+
+runSmall7 = liveness$ snd$ runKernel (small7 inputSmall7 )
+
+getSmall7= putStrLn$ CUDA.genKernel "small7" small7 inputSmall7
+
+
