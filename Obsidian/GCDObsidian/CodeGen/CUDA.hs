@@ -17,9 +17,6 @@ import qualified Obsidian.GCDObsidian.Tuple as Tuple
 import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil) ) 
 import Obsidian.GCDObsidian.Elem
 
-
-----------------------------------------------------------------------------
--- -- TODO MAke this work with PUSHY arrays
 ----------------------------------------------------------------------------
 
 gc = genConfig "" ""
@@ -31,6 +28,8 @@ bidLine = line "unsigned int bid = blockIdx.x;"
 
 
 sBase = line "extern __shared__ __attribute__ ((aligned (16))) unsigned char sbase[];" 
+
+sbaseStr addr t = genCast gc t ++ "(sbase + " ++ show addr ++ ")" 
 
 ------------------------------------------------------------------------------
 -- C style function "header"
@@ -132,9 +131,9 @@ genProg mm nt (ProgramSeq p1 p2) =
   do 
     genProg mm nt p1
     genProg mm nt p2
-genProg mm nt (Cond c p) = line ("if" ++ concat (genExp gc mm c)) >> begin >>
-                           genProg mm nt p >>
-                           end 
-                           
+genProg mm nt (Cond c p) = 
+  line ("if" ++ concat (genExp gc mm c)) >> begin >>
+  genProg mm nt p >>
+  end 
 
-sbaseStr addr t = genCast gc t ++ "(sbase + " ++ show addr ++ ")" 
+
