@@ -6,6 +6,7 @@ import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Tuple
 
 import Data.Bits
+import Data.Word
 
 import Prelude hiding (splitAt)
 
@@ -96,8 +97,12 @@ ivt i j f arr = Array g nl
 
 revP :: ArrayP a -> ArrayP a 
 revP (ArrayP h n) = ArrayP (revHelp (\ix -> (fromIntegral (n-1)) - ix) h) n 
-  where 
-    revHelp f p = \func -> p (\i -> func (f i))
+
+--revHelp :: (a -> b) -> ((a -> c) -> d) -> (b -> c) -> d
+
+-- TODO: This can be used in general to apply some indexing transformation.
+revHelp :: (Exp Word32 -> Exp Word32) -> ((Exp Word32 -> a) -> Program) -> (Exp Word32 -> a) -> Program
+revHelp f g h = g (\i -> h (f i))
     
     
 concP :: ArrayP a -> ArrayP a -> ArrayP a     

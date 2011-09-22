@@ -101,3 +101,22 @@ runSmall7 = liveness$ snd$ runKernel (small7 inputSmall7 )
 getSmall7= putStrLn$ CUDA.genKernel "small7" small7 inputSmall7
 
 
+
+-- TODO: This agains shows that writeOutputs is messed up.
+small8 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
+small8 (a1,a2) = 
+  do 
+    let a1' = toArrayP a1
+    let a2' = toArrayP a2
+    pSyncArrayP$  concP (concP' a1' a2')  a1' 
+    
+    
+-- perform liveness analysis on small5
+    
+inputSmall8 = (namedArray "apa" 32,namedArray "apa" 16)
+
+runSmall8 = liveness$ snd$ runKernel (small8 inputSmall8 )
+
+getSmall8= putStrLn$ CUDA.genKernel "small7" small8 inputSmall8
+
+
