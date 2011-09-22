@@ -77,3 +77,24 @@ small6 (a1,a2) =
 runSmall6 = liveness$ snd$ runKernel (small6 (namedArray "apa" 32,namedArray "apa" 32) )
                                        
 getSmall6 = putStrLn$ CUDA.genKernel "small6" small6 (namedArray "apa" 32, namedArray "apa" 32)
+
+
+
+
+-- TODO: small7 displays a bug. The generated should have an if statement 
+--       for the writing of the a2' when a2' has a length shorter that a1.
+--       The same if it is a1' that is shorter than a2'
+-- TODO: This example also shows a bug in result storing. 
+--       This is again a problem in InOut.hs
+small7 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
+small7 (a1,a2) = 
+  do 
+    let a1' = toArrayP a1
+    let a2' = toArrayP a2
+    pSyncArrayP  (concP a1' a2') -- error if (len a1 /= len a2)
+    
+    
+-- perform liveness analysis on small5
+runSmall7 = liveness$ snd$ runKernel (small7 (namedArray "apa" 32,namedArray "apa" 16) )
+                                       
+getSmall7= putStrLn$ CUDA.genKernel "small7" small7 (namedArray "apa" 32, namedArray "apa" 16)
