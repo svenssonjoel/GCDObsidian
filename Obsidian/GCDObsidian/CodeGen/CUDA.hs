@@ -1,5 +1,3 @@
-{-# LANGUAGE GADTs, RankNTypes, TypeOperators, TypeFamilies, ScopedTypeVariables #-} 
--- TODO: Clean up above, not all of those are needed anymore
 
 module Obsidian.GCDObsidian.CodeGen.CUDA (genKernel) where 
 
