@@ -212,6 +212,7 @@ mapMemoryPrograms (p:ps) m mm = mapMemoryPrograms ps m' mm'
     
 mapMemoryProgram (Assign name i a) m mm = (m,mm) 
 mapMemoryProgram (ForAll f n) m mm = mapMemoryProgram (f (variable "X")) m mm       
+mapMemoryProgram (Cond c p) m mm = mapMemoryProgram p m mm 
 mapMemoryProgram (Allocate name size t program) m mm = mapMemoryProgram program m' mm'
   where 
     (m'',addr) = allocate m size

@@ -32,7 +32,7 @@ import Data.Word
 data Array a = Array (Exp Word32 -> a) Word32 
 
 -- PUSHY ARRAYS! 
-data ArrayP a = ArrayP ((Exp Word32 -> (a -> Program)) -> Program) Word32
+data ArrayP a = ArrayP ((Exp Word32 -> a -> Program) -> Program) Word32
 
 pushApp (ArrayP func n) a = func a 
 
@@ -43,10 +43,13 @@ pushApp (ArrayP func n) a = func a
 -- TODO: really need to loosen it ??? 
 -- TODO: This might be related to the issue of having Tuples 
 --       in the Exp type or not... Look into this! 
+-- TODO: Program type can represent a whole lot more kinds of programs 
+--       than those that we actually generate.
 data Program 
   = forall a. Scalar a => Assign Name (Data Word32) (Data a)
   | ForAll (Data Word32 -> Program) Word32
   | Allocate Name Word32 Type Program 
+  | Cond (Exp Bool) Program                     -- Conditional such as if (tid < x) (assign bla bla)  
   | ProgramSeq Program Program  
   
 programThreads :: Program -> Word32

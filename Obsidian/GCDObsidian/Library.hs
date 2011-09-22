@@ -107,5 +107,25 @@ concP (ArrayP f n1) (ArrayP g n2) =
                        (n1+n2)
 
 
+concP' :: ArrayP a -> ArrayP a -> ArrayP a     
+concP' (ArrayP f n1) (ArrayP g n2) = 
+  case compare n1 n2 of 
+    EQ -> ArrayP (\func -> ProgramSeq ( f func )
+                           (g (\i -> func (fromIntegral n1 + i))))
+           newlen
+          
+    LT -> ArrayP (\func -> ProgramSeq ( f (\i  a ->  Cond (i <* (fromIntegral n1))
+                                                    (func i a )))
+                           (g (\i -> func (fromIntegral n1 + i))))
+           newlen
+          
+    GT -> ArrayP (\func -> ProgramSeq (f func ) 
+                           (g (\i a -> Cond (i <* (fromIntegral n2))
+                                       (func (fromIntegral n1 + i) a ))))
+          newlen
+  where 
+    newlen = n1+n2
+
+
 -- TODO: Are there cool versions of twoK and ivt on that produce 
 --       Pushy Arrays
