@@ -1,6 +1,14 @@
 {-# LANGUAGE FlexibleInstances, 
              FlexibleContexts#-}
 
+{- 
+  TODO: use a splitAt in the writeOutputs when 
+        The output array is larger than the threadbudget
+        and use two or many more levels of writes. (Possibly) 
+
+
+-} 
+
 module Obsidian.GCDObsidian.CodeGen.InOut where 
 
 
