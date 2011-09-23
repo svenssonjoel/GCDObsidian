@@ -84,7 +84,10 @@ instance Scalar a => InOut (Array (Exp a)) where
              (a1,a2) = splitAt sp arr
              pa1     = toArrayP' tbInN a1
              pa2     = toArrayP a2
-             parr    = concP' pa1 pa2
+             
+             parr = if (rest == 0) 
+               then pa1 
+               else concP' pa1 pa2
          
          return$ SyncUnit threadBudget  [pushApp parr (targetArray  name)] e
          
@@ -99,10 +102,11 @@ instance (InOut a, InOut b) => InOut (a, b) where
       return (a0',a1')
   
   writeOutputs threadBudget (a0,a1) e = do   
+    
     (SyncUnit nt1 prgs1 e1) <- writeOutputs threadBudget a0 e
     (SyncUnit nt2 prgs2 e2) <- writeOutputs threadBudget a1 e
-    
-    return$ SyncUnit (gcd nt1 nt2)  -- what exactly should this be
+    --error ( show nt1 ++ " " ++ show nt2 ++ " " ++ show threadBudget)
+    return$ SyncUnit (max nt1 nt2)  -- what exactly should this be
                       (prgs1 ++ prgs2) e1 -- syncUnitFuseGCD s0 s1
    
   gcdThreads (a0,a1) = gcd (gcdThreads a0) (gcdThreads a1)
