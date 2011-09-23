@@ -16,6 +16,9 @@ import Obsidian.GCDObsidian.Kernel
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Array 
 
+import Prelude hiding (splitAt)
+import Obsidian.GCDObsidian.Library (splitAt,concP')
+
 
 import Control.Monad.State
 
@@ -68,10 +71,23 @@ instance Scalar a => InOut (Array (Exp a)) where
     
     name <- newInOut "result" (cTypeOfArray arr) (len arr)
     
-    let -- maxGCD = maximum [gcd (len arr) i| i <- [1..threadBudget]]
-        parr = toArrayP' ((len arr) `div` threadBudget)  arr
-    return$ SyncUnit threadBudget {-maxGCD-} [pushApp parr (targetArray  name)] e
-    
+    if ( len arr <= threadBudget ) 
+      then do 
+         let parr = toArrayP arr
+         return$ SyncUnit threadBudget  [pushApp parr (targetArray  name)] e
+      else do 
+         let n  = len arr
+             tb = threadBudget 
+             tbInN =  n `div` tb 
+             rest  = n `rem` tb
+             sp = tbInN * tb
+             (a1,a2) = splitAt sp arr
+             pa1     = toArrayP' tbInN a1
+             pa2     = toArrayP a2
+             parr    = concP' pa1 pa2
+         
+         return$ SyncUnit threadBudget  [pushApp parr (targetArray  name)] e
+         
                      
   gcdThreads arr = len arr
     
@@ -86,7 +102,7 @@ instance (InOut a, InOut b) => InOut (a, b) where
     (SyncUnit nt1 prgs1 e1) <- writeOutputs threadBudget a0 e
     (SyncUnit nt2 prgs2 e2) <- writeOutputs threadBudget a1 e
     
-    return$ SyncUnit (gcd nt1 nt2)  -- what exactl should this be
+    return$ SyncUnit (gcd nt1 nt2)  -- what exactly should this be
                       (prgs1 ++ prgs2) e1 -- syncUnitFuseGCD s0 s1
    
   gcdThreads (a0,a1) = gcd (gcdThreads a0) (gcdThreads a1)
