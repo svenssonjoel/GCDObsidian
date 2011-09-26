@@ -12,16 +12,11 @@ import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.CodeGen.Common
 import Obsidian.GCDObsidian.CodeGen.InOut 
 
-
-import qualified Obsidian.GCDObsidian.Tuple as Tuple 
-import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil) ) 
-import Obsidian.GCDObsidian.Elem
-
 ----------------------------------------------------------------------------
 
 gc = genConfig "" ""
 
-syncLine = line "__syncthreads();" >> newline
+syncLine = line "__syncthreads();"
 
 tidLine = line "unsigned int tid = threadIdx.x;"
 bidLine = line "unsigned int bid = blockIdx.x;" 
@@ -29,6 +24,7 @@ bidLine = line "unsigned int bid = blockIdx.x;"
 
 sBase = line "extern __shared__ __attribute__ ((aligned (16))) unsigned char sbase[];" 
 
+sbaseStr 0 t    = genCast gc t ++ "sbase" 
 sbaseStr addr t = genCast gc t ++ "(sbase + " ++ show addr ++ ")" 
 
 ------------------------------------------------------------------------------
@@ -73,7 +69,15 @@ genKernel name kernel a = cuda
     cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
 
 
-getCUDA :: Config -> Code Syncthreads -> Name -> [(String,Type)] -> [(String,Type)] -> String 
+------------------------------------------------------------------------------
+-- put together all the parts that make a CUDA kernel.     
+getCUDA :: Config 
+           -> Code Syncthreads 
+           -> Name 
+           -> [(String,Type)] 
+           -> [(String,Type)] 
+           -> String 
+           
 getCUDA conf c name ins outs = 
   runPP (kernelHead name ins outs >>  
          begin >>
@@ -84,18 +88,22 @@ getCUDA conf c name ins outs =
          end ) 0 
 
 
+----------------------------------------------------------------------------
+-- Code to a CUDA kernel Body
 genCUDABody :: Config -> Code Syncthreads -> PP () 
 genCUDABody _ Skip  = return () 
 genCUDABody conf (su `Seq` code) = 
   do 
     genSyncUnit conf su
     if syncUnitNeedsSync su 
-      then syncLine 
+      then syncLine >> newline
       else return () 
     genCUDABody conf code  
 
-syncUnitNeedsSync (SyncUnit _ _ (Syncthreads s)) = s 
+syncUnitNeedsSync (SyncUnit _ _ s) = needsSync s 
 
+------------------------------------------------------------------------------
+-- 
 genSyncUnit conf (SyncUnit nt progs e) = 
   do 
     case compare nt blockSize of 
@@ -111,7 +119,8 @@ genSyncUnit conf (SyncUnit nt progs e) =
       mm = configMM conf
       blockSize = configThreads conf
 
-
+----------------------------------------------------------------------------
+-- pretty print a "Program", CUDA STYLE!
 genProg :: MemMap -> Word32 ->  Program -> PP () 
 genProg mm nt (Assign name ix a) = 
   case Map.lookup name mm of 

@@ -189,13 +189,17 @@ end =  unindent >> newline >> line "}" >> newline
 
 
 ------------------------------------------------------------------------------
--- First Synchtreads analysis 
+-- First Synchtreads analysis:
+-- This code is needed but both OpenCL and CUDA so 
+-- therefore in Common.hs
     
 data Syncthreads = Syncthreads {needsSync :: Bool}
                  deriving Show
+                          
 syncthreads = Syncthreads True    
 nosync      = Syncthreads False
                      
+-- Performs no analysis, just says "yes, we need a sync" everywhere. 
 syncPoints :: Code a -> Code Syncthreads
 syncPoints Skip = Skip
 syncPoints ((SyncUnit nt ps e) `Seq` code) = 

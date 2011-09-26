@@ -5,6 +5,8 @@ import Obsidian.GCDObsidian
 import Obsidian.GCDObsidian.Printing
 
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
+import qualified Obsidian.GCDObsidian.CodeGen.C as C
+
 
 
 ----------------------------------------------------------------------------
@@ -21,6 +23,7 @@ small1 (arr1,arr2) = pSyncArrayP part
 showSmall1 = printCode$ snd$ runKernel (small1 (namedArray "apa" 32,namedArray "apa" 32))
 
 getSmall1 = putStrLn$ CUDA.genKernel "small1" small1 (namedArray "apa" 32,namedArray "apa" 32)
+getSmall1' = putStrLn$ C.genKernel "small1" small1 (namedArray "apa" 32,namedArray "apa" 32)
   
 
 small2 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
@@ -29,6 +32,7 @@ small2 (arr1,arr2) = pSyncArray part
     part = conc (arr1,arr2)  
 
 getSmall2 = putStrLn$ CUDA.genKernel "small2" small2 (namedArray "apa" 32,namedArray "apa" 32)
+getSmall2' = putStrLn$ C.genKernel "small2" small2 (namedArray "apa" 32,namedArray "apa" 32)
 
     
 small3 :: Array (Data Int) -> Kernel (Array (Data Int)) 
@@ -38,14 +42,16 @@ small3 arr = pSyncArrayP b
     b = revP (toArrayP a) 
     
 getSmall3 = putStrLn$ CUDA.genKernel "small3" small3 (namedArray "apa" 32)
+getSmall3' = putStrLn$ C.genKernel "small3" small3 (namedArray "apa" 32)
 
     
 small4 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int),Array (Data Int)) 
 small4 (a1,a2) = pSyncArrays (a1,a2) 
 
--- TODO: Everything breaks down for this example.
+-- DONE: Everything breaks down for this example.
 --       Figure it out!
 getSmall4 = putStrLn$ CUDA.genKernel "small4" small4 (namedArray "apa" 32, namedArray "apa" 16)
+getSmall4' = putStrLn$ C.genKernel "small4" small4 (namedArray "apa" 32, namedArray "apa" 16)
 
 
 small5 :: Array (Data Int) -> Kernel (Array (Data Int)) 
@@ -63,6 +69,7 @@ small5 arr =
 runSmall5 = liveness$ snd$ runKernel (small5 (namedArray "apa" 32) )
                                        
 getSmall5 = putStrLn$ CUDA.genKernel "small5" small5 (namedArray "apa" 32)
+getSmall5' = putStrLn$ C.genKernel "small5" small5 (namedArray "apa" 32)
 
 
 small6 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
@@ -77,12 +84,13 @@ small6 (a1,a2) =
 runSmall6 = liveness$ snd$ runKernel (small6 (namedArray "apa" 32,namedArray "apa" 32) )
                                        
 getSmall6 = putStrLn$ CUDA.genKernel "small6" small6 (namedArray "apa" 32, namedArray "apa" 32)
+getSmall6' = putStrLn$ C.genKernel "small6" small6 (namedArray "apa" 32, namedArray "apa" 32)
 
 
--- TODO: small7 displays a bug. The generated should have an if statement 
+-- DONE: small7 displays a bug. The generated should have an if statement 
 --       for the writing of the a2' when a2' has a length shorter that a1.
 --       The same if it is a1' that is shorter than a2'
--- TODO: This example also shows a bug in result storing. 
+-- DONE: This example also shows a bug in result storing. 
 --       This is again a problem in InOut.hs
 small7 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
 small7 (a1,a2) = 
@@ -98,7 +106,8 @@ inputSmall7 = (namedArray "apa" 32,namedArray "apa" 16)
 
 runSmall7 = liveness$ snd$ runKernel (small7 inputSmall7 )
 
-getSmall7= putStrLn$ CUDA.genKernel "small7" small7 inputSmall7
+getSmall7 = putStrLn$ CUDA.genKernel "small7" small7 inputSmall7
+getSmall7' = putStrLn$ C.genKernel "small7" small7 inputSmall7
 
 
 
@@ -117,6 +126,7 @@ inputSmall8 = (namedArray "apa" 32,namedArray "apa" 16)
 
 runSmall8 = liveness$ snd$ runKernel (small8 inputSmall8 )
 
-getSmall8= putStrLn$ CUDA.genKernel "small7" small8 inputSmall8
+getSmall8 = putStrLn$ CUDA.genKernel "small8" small8 inputSmall8
+getSmall8' = putStrLn$ C.genKernel "small8" small8 inputSmall8
 
 

@@ -44,6 +44,12 @@ data Code extra = Skip -- nothing to do
                  | (SyncUnit extra) `Seq` (Code extra) 
                  deriving Show                    
                    
+code :: SyncUnit a -> Code a 
+code su = su `Seq` Skip                          
+
+(+++) :: Code a -> Code a -> Code a 
+(+++) = mappend
+                          
 instance Monoid (Code extra) where                    
   mempty = Skip
   mappend Skip a = a 
@@ -171,6 +177,7 @@ livenessProgram aliveNext (Assign name ix e)  = livingArrs
     livingArrs = name `Set.delete` tmp
 livenessProgram aliveNext (ForAll f n) = livenessProgram aliveNext (f (variable "X"))    
 livenessProgram aliveNext (Allocate name size t prg) = livenessProgram aliveNext prg
+livenessProgram aliveNext (Cond c p) = livenessProgram aliveNext p
 livenessProgram aliveNext (prg1 `ProgramSeq` prg2) = 
   livenessProgram aliveNext prg1 `Set.union` livenessProgram aliveNext prg2
 

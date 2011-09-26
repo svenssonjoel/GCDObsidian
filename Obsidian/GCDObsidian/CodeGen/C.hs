@@ -1,9 +1,15 @@
-{-# LANGUAGE GADTs, RankNTypes, TypeOperators, TypeFamilies #-} 
+{- 
+   CodeGen.C 
+   
+   Generate C99 mostly for testing purposes and fun. 
+-} 
+
 
 module Obsidian.GCDObsidian.CodeGen.C where 
 
 import Data.List
 import Data.Word 
+import Data.Monoid
 import qualified Data.Map as Map
 
 import Obsidian.GCDObsidian.Kernel 
@@ -12,16 +18,24 @@ import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.CodeGen.Common
 import Obsidian.GCDObsidian.CodeGen.InOut
 
-import qualified Obsidian.GCDObsidian.Tuple as Tuples
-import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil))
-import Obsidian.GCDObsidian.Elem
+----------------------------------------------------------------------------
+-- 
 
 gc = genConfig "" ""
 
+-- TODO: DUPLICATED CODE 
+sbaseStr 0 t    = genCast gc t ++ "sbase" 
+sbaseStr addr t = genCast gc t ++ "(sbase + " ++ show addr ++ ")" 
 ------------------------------------------------------------------------------
 -- sequential C code generation
 
-getC :: Config -> Code a -> Name -> [(String,Type)] -> [(String,Type)] -> String 
+getC :: Config 
+        -> Code a 
+        -> Name 
+        -> [(String,Type)] 
+        -> [(String,Type)] 
+        -> String 
+        
 getC conf c name ins outs = 
   runPP (kernelHead name ins outs >>  
          begin >>
@@ -42,6 +56,17 @@ genCBody conf (su `Seq` code) =
 ------------------------------------------------------------------------------
 -- New
     
+genSyncUnit conf (SyncUnit nt progs e) = 
+  do 
+   forEach gc mm (fromIntegral nt) 
+   begin
+   mapM_ (genProg mm nt) progs
+   end
+  where 
+    mm = configMM conf
+    -- blockSize = configThreads conf
+    
+{-    
 genSyncUnit :: Config -> SyncUnit a -> PP ()     
 genSyncUnit conf (SyncUnit nt stores) = 
   do 
@@ -64,12 +89,43 @@ genStore conf nt (Store name size ws) =
     where 
       mm = configMM conf
       blockSize = configThreads conf
+-} 
 
 forEach :: GenConfig -> MemMap -> Exp Word32 -> PP ()   
 forEach gc mm e = line ("for (uint32_t tid = 0; tid < " ++ concat (genExp gc mm e) ++"; ++tid)")
 
 ------------------------------------------------------------------------------
+----------------------------------------------------------------------------
+-- pretty print a "Program", now C STYLE! 
+-- But it is the same ??? 
+-- TODO: DUPLICATED CODE 
+genProg :: MemMap -> Word32 ->  Program -> PP () 
+genProg mm nt (Assign name ix a) = 
+  case Map.lookup name mm of 
+    Just (addr,t) -> 
+      do
+        line$  sbaseStr addr t ++ "[" ++ concat (genExp gc mm ix) ++ "] = " ++ 
+          concat (genExp gc mm a) ++ ";" 
+        newline
+    Nothing ->  --- A result array
+      do
+        line$  name ++ "[" ++ concat (genExp gc mm ix) ++ "] = " ++ 
+          concat (genExp gc mm a) ++ ";"
+        newline
+genProg mm nt (ForAll f n) = genProg mm nt (f (variable "tid"))
+genProg mm nt (Allocate name size t prg) = genProg mm nt prg
+genProg mm nt (ProgramSeq p1 p2) = 
+  do 
+    genProg mm nt p1
+    genProg mm nt p2
+genProg mm nt (Cond c p) = 
+  line ("if" ++ concat (genExp gc mm c)) >> begin >>
+  genProg mm nt p >>
+  end 
 
+
+
+{- 
 genWrite :: MemMap -> Word32 -> Name -> Write a extra -> PP () 
 genWrite mm nt name (Write targf ll _) = 
   sequence_  [let n  = fromIntegral nAssigns
@@ -81,6 +137,8 @@ genWrite mm nt name (Write targf ll _) =
  
   where 
     nAssigns     = (staticLength ll) `div` nt 
+-} 
+
 
 ------------------------------------------------------------------------------
     
