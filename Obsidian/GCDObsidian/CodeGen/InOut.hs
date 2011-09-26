@@ -19,7 +19,7 @@ import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs 
 
 import Prelude hiding (splitAt)
-import Obsidian.GCDObsidian.Library (splitAt,concP')
+import Obsidian.GCDObsidian.Library (splitAt,concP)
 
 
 import Control.Monad.State
@@ -89,7 +89,7 @@ instance Scalar a => InOut (Array (Exp a)) where
              
              parr = if (rest == 0) 
                then pa1 
-               else concP' pa1 pa2
+               else concP pa1 pa2
          
          return$ SyncUnit threadBudget  [pushApp parr (targetArray  name)] e
          

@@ -103,7 +103,7 @@ small7 (a1,a2) =
   do 
     let a1' = toArrayP a1
     let a2' = toArrayP a2
-    pSyncArrayP  (concP' a1' a2') -- error if (len a1 /= len a2)
+    pSyncArrayP  (concP a1' a2') -- error if (len a1 /= len a2)
     
     
 -- perform liveness analysis on small5
@@ -124,7 +124,7 @@ small8 (a1,a2) =
   do 
     let a1' = toArrayP a1
     let a2' = toArrayP a2
-    pSyncArrayP$  concP (concP' a1' a2')  a1' 
+    pSyncArrayP$  concP (concP a1' a2')  a1' 
     
     
 -- perform liveness analysis on small5
