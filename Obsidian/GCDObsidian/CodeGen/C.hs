@@ -23,9 +23,22 @@ import Obsidian.GCDObsidian.CodeGen.InOut
 
 gc = genConfig "" ""
 
+    
+sBase size = 
+  do 
+    line "unsigned char *sbase;" 
+    newline  
+    line ("sbase = (unsigned char*) malloc(" ++ show size ++ ");")
+             
+free_sBase = line "free(sbase);" 
+
+-- TODO: make more general and move to Common    
+forEach :: GenConfig -> MemMap -> Exp Word32 -> PP ()   
+forEach gc mm e = line ("for (uint32_t tid = 0; tid < " ++ concat (genExp gc mm e) ++"; ++tid)")
+
 -- TODO: DUPLICATED CODE 
-sbaseStr 0 t    = genCast gc t ++ "sbase" 
-sbaseStr addr t = genCast gc t ++ "(sbase + " ++ show addr ++ ")" 
+sbaseStr 0 t    = parens$ genCast gc t ++ "sbase" 
+sbaseStr addr t = parens$ genCast gc t ++ "(sbase + " ++ show addr ++ ")" 
 ------------------------------------------------------------------------------
 -- sequential C code generation
 
@@ -64,37 +77,8 @@ genSyncUnit conf (SyncUnit nt progs e) =
    end
   where 
     mm = configMM conf
-    -- blockSize = configThreads conf
-    
-{-    
-genSyncUnit :: Config -> SyncUnit a -> PP ()     
-genSyncUnit conf (SyncUnit nt stores) = 
-  do 
-    genStoreList conf nt stores
-  
-genStoreList conf nt StoreListNil = return ()
-genStoreList conf nt (StoreListCons s rest) = 
-  do 
-    genStore conf nt s 
-    genStoreList conf nt rest
-    
-genStore :: Config -> Word32 -> Store a extra -> PP () 
-genStore conf nt (Store name size ws) = 
-  do 
-    forEach gc mm (fromIntegral nt) 
-    begin
-    mapM_ (genWrite mm nt name) ws
-    end
 
-    where 
-      mm = configMM conf
-      blockSize = configThreads conf
--} 
 
-forEach :: GenConfig -> MemMap -> Exp Word32 -> PP ()   
-forEach gc mm e = line ("for (uint32_t tid = 0; tid < " ++ concat (genExp gc mm e) ++"; ++tid)")
-
-------------------------------------------------------------------------------
 ----------------------------------------------------------------------------
 -- pretty print a "Program", now C STYLE! 
 -- But it is the same ??? 
@@ -122,36 +106,6 @@ genProg mm nt (Cond c p) =
   line ("if" ++ concat (genExp gc mm c)) >> begin >>
   genProg mm nt p >>
   end 
-
-
-
-{- 
-genWrite :: MemMap -> Word32 -> Name -> Write a extra -> PP () 
-genWrite mm nt name (Write targf ll _) = 
-  sequence_  [let n  = fromIntegral nAssigns
-                  ix = fromIntegral i 
-              in assign gc mm (index name (targf (tid * n + ix)))
-                 (ll `llIndex` (tid * n + ix)) >> 
-                 newline 
-             | i <- [0..nAssigns-1]]
- 
-  where 
-    nAssigns     = (staticLength ll) `div` nt 
--} 
-
-
-------------------------------------------------------------------------------
-    
-sBase size = 
-  do 
-    line "unsigned char *sbase;" 
-    newline  
-    line ("sbase = (unsigned char*) malloc(" ++ show size ++ ");")
-             
-
-free_sBase = line "free(sbase);" 
-
-
 ------------------------------------------------------------------------------
 -- C style function "header"
 kernelHead :: Name -> 
@@ -189,8 +143,11 @@ genKernel name kernel a = seqc
     (outCode,outs)   = 
       runInOut (writeOutputs threadBudget res ()) (0,[])
       
-    c' = c +++ (code$ outCode)
-    -- sc = syncPoints c 
+    c' = c +++ (code outCode)
     
-    seqc = getC (config threadBudget mm (size m)) c' name (("bid",Word32):(map fst2 ins)) (map fst2 outs)
+    seqc = getC (config threadBudget mm (size m)) 
+                c' 
+                name 
+                (("bid",Word32):(map fst2 ins)) 
+                (map fst2 outs)
     

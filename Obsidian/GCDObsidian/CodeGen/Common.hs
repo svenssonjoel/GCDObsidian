@@ -46,7 +46,7 @@ genType gc (Local t)  = local gc  ++" "++ genType gc t
 
 genCast gc t = "(" ++ genType gc t ++ ")"
 
-parens s = "(" ++ s ++ ")"
+parens s = '(' : s ++ ")"
 
 ------------------------------------------------------------------------------
 -- genExp C-style 
@@ -205,3 +205,5 @@ syncPoints Skip = Skip
 syncPoints ((SyncUnit nt ps e) `Seq` code) = 
    SyncUnit nt ps syncthreads  `Seq` (syncPoints code)
   
+   
+syncUnitNeedsSync (SyncUnit _ _ s) = needsSync s    

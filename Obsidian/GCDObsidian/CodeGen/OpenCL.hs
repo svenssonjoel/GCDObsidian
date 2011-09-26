@@ -1,6 +1,10 @@
-{-# LANGUAGE GADTs, RankNTypes, TypeOperators, TypeFamilies #-} 
+{- 
+   CodeGen.OpenCL
 
-module Obsidian.GCDObsidian.CodeGen.OpenCL where 
+   OpenCL code generation.
+-} 
+
+module Obsidian.GCDObsidian.CodeGen.OpenCL (genKernel) where 
 
 import Data.List
 import Data.Word 
@@ -12,12 +16,28 @@ import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.CodeGen.Common
 import Obsidian.GCDObsidian.CodeGen.InOut
 
-import qualified Obsidian.GCDObsidian.Tuple as Tuples
-import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil))
-import Obsidian.GCDObsidian.Elem
 
-
+----------------------------------------------------------------------------
+-- When it comes to OpenCL the gc is slightly different ;) 
 gc = genConfig "__global" "__local"
+
+syncLine = line "barrier(CLK_LOCAL_MEM_FENCE);"
+
+tidLine = line "unsigned int tid = get_local_id(0);"
+
+-- To get something that corresponds to bid in OpenCL 
+-- you need the "blocksize" 
+bidLine = line "unsigned int bid = (get_global_id(0)-tid) / get_local_size(0);" 
+
+-- Here the shared memory size is needed (I think) 
+-- Note:  You can set the size here (in the kernel) or 
+--        from the outside. Setting it from the "outside" requires an 
+--        extra parameter passed to the kernel and is thus more cumbersome.
+sBase size = line$ "__local unsigned char sbase[" ++ show size ++ "];" 
+
+-- TODO: CODE DUPLICATION
+sbaseStr 0 t    = parens$ genCast gc t ++ "sbase" 
+sbaseStr addr t = parens$ genCast gc t ++ "(sbase + " ++ show addr ++ ")" 
 
 ------------------------------------------------------------------------------
 -- Generate OpenCL code to a String 
@@ -38,10 +58,55 @@ genOpenCLBody _ Skip  = return ()
 genOpenCLBody conf (su `Seq` code) = 
   do 
     genSyncUnit conf su
+    if (syncUnitNeedsSync su) 
+      then syncLine >> newline 
+      else return () 
     genOpenCLBody conf code  
   
 ------------------------------------------------------------------------------
--- New
+-- 
+-- TODO: CODE DUPLICATION !!! 
+genSyncUnit conf (SyncUnit nt progs e) = 
+  do 
+    case compare nt blockSize of 
+      LT -> do
+            cond gc mm (tid <* (fromIntegral nt))
+            begin
+            mapM_ (genProg mm nt) progs
+            end
+      EQ -> mapM_ (genProg mm nt) progs
+      GT -> error "genStore: CUDA code generation is broken somewhere" 
+
+    where 
+      mm = configMM conf
+      blockSize = configThreads conf   
+
+
+genProg :: MemMap -> Word32 ->  Program -> PP () 
+genProg mm nt (Assign name ix a) = 
+  case Map.lookup name mm of 
+    Just (addr,t) -> 
+      do
+        line$  sbaseStr addr t ++ "[" ++ concat (genExp gc mm ix) ++ "] = " ++ 
+          concat (genExp gc mm a) ++ ";" 
+        newline
+    Nothing ->  --- A result array
+      do
+        line$  name ++ "[" ++ concat (genExp gc mm ix) ++ "] = " ++ 
+          concat (genExp gc mm a) ++ ";"
+        newline
+genProg mm nt (ForAll f n) = genProg mm nt (f (variable "tid"))
+genProg mm nt (Allocate name size t prg) = genProg mm nt prg
+genProg mm nt (ProgramSeq p1 p2) = 
+  do 
+    genProg mm nt p1
+    genProg mm nt p2
+genProg mm nt (Cond c p) = 
+  line ("if" ++ concat (genExp gc mm c)) >> begin >>
+  genProg mm nt p >>
+  end 
+
+{-    
 genSyncUnit :: Config -> SyncUnit Syncthreads -> PP ()
 genSyncUnit conf (SyncUnit nt stores) =     
   do
@@ -86,17 +151,7 @@ genWrite mm nt name (Write targf ll _) =
   where 
     nAssigns     = (staticLength ll) `div` nt 
 
-  
-
-tidLine = line "unsigned int tid = get_local_id(0);"
-
--- To get something that corresponds to bid in OpenCL 
--- you need the "blocksize" 
-bidLine = line "unsigned int bid = (get_global_id(0)-tid) / get_local_size(0);" 
-
---here the shared memory size is needed (I think) 
-sBase size = line$ "__local unsigned char sbase[" ++ show size ++ "];" 
-
+-}  
 
 
 ------------------------------------------------------------------------------

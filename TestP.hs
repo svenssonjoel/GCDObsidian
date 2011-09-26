@@ -6,6 +6,7 @@ import Obsidian.GCDObsidian.Printing
 
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 import qualified Obsidian.GCDObsidian.CodeGen.C as C
+import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
 
 
@@ -23,8 +24,8 @@ small1 (arr1,arr2) = pSyncArrayP part
 showSmall1 = printCode$ snd$ runKernel (small1 (namedArray "apa" 32,namedArray "apa" 32))
 
 getSmall1 = putStrLn$ CUDA.genKernel "small1" small1 (namedArray "apa" 32,namedArray "apa" 32)
-getSmall1' = putStrLn$ C.genKernel "small1" small1 (namedArray "apa" 32,namedArray "apa" 32)
-  
+getSmall1C = putStrLn$ C.genKernel "small1" small1 (namedArray "apa" 32,namedArray "apa" 32)
+getSmall1CL = putStrLn$ CL.genKernel "small1" small1 (namedArray "apa" 32,namedArray "apa" 32)  
 
 small2 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
 small2 (arr1,arr2) = pSyncArray part
@@ -32,7 +33,8 @@ small2 (arr1,arr2) = pSyncArray part
     part = conc (arr1,arr2)  
 
 getSmall2 = putStrLn$ CUDA.genKernel "small2" small2 (namedArray "apa" 32,namedArray "apa" 32)
-getSmall2' = putStrLn$ C.genKernel "small2" small2 (namedArray "apa" 32,namedArray "apa" 32)
+getSmall2C = putStrLn$ C.genKernel "small2" small2 (namedArray "apa" 32,namedArray "apa" 32)
+getSmall2CL = putStrLn$ CL.genKernel "small2" small2 (namedArray "apa" 32,namedArray "apa" 32)
 
     
 small3 :: Array (Data Int) -> Kernel (Array (Data Int)) 
@@ -42,7 +44,8 @@ small3 arr = pSyncArrayP b
     b = revP (toArrayP a) 
     
 getSmall3 = putStrLn$ CUDA.genKernel "small3" small3 (namedArray "apa" 32)
-getSmall3' = putStrLn$ C.genKernel "small3" small3 (namedArray "apa" 32)
+getSmall3C = putStrLn$ C.genKernel "small3" small3 (namedArray "apa" 32)
+getSmall3CL = putStrLn$ CL.genKernel "small3" small3 (namedArray "apa" 32)
 
     
 small4 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int),Array (Data Int)) 
@@ -51,7 +54,8 @@ small4 (a1,a2) = pSyncArrays (a1,a2)
 -- DONE: Everything breaks down for this example.
 --       Figure it out!
 getSmall4 = putStrLn$ CUDA.genKernel "small4" small4 (namedArray "apa" 32, namedArray "apa" 16)
-getSmall4' = putStrLn$ C.genKernel "small4" small4 (namedArray "apa" 32, namedArray "apa" 16)
+getSmall4C = putStrLn$ C.genKernel "small4" small4 (namedArray "apa" 32, namedArray "apa" 16)
+getSmall4CL = putStrLn$ CL.genKernel "small4" small4 (namedArray "apa" 32, namedArray "apa" 16)
 
 
 small5 :: Array (Data Int) -> Kernel (Array (Data Int)) 
@@ -69,7 +73,8 @@ small5 arr =
 runSmall5 = liveness$ snd$ runKernel (small5 (namedArray "apa" 32) )
                                        
 getSmall5 = putStrLn$ CUDA.genKernel "small5" small5 (namedArray "apa" 32)
-getSmall5' = putStrLn$ C.genKernel "small5" small5 (namedArray "apa" 32)
+getSmall5C = putStrLn$ C.genKernel "small5" small5 (namedArray "apa" 32)
+getSmall5CL = putStrLn$ CL.genKernel "small5" small5 (namedArray "apa" 32)
 
 
 small6 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
@@ -84,7 +89,8 @@ small6 (a1,a2) =
 runSmall6 = liveness$ snd$ runKernel (small6 (namedArray "apa" 32,namedArray "apa" 32) )
                                        
 getSmall6 = putStrLn$ CUDA.genKernel "small6" small6 (namedArray "apa" 32, namedArray "apa" 32)
-getSmall6' = putStrLn$ C.genKernel "small6" small6 (namedArray "apa" 32, namedArray "apa" 32)
+getSmall6C = putStrLn$ C.genKernel "small6" small6 (namedArray "apa" 32, namedArray "apa" 32)
+getSmall6CL = putStrLn$ CL.genKernel "small6" small6 (namedArray "apa" 32, namedArray "apa" 32)
 
 
 -- DONE: small7 displays a bug. The generated should have an if statement 
@@ -107,7 +113,8 @@ inputSmall7 = (namedArray "apa" 32,namedArray "apa" 16)
 runSmall7 = liveness$ snd$ runKernel (small7 inputSmall7 )
 
 getSmall7 = putStrLn$ CUDA.genKernel "small7" small7 inputSmall7
-getSmall7' = putStrLn$ C.genKernel "small7" small7 inputSmall7
+getSmall7C = putStrLn$ C.genKernel "small7" small7 inputSmall7
+getSmall7CL = putStrLn$ CL.genKernel "small7" small7 inputSmall7
 
 
 
@@ -127,6 +134,7 @@ inputSmall8 = (namedArray "apa" 32,namedArray "apa" 16)
 runSmall8 = liveness$ snd$ runKernel (small8 inputSmall8 )
 
 getSmall8 = putStrLn$ CUDA.genKernel "small8" small8 inputSmall8
-getSmall8' = putStrLn$ C.genKernel "small8" small8 inputSmall8
+getSmall8C = putStrLn$ C.genKernel "small8" small8 inputSmall8
+getSmall8CL = putStrLn$ CL.genKernel "small8" small8 inputSmall8
 
 

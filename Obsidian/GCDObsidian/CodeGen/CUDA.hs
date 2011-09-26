@@ -13,7 +13,7 @@ import Obsidian.GCDObsidian.CodeGen.Common
 import Obsidian.GCDObsidian.CodeGen.InOut 
 
 ----------------------------------------------------------------------------
-
+-- 
 gc = genConfig "" ""
 
 syncLine = line "__syncthreads();"
@@ -24,8 +24,8 @@ bidLine = line "unsigned int bid = blockIdx.x;"
 
 sBase = line "extern __shared__ __attribute__ ((aligned (16))) unsigned char sbase[];" 
 
-sbaseStr 0 t    = genCast gc t ++ "sbase" 
-sbaseStr addr t = genCast gc t ++ "(sbase + " ++ show addr ++ ")" 
+sbaseStr 0 t    = parens$ genCast gc t ++ "sbase" 
+sbaseStr addr t = parens$ genCast gc t ++ "(sbase + " ++ show addr ++ ")" 
 
 ------------------------------------------------------------------------------
 -- C style function "header"
@@ -63,7 +63,7 @@ genKernel name kernel a = cuda
     (outCode,outs)   = 
       runInOut (writeOutputs threadBudget res nosync) (0,[])
 
-    c' = sc `mappend` (outCode `Seq` Skip) 
+    c' = sc +++ (code outCode) 
     sc = syncPoints c 
     
     cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
@@ -100,7 +100,7 @@ genCUDABody conf (su `Seq` code) =
       else return () 
     genCUDABody conf code  
 
-syncUnitNeedsSync (SyncUnit _ _ s) = needsSync s 
+
 
 ------------------------------------------------------------------------------
 -- 
