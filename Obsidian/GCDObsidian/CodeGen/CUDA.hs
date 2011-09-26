@@ -9,8 +9,13 @@ import qualified Data.Map as Map
 import Obsidian.GCDObsidian.Kernel 
 import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Exp 
+import Obsidian.GCDObsidian.Memory
+import Obsidian.GCDObsidian.Types
+import Obsidian.GCDObsidian.Globs
 import Obsidian.GCDObsidian.CodeGen.Common
 import Obsidian.GCDObsidian.CodeGen.InOut 
+
+
 
 ----------------------------------------------------------------------------
 -- 

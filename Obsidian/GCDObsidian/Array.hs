@@ -23,6 +23,9 @@ module Obsidian.GCDObsidian.Array ((!)
 import Obsidian.GCDObsidian.Elem
 import Obsidian.GCDObsidian.Tuple
 import Obsidian.GCDObsidian.Exp 
+import Obsidian.GCDObsidian.Types
+import Obsidian.GCDObsidian.Globs
+
 
 import Data.List
 import Data.Word

@@ -15,6 +15,8 @@ module Obsidian.GCDObsidian.CodeGen.InOut where
 import Obsidian.GCDObsidian.Kernel
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Array 
+import Obsidian.GCDObsidian.Types
+import Obsidian.GCDObsidian.Globs 
 
 import Prelude hiding (splitAt)
 import Obsidian.GCDObsidian.Library (splitAt,concP')

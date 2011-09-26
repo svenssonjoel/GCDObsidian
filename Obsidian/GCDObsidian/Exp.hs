@@ -18,17 +18,8 @@ import qualified Foreign.Storable as Storable
 import qualified Obsidian.GCDObsidian.Tuple as Tuple 
 import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil) ) 
 import Obsidian.GCDObsidian.Elem
-
-------------------------------------------------------------------------------
--- 
-data Type = Bool | Int | Word8 | Word16 | Word32 | Word64 
-          | Float | Double                     
-                    
-          -- Used by CUDA, C And OpenCL generators          
-          | Pointer Type   -- C thing 
-          | Global Type    -- OpenCL thing
-          | Local Type     -- OpenCL thing
-                    deriving Show
+import Obsidian.GCDObsidian.Types
+import Obsidian.GCDObsidian.Globs
 
 ------------------------------------------------------------------------------
 -- some synonyms
@@ -88,12 +79,6 @@ instance Scalar Word32 where
 instance Scalar Word64 where 
   sizeOf _ = 8 
   typeOf _ = Word64
-
-
-------------------------------------------------------------------------------
--- Aliases
-
-type Name = String
 
 ------------------------------------------------------------------------------ 
 -- Expressions 

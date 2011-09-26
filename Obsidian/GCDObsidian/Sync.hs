@@ -4,6 +4,7 @@ module Obsidian.GCDObsidian.Sync where
 import Obsidian.GCDObsidian.Kernel
 import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Array
+import Obsidian.GCDObsidian.Types
 
 import Control.Monad.Writer
 

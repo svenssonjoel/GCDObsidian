@@ -11,6 +11,9 @@ import Obsidian.GCDObsidian.Exp
 import qualified Obsidian.GCDObsidian.Tuple as Tuple 
 import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil) ) 
 import Obsidian.GCDObsidian.Elem
+import Obsidian.GCDObsidian.Memory
+import Obsidian.GCDObsidian.Types
+import Obsidian.GCDObsidian.Globs
 
 import Control.Monad.State
 
