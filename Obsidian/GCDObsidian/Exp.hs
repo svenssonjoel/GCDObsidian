@@ -317,6 +317,10 @@ printOp LEq = " <= "
 printOp Gt  = " > "
 printOp GEq = " >= " 
 
+printOp Min = " Min "
+printOp Max = " Max " 
+printOp Sin = " Sin " 
+
 printOp BitwiseAnd = " & "
 printOp BitwiseOr  = " | " 
 printOp BitwiseXor = " ^ " 
