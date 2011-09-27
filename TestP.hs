@@ -17,8 +17,8 @@ small1 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
 small1 (arr1,arr2) = pSyncArrayP part
   where
     part = concP arr1' arr2'  
-    arr1' = toArrayP arr1
-    arr2' = toArrayP arr2 
+    arr1' = push arr1
+    arr2' = push arr2 
 
 
 showSmall1 = printCode$ snd$ runKernel (small1 (namedArray "apa" 32,namedArray "apa" 32))
@@ -41,7 +41,7 @@ small3 :: Array (Data Int) -> Kernel (Array (Data Int))
 small3 arr = pSyncArrayP b 
   where 
     a = rev arr 
-    b = revP (toArrayP a) 
+    b = revP (push a) 
     
 getSmall3 = putStrLn$ CUDA.genKernel "small3" small3 (namedArray "apa" 32)
 getSmall3C = putStrLn$ C.genKernel "small3" small3 (namedArray "apa" 32)
@@ -101,8 +101,8 @@ getSmall6CL = putStrLn$ CL.genKernel "small6" small6 (namedArray "apa" 32, named
 small7 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
 small7 (a1,a2) = 
   do 
-    let a1' = toArrayP a1
-    let a2' = toArrayP a2
+    let a1' = push a1
+    let a2' = push a2
     pSyncArrayP  (concP a1' a2') -- error if (len a1 /= len a2)
     
     
@@ -122,8 +122,8 @@ getSmall7CL = putStrLn$ CL.genKernel "small7" small7 inputSmall7
 small8 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
 small8 (a1,a2) = 
   do 
-    let a1' = toArrayP a1
-    let a2' = toArrayP a2
+    let a1' = push a1
+    let a2' = push a2
     pSyncArrayP$  concP (concP a1' a2')  a1' 
     
     

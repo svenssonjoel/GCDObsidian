@@ -75,7 +75,7 @@ instance Scalar a => InOut (Array (Exp a)) where
     
     if ( len arr <= threadBudget ) 
       then do 
-         let parr = toArrayP arr
+         let parr = push arr
          return$ SyncUnit threadBudget  [pushApp parr (targetArray  name)] e
       else do 
          let n  = len arr
@@ -84,8 +84,8 @@ instance Scalar a => InOut (Array (Exp a)) where
              rest  = n `rem` tb
              sp = tbInN * tb
              (a1,a2) = splitAt sp arr
-             pa1     = toArrayP' tbInN a1
-             pa2     = toArrayP a2
+             pa1     = push' tbInN a1
+             pa2     = push a2
              
              parr = if (rest == 0) 
                then pa1 

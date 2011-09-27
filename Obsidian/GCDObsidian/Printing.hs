@@ -2,10 +2,10 @@
 
 module Obsidian.GCDObsidian.Printing  where 
 
-import  Obsidian.GCDObsidian.Exp 
-import  Obsidian.GCDObsidian.Kernel 
-import  Obsidian.GCDObsidian.Array
- 
+import Obsidian.GCDObsidian.Exp 
+import Obsidian.GCDObsidian.Kernel 
+import Obsidian.GCDObsidian.Array
+import Obsidian.GCDObsidian.Program  
 
 
 ------------------------------------------------------------------------------

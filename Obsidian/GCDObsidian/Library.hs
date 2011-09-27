@@ -4,11 +4,14 @@ import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Elem 
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Tuple
+import Obsidian.GCDObsidian.Program
+import Obsidian.GCDObsidian.Sync
+import Obsidian.GCDObsidian.Kernel
 
 import Data.Bits
 import Data.Word
 
-import Prelude hiding (splitAt)
+import Prelude hiding (splitAt,zipWith)
 
 
 instance Functor Array where 
@@ -33,6 +36,16 @@ halve arr = splitAt n2 arr
   where 
     n = len arr
     n2 = n `div` 2
+
+----------------------------------------------------------------------------
+-- elements at even indices to fst output, odd to snd.
+evenOdds :: Array a -> (Array a, Array a)
+evenOdds arr = (Array (\ix -> arr ! (2*ix)) (n-n2),
+                Array (\ix -> arr ! (2*ix + 1)) n2)
+  where
+    n = fromIntegral (len arr)
+    n2 = div n 2
+
 
 ------------------------------------------------------------------------------
 --
@@ -89,15 +102,35 @@ ivt i j f arr = Array g nl
     ij = i+j
 
 
+-- Split an array into two equal length parts.
+-- How they are divided is controlled by i and j 
+-- TODO: Ask Mary for info on the "how"
+ivDiv :: Int -> Int -> Array a -> (Array a, Array a)
+ivDiv i j arr = (Array (\ix -> arr ! newix0 i j ix) (n-n2),
+                 Array (\ix -> arr ! newix1 i j ix) n2)
+  where 
+    n1 = n-n2
+    n2 = div n 2
+    n = len arr
+    newix0 i j ix = ix + (ix .&. complement (fromIntegral (tij - 1)))
+    tij = 2^(i+j)
+    newix1 i j ix = (newix0 i j ix) `xor` (fromIntegral j')
+    j' = (((2^(j+1))-1) :: Word32) `shiftL` i
+
+
+
+composeS [] = pure id
+composeS (f:fs) = f ->- pSyncArrayP ->- composeS fs
 
 
 ----------------------------------------------------------------------------
--- ***                          PUSHY LIBRARY                        *** --- 
+-- ***                          PUSHY LIBRARY                        *** ---
 ----------------------------------------------------------------------------
 
-revP :: ArrayP a -> ArrayP a 
-revP (ArrayP h n) = ArrayP (revHelp (\ix -> (fromIntegral (n-1)) - ix) h) n 
-
+revP :: Pushy arr => arr a -> ArrayP a 
+revP  arr = ArrayP (revHelp (\ix -> (fromIntegral (n-1)) - ix) h) n 
+  where
+    (ArrayP h n) = push arr
 --revHelp :: (a -> b) -> ((a -> c) -> d) -> (b -> c) -> d
 
 -- TODO: This can be used in general to apply some indexing transformation.
@@ -112,8 +145,8 @@ revHelp f g h = g (\i -> h (f i))
 --                       (n1+n2)
 
 
-concP :: ArrayP a -> ArrayP a -> ArrayP a     
-concP (ArrayP f n1) (ArrayP g n2) = 
+concP :: Pushy arr => arr a -> arr a -> ArrayP a     
+concP arr1 arr2 = 
   case compare n1 n2 of 
     EQ -> ArrayP (\func -> ( f func )
                            *>* 
@@ -134,7 +167,45 @@ concP (ArrayP f n1) (ArrayP g n2) =
           newlen
   where 
     newlen = n1+n2
+    (ArrayP f n1) = push arr1
+    (ArrayP g n2) = push arr2
 
 
+----------------------------------------------------------------------------
+-- 
+    
+zipP :: Pushy arr  => arr a -> arr a -> ArrayP a  
+zipP arr1 arr2 =
+  ArrayP (\func -> (f (\i -> func (2*i)))
+                   *>*
+                   (g (\i -> func (2*i + 1))))
+         (n1+n2)
+  where 
+    (ArrayP f n1) = push arr1
+    (ArrayP g n2) = push arr2
+    
 
+-- The oposite to ivDiv    
+ivMerge :: Pushy arr => Int -> Int -> arr a -> arr a -> ArrayP a
+ivMerge i j arr1 arr2  = 
+  ArrayP (\func -> (f (\ix -> func (newix0 i j ix)))
+                   *>*
+                   (g (\ix -> func (newix1 i j ix))))
+          (n1+n2)
+  where
+    newix0 i j ix = ix + (ix .&. complement (fromIntegral (tij - 1)))
+    tij = 2^(i+j)
+    newix1 i j ix = (newix0 i j ix) `xor` (fromIntegral j')
+    j' = (((2^(j+1))-1) :: Word32) `shiftL` i
+    (ArrayP f n1) = push arr1
+    (ArrayP g n2) = push arr2
+    
+    
+-- iv  a sorter building block
+iv i j f g arr = part
+  where
+    (arr1,arr2) = ivDiv i j arr
+    part = ivMerge i j arr1' arr2'
+    arr1' = push $ zipWith f arr1 arr2
+    arr2' = push $ zipWith g arr1 arr2
 

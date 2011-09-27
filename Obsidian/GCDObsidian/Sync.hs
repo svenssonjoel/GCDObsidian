@@ -5,6 +5,7 @@ import Obsidian.GCDObsidian.Kernel
 import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Types
+import Obsidian.GCDObsidian.Program
 
 import Control.Monad.Writer
 
@@ -32,7 +33,7 @@ pSyncArray arr =
     es = fromIntegral$ sizeOf (arr ! 0) 
     t  = Pointer$ Local$ typeOf (arr ! 0)
 
-    parr = toArrayP arr 
+    parr = push arr 
         
 
 -- THE GCD THING
@@ -56,8 +57,8 @@ pSyncArrays (a1,a2) =
     t1  = Pointer$ Local$ typeOf (a1 ! 0)
     t2  = Pointer$ Local$ typeOf (a2 ! 0)
     n   = gcd (len a1) (len a2) 
-    pa1 = toArrayP' w1 a1 
-    pa2 = toArrayP' w2 a2    
+    pa1 = push' w1 a1 
+    pa2 = push' w2 a2    
     (w1,w2) = nWrites n (pa1,pa2)
     
 nWrites m (p1@(ArrayP _ n1),p2@(ArrayP _ n2)) = (p1Writes, p2Writes)
