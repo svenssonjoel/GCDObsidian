@@ -1,4 +1,6 @@
-
+{-# LANGUAGE FlexibleInstances, 
+             FlexibleContexts, 
+             MultiParamTypeClasses #-} 
 module Obsidian.GCDObsidian.Sync where 
 
 import Obsidian.GCDObsidian.Kernel
@@ -6,16 +8,79 @@ import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Program
+import Obsidian.GCDObsidian.Library
+import Obsidian.GCDObsidian.Elem
+
 
 import Control.Monad.Writer
 
 ------------------------------------------------------------------------------
 -- Syncs in the new setting 
 
-sync :: Scalar a => Array (Exp a) -> Kernel (Array (Exp a))
-sync = pSyncArray
+class Syncable arr a where 
+  sync ::  arr a -> Kernel (Array a )
 
--- Work on the Scalar a thing!!!y
+  
+instance (Pushy arr, Scalar a) => Syncable arr (Exp a) where 
+  sync = pSyncA
+
+instance ( Elem a
+         , Elem b
+         , Syncable Array (Exp a)
+         , Syncable Array (Exp b)
+         ) => Syncable Array (Exp (a,b)) where
+  sync arr = do 
+     a1' <- sync a1
+     a2' <- sync a2 
+     return (zipp (a1,a2) )
+    where 
+       (a1,a2) = unzipp arr
+
+{- 
+instance ( Elem a
+         , Elem b
+         , Elem c
+         , Syncable (Array (Exp a))
+         , Syncable (Array (Exp b))
+         , Syncable (Array (Exp c)) 
+         ) => Syncable (Array (Exp (a,b,c))) where
+  sync arr = do 
+     a1' <- sync a1
+     a2' <- sync a2 
+     a3' <- sync a3
+     return (zipp3 (a1,a2,a3) )
+    where 
+       (a1,a2,a3) = unzipp3 arr
+
+-}
+ 
+--composeS [] = pure id
+--composeS (f:fs) = f ->- pSyncArrayP ->- composeS fs
+
+composeS [] = pure id
+composeS (f:fs) = f ->- sync ->- composeS fs
+
+
+pSyncA :: (Scalar a, Pushy arr) 
+          => arr (Exp a) -> Kernel (Array (Exp a)) 
+pSyncA arrIn = 
+  do 
+    name <- newArray
+    
+    let result = Array (index name) n         
+        es = fromIntegral$ sizeOf (result ! 0) 
+        t  = Pointer$ Local$ typeOf (result ! 0)
+        p  = pushApp arr (targetArray name)
+
+    tell$ Seq (syncUnit (programThreads p) 
+               [Allocate name (es * n) t 
+                p]) Skip
+    return result
+  where 
+    arr@(ArrayP func n) = push arrIn 
+
+
+-- Work on the Scalar a thing!!!
 pSyncArray  :: Scalar a => Array (Exp a) -> Kernel (Array (Exp a))
 pSyncArray arr = 
   do 

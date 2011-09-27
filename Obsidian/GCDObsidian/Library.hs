@@ -5,7 +5,7 @@ import Obsidian.GCDObsidian.Elem
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Tuple
 import Obsidian.GCDObsidian.Program
-import Obsidian.GCDObsidian.Sync
+-- import Obsidian.GCDObsidian.Sync
 import Obsidian.GCDObsidian.Kernel
 
 import Data.Bits
@@ -67,6 +67,26 @@ unzipp arr = (Array (\ix -> fst (untup2 (arr ! ix))) (len arr),
 zipp :: (Elem a, Elem b) => (Array (Exp a), Array (Exp b)) -> Array (Exp (a,b))             
 zipp (arr1,arr2) = Array (\ix -> tup2 (arr1 ! ix, arr2 ! ix)) (len arr1)
     
+
+unzipp3 :: (Elem a , Elem b, Elem c) 
+           =>  Array (Exp (a,b,c)) 
+           -> (Array (Exp a), Array (Exp b), Array (Exp c))       
+unzipp3 arr = (Array (\ix -> fst3 (untup3 (arr ! ix))) (len arr),
+               Array (\ix -> snd3 (untup3 (arr ! ix))) (len arr),
+               Array (\ix -> trd3 (untup3 (arr ! ix))) (len arr))
+  where
+    fst3 (x,_,_) = x
+    snd3 (_,y,_) = y
+    trd3 (_,_,z) = z
+    
+zipp3 :: (Elem a, Elem b, Elem c) 
+         => (Array (Exp a), Array (Exp b), Array (Exp c)) 
+         -> Array (Exp (a,b,c))             
+zipp3 (arr1,arr2,arr3) = 
+  Array (\ix -> tup3 (arr1 ! ix, arr2 ! ix, arr3 ! ix)) 
+    (minimum [len arr1, len arr2, len arr3])
+
+
     
 zipWith :: (Exp a -> Exp b -> Exp c) -> Array (Exp a) -> Array (Exp b) -> Array (Exp c)
 zipWith op a1 a2 = Array (\ix -> (a1 ! ix) `op` (a2 ! ix)) (len a1)
@@ -118,9 +138,6 @@ ivDiv i j arr = (Array (\ix -> arr ! newix0 i j ix) (n-n2),
     j' = (((2^(j+1))-1) :: Word32) `shiftL` i
 
 
-
-composeS [] = pure id
-composeS (f:fs) = f ->- pSyncArrayP ->- composeS fs
 
 
 ----------------------------------------------------------------------------
