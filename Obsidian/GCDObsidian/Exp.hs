@@ -119,7 +119,7 @@ data Op a where
   
   -- Trig
   Sin :: Floating a => Op (a -> a) 
-  
+  Cos :: Floating a => Op (a -> a)
   
   -- Comparisons
   Eq  :: Ord a => Op ((a,a) -> Bool)
@@ -225,6 +225,10 @@ instance Bits (Exp Int) where
   (.&.) a b = Op BitwiseAnd (tup2 (a,b))
   (.|.) a b = Op BitwiseOr  (tup2 (a,b))
   xor   a b = Op BitwiseXor (tup2 (a,b)) 
+  
+  --TODO: See that this is not breaking something (32/64 bit, CUDA/Haskell)
+  complement (Literal i) = Literal (complement i)
+  
   complement a = Op BitwiseNeg a
   shiftL a i = Op ShiftL (tup2 (a,Literal i))
   shiftR a i = Op ShiftR (tup2 (a,Literal i))
@@ -256,6 +260,7 @@ instance Bits (Exp Word32) where
   (.&.) a b = Op BitwiseAnd (tup2 (a,b))
   (.|.) a b = Op BitwiseOr  (tup2 (a,b))
   xor   a b = Op BitwiseXor (tup2 (a,b)) 
+  complement (Literal i) = Literal (complement i) 
   complement a = Op BitwiseNeg a
   shiftL a i = Op ShiftL (tup2 (a,Literal i))
   shiftR a i = Op ShiftR (tup2 (a,Literal i))
@@ -319,7 +324,9 @@ printOp GEq = " >= "
 
 printOp Min = " Min "
 printOp Max = " Max " 
+
 printOp Sin = " Sin " 
+printOp Cos = " Cos "
 
 printOp BitwiseAnd = " & "
 printOp BitwiseOr  = " | " 
@@ -332,6 +339,8 @@ printTup' :: forall t. Tuple.Tuple Exp t -> [String]
 printTup' Nil = []
 printTup' (a :. t) = printExp a : (printTup' t) 
   
+                     
+-- TODO: I have never used a projection...                      
 printPrj = undefined 
 
 

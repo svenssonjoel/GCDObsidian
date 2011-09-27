@@ -23,7 +23,7 @@ small1 (arr1,arr2) = pSyncArrayP part
     arr2' = toArrayP arr2 
 
 
-showSmall1 = printCode$ snd$ runKernel (small1 (namedArray "apa" 32,namedArray "apa" 32))
+showSmall1 = printCode$ snd$ runKernel (small1 (namedArray "apa" 32,namedArray "bepa" 32))
 
 getSmall1 = putStrLn$ CUDA.genKernel "small1" small1 (namedArray "apa" 32,namedArray "aba" 32)
   
@@ -61,8 +61,9 @@ evenOdds arr = (Array (\ix -> arr ! (2*ix)) (n-n2),
 
 zipP :: ArrayP a -> ArrayP a -> ArrayP a  
 zipP (ArrayP f n1) (ArrayP g n2) =
-  ArrayP (\func -> ProgramSeq (f (\i -> func (2*i)))
-                              (g (\i -> func (2*i + 1))))
+  ArrayP (\func -> (f (\i -> func (2*i)))
+                   *>*
+                   (g (\i -> func (2*i + 1))))
          (n1+n2)
 
 
@@ -81,8 +82,9 @@ ivDiv i j arr = (Array (\ix -> arr ! newix0 i j ix) (n-n2),
 
 ivMerge :: Int -> Int -> ArrayP a -> ArrayP a -> ArrayP a
 ivMerge i j (ArrayP f n1) (ArrayP g n2) = 
-  ArrayP (\func -> ProgramSeq (f (\ix -> func (newix0 i j ix)))
-                              (g (\ix -> func (newix1 i j ix))))
+  ArrayP (\func -> (f (\ix -> func (newix0 i j ix)))
+                   *>*
+                   (g (\ix -> func (newix1 i j ix))))
           (n1+n2)
   where
     newix0 i j ix = ix + (ix .&. complement (fromIntegral (tij - 1)))

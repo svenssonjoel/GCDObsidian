@@ -115,16 +115,20 @@ revHelp f g h = g (\i -> h (f i))
 concP :: ArrayP a -> ArrayP a -> ArrayP a     
 concP (ArrayP f n1) (ArrayP g n2) = 
   case compare n1 n2 of 
-    EQ -> ArrayP (\func -> ProgramSeq ( f func )
+    EQ -> ArrayP (\func -> ( f func )
+                           *>* 
                            (g (\i -> func (fromIntegral n1 + i))))
            newlen
           
-    LT -> ArrayP (\func -> ProgramSeq ( f (\i  a ->  Cond (i <* (fromIntegral n1))
-                                                    (func i a )))
+    LT -> ArrayP (\func -> (f (\i  a ->  
+                                Cond (i <* (fromIntegral n1)) 
+                                (func i a )))
+                           *>*
                            (g (\i -> func (fromIntegral n1 + i))))
            newlen
           
-    GT -> ArrayP (\func -> ProgramSeq (f func ) 
+    GT -> ArrayP (\func -> (f func ) 
+                           *>*
                            (g (\i a -> Cond (i <* (fromIntegral n2))
                                        (func (fromIntegral n1 + i) a ))))
           newlen
@@ -134,6 +138,3 @@ concP (ArrayP f n1) (ArrayP g n2) =
 
 
 
-
--- TODO: Are there cool versions of twoK and ivt on that produce 
---       Pushy Arrays

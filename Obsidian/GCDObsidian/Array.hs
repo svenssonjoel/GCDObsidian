@@ -18,6 +18,7 @@ module Obsidian.GCDObsidian.Array ((!)
                                   , ArrayP(..)
                                   , printProgram
                                   , programThreads
+                                  , (*>*) 
                                   )where 
 
 import Obsidian.GCDObsidian.Elem
@@ -55,6 +56,9 @@ data Program
   | Cond (Exp Bool) Program                     -- Conditional such as if (tid < x) (assign bla bla)  
   | ProgramSeq Program Program  
   
+(*>*) :: Program -> Program -> Program     
+(*>*) = ProgramSeq 
+    
 programThreads :: Program -> Word32
 programThreads (Assign _ _ _) = 1
 programThreads (ForAll f n) = n -- inner ForAlls are sequential
@@ -64,7 +68,7 @@ programThreads (p1 `ProgramSeq` p2) = max (programThreads p1) (programThreads p2
 printProgram :: Program -> String 
 printProgram (Assign n t e) = n ++ "[" ++ show t ++ "]" ++ " = " ++ show e ++ ";\n"  
 printProgram (ForAll f n)   = "forall i 0.." ++ show n ++ " {\n" ++ printProgram (f (variable "tid")) ++ "\n}" 
-printProgram (Allocate name n t p) = "name = malloc(" ++ show n ++ ")\n" ++ printProgram p
+printProgram (Allocate name n t p) = name ++ " = malloc(" ++ show n ++ ")\n" ++ printProgram p
 printProgram (ProgramSeq p1 p2) = printProgram p1 ++ printProgram p2
     
 instance Show Program where 
