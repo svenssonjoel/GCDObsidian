@@ -80,7 +80,7 @@ instance Scalar Word64 where
   sizeOf _ = 8 
   typeOf _ = Word64
 
------------------------------------------------------------------------------- 
+----------------------------------------------------------------------------
 -- Expressions 
 data Exp a where
   Literal :: Scalar a 
@@ -97,9 +97,6 @@ data Exp a where
              -> Exp a 
              -> Exp b 
   
-  -- TODO: Replace Tuples with something way more limited
-  --        + That does not support nesting 
-  --        + That can be processed efficiently by GPU 
   Tuple   :: (Elem a, Tuple.IsTuple a) 
              => Tuple.Tuple Exp (Tuple.Repr a) 
              -> Exp a  
@@ -110,19 +107,8 @@ data Exp a where
              -> Exp a 
              -> Exp b
              
-  -- Experimental 
-  Pair    :: (Scalar a, Scalar b) 
-             => Exp a -> Exp b -> Exp (Struct2 a b)
-  Tripple :: (Scalar a, Scalar b, Scalar c) 
-             => Exp a -> Exp b -> Exp c -> Exp (Struct3 a b c)  
-  Quad    :: (Scalar a, Scalar b, Scalar c, Scalar d) 
-             => Exp a ->  Exp b -> Exp c -> Exp d -> Exp (Struct4 a b c d) 
              
-             
-data Struct2 a b = Struct2 a b
-data Struct3 a b c = Struct3 a b c 
-data Struct4 a b c d = Struct4 a b c d
-------------------------------------------------------------------------------
+----------------------------------------------------------------------------
 -- Operations
 
 data Op a where 
@@ -165,13 +151,12 @@ index name ix = Index (name,[ix])
 
 ------------------------------------------------------------------------------
 -- Create Tuples
+
 tup2 :: (Elem a, Elem b) => (Exp a, Exp b) -> Exp (a,b) 
 tup2 (a,b) = Tuple (a :. b :. Nil )
 
 tup3 :: (Elem a, Elem b, Elem c) => (Exp a, Exp b, Exp c) -> Exp (a,b,c) 
 tup3 (a,b,c) = Tuple (a :. b :. c :. Nil )
-
-
 
 untup2 :: (Elem a, Elem b, Elem r, 
            Tuple.Repr r ~ (a,(b,())), Tuple.IsTuple r) => 
@@ -182,7 +167,7 @@ untup3 :: (Elem a, Elem b, Elem c, Elem r,
            Tuple.Repr r ~ (a,(b,(c,()))), Tuple.IsTuple r) => 
           Exp r -> (Exp a, Exp b, Exp c) 
 untup3 (Tuple (a :. b :. c :. Nil)) = (a,b,c) 
-
+ 
 ------------------------------------------------------------------------------
 -- Collect array names
 
@@ -250,7 +235,7 @@ instance Bits (Exp Int) where
   bitSize a  = sizeOf a * 8
   isSigned a = True
 
-------------------------------------------------------------------------------
+----------------------------------------------------------------------------
 -- Word32 Instances 
 instance Num (Exp Word32) where 
   (+) a (Literal 0) = a
@@ -284,7 +269,7 @@ instance Bits (Exp Word32) where
 
   
   
-------------------------------------------------------------------------------  
+----------------------------------------------------------------------------
   
 (==*) (Literal a) (Literal b) = Literal (a == b) 
 (==*) a b = Op Eq $ tup2 (a,b)
@@ -303,15 +288,17 @@ instance Elem a => Choice (Exp a) where
   ifThenElse (Literal False) e1 e2 = e2
   ifThenElse (Literal True)  e1 e2 = e1
   ifThenElse b e1 e2 = Op If $ tup3 (b,e1,e2)
+  
+instance (Choice a, Choice b) => Choice (a,b) where
+  ifThenElse b (e1,e1') (e2,e2') = (ifThenElse b e1 e2,
+                                    ifThenElse b e1' e2') 
+  
 
------------------------------------------------------------------------------- 
+----------------------------------------------------------------------------
 -- Built-ins
 
 
-------------------------------------------------------------------------------
--- PrintExpressions... 
-
-------------------------------------------------------------------------------
+----------------------------------------------------------------------------
 -- Print Expressions
 
 printExp :: Elem a => Exp a -> String

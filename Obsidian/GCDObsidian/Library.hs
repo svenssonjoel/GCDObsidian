@@ -5,7 +5,6 @@ import Obsidian.GCDObsidian.Elem
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Tuple
 import Obsidian.GCDObsidian.Program
--- import Obsidian.GCDObsidian.Sync
 import Obsidian.GCDObsidian.Kernel
 
 import Data.Bits
@@ -60,62 +59,39 @@ conc (a1,a2) = Array (\ix -> ifThenElse (ix <* (fromIntegral n1))
     
 ------------------------------------------------------------------------------
 -- zipp unzipp
-unzipp :: (Elem a , Elem b) =>  Array (Exp (a,b)) -> (Array (Exp a), Array (Exp b))       
-unzipp arr = (Array (\ix -> fst (untup2 (arr ! ix))) (len arr),
-              Array (\ix -> snd (untup2 (arr ! ix))) (len arr))
-              
-zipp :: (Elem a, Elem b) => (Array (Exp a), Array (Exp b)) -> Array (Exp (a,b))             
-zipp (arr1,arr2) = Array (\ix -> tup2 (arr1 ! ix, arr2 ! ix)) (len arr1)
-    
 
-unzippH :: Array (a,b) -> (Array a, Array b)       
-unzippH arr = (Array (\ix -> fst (arr ! ix)) (len arr),
+unzipp :: Array (a,b) -> (Array a, Array b)       
+unzipp arr = (Array (\ix -> fst (arr ! ix)) (len arr),
               Array (\ix -> snd (arr ! ix)) (len arr))
               
-zippH :: (Array a, Array b) -> Array (a, b)             
-zippH (arr1,arr2) = Array (\ix -> (arr1 ! ix, arr2 ! ix)) (len arr1)
+zipp :: (Array a, Array b) -> Array (a, b)             
+zipp (arr1,arr2) = Array (\ix -> (arr1 ! ix, arr2 ! ix)) (len arr1)
 
 
-unzipp3 :: (Elem a , Elem b, Elem c) 
-           =>  Array (Exp (a,b,c)) 
-           -> (Array (Exp a), Array (Exp b), Array (Exp c))       
-unzipp3 arr = (Array (\ix -> fst3 (untup3 (arr ! ix))) (len arr),
-               Array (\ix -> snd3 (untup3 (arr ! ix))) (len arr),
-               Array (\ix -> trd3 (untup3 (arr ! ix))) (len arr))
+unzipp3 :: Array (a,b,c) 
+           -> (Array a, Array b, Array c)       
+unzipp3 arr = (Array (\ix -> fst3 (arr ! ix)) (len arr),
+               Array (\ix -> snd3 (arr ! ix)) (len arr),
+               Array (\ix -> trd3 (arr ! ix)) (len arr))
   where
     fst3 (x,_,_) = x
     snd3 (_,y,_) = y
     trd3 (_,_,z) = z
     
-zipp3 :: (Elem a, Elem b, Elem c) 
-         => (Array (Exp a), Array (Exp b), Array (Exp c)) 
-         -> Array (Exp (a,b,c))             
+zipp3 :: (Array a, Array b, Array c) 
+         -> Array (a,b,c)             
 zipp3 (arr1,arr2,arr3) = 
-  Array (\ix -> tup3 (arr1 ! ix, arr2 ! ix, arr3 ! ix)) 
+  Array (\ix -> (arr1 ! ix, arr2 ! ix, arr3 ! ix)) 
     (minimum [len arr1, len arr2, len arr3])
 
-
-    
---zipWith :: (Exp a -> Exp b -> Exp c) -> Array (Exp a) -> Array (Exp b) -> Array (Exp c)
---zipWith op a1 a2 = Array (\ix -> (a1 ! ix) `op` (a2 ! ix)) (len a1)
-    
 
 zipWith :: (a -> b -> c) -> Array a -> Array b -> Array c
 zipWith op a1 a2 = Array (\ix -> (a1 ! ix) `op` (a2 ! ix)) (len a1)
 
                    
-                   
-                   
 ----------------------------------------------------------------------------
 -- pair 
 
-{-
-pair :: Elem a => Array (Exp a) -> Array (Exp (a,a))
-pair (Array ixf n) = Array (\ix -> tup2 (ixf (ix*2),ixf (ix*2+1))) n'
-  where 
-    n' = n `div` 2 
--}                    
--- TODO: prefer Haskell Tuples over Exp Tuples 
 pair :: Array a -> Array (a,a)
 pair (Array ixf n) = Array (\ix -> (ixf (ix*2),ixf (ix*2+1))) n'
   where 

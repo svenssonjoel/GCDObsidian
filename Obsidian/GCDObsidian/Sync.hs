@@ -21,19 +21,6 @@ import Control.Monad.Writer
 class Syncable arr a where 
   sync ::  arr a -> Kernel (Array a )
 
-instance ( Elem a
-         , Elem b
-         , Syncable Array (Exp a)
-         , Syncable Array (Exp b)
-         ) => Syncable Array (Exp (a,b)) where
-  sync arr = do 
-     a1' <- sync a1
-     a2' <- sync a2 
-     return (zipp (a1,a2) )
-    where 
-       (a1,a2) = unzipp arr
-  
-
 instance (Pushy arr, Scalar a) => Syncable arr (Exp a) where 
   sync = pSyncA
 
@@ -41,31 +28,20 @@ instance (Syncable Array a, Syncable Array b) => Syncable Array (a,b) where
   sync arr = do
     a1' <- sync a1
     a2' <- sync a2
-    return (zippH (a1',a2'))
+    return$ zipp (a1',a2')
     where 
-      (a1,a2) = unzippH arr
+      (a1,a2) = unzipp arr
 
-
-{- 
-instance ( Elem a
-         , Elem b
-         , Elem c
-         , Syncable (Array (Exp a))
-         , Syncable (Array (Exp b))
-         , Syncable (Array (Exp c)) 
-         ) => Syncable (Array (Exp (a,b,c))) where
+instance (Syncable Array a, Syncable Array b, Syncable Array c) 
+         => Syncable Array (a,b,c) where
   sync arr = do 
-     a1' <- sync a1
-     a2' <- sync a2 
-     a3' <- sync a3
-     return (zipp3 (a1,a2,a3) )
+    a1' <- sync a1 
+    a2' <- sync a2 
+    a3' <- sync a3
+    return$ zipp3 (a1',a2',a3')
     where 
-       (a1,a2,a3) = unzipp3 arr
+      (a1,a2,a3) = unzipp3 arr
 
--}
- 
---composeS [] = pure id
---composeS (f:fs) = f ->- pSyncArrayP ->- composeS fs
 
 composeS [] = pure id
 composeS (f:fs) = f ->- sync ->- composeS fs
