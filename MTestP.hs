@@ -54,10 +54,6 @@ comp arr = part
 getSmall3 = putStrLn$ CUDA.genKernel "comp" (pure comp ->- pSyncArrayP) (namedArray "apa" 32)
 
 
-
-
-
-
 vsort :: Int -> Array (Exp Int) -> Kernel (Array (Exp Int))
 vsort n = composeS [ pure (iv (n-i) (i-j) min max)| i <- [1..n], j <- [1..i]]
 
