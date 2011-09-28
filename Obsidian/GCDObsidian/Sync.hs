@@ -1,6 +1,7 @@
 {-# LANGUAGE FlexibleInstances, 
              FlexibleContexts, 
-             MultiParamTypeClasses #-} 
+             MultiParamTypeClasses,
+             IncoherentInstances  #-}    --GAH!
 module Obsidian.GCDObsidian.Sync where 
 
 import Obsidian.GCDObsidian.Kernel
@@ -20,10 +21,6 @@ import Control.Monad.Writer
 class Syncable arr a where 
   sync ::  arr a -> Kernel (Array a )
 
-  
-instance (Pushy arr, Scalar a) => Syncable arr (Exp a) where 
-  sync = pSyncA
-
 instance ( Elem a
          , Elem b
          , Syncable Array (Exp a)
@@ -35,6 +32,19 @@ instance ( Elem a
      return (zipp (a1,a2) )
     where 
        (a1,a2) = unzipp arr
+  
+
+instance (Pushy arr, Scalar a) => Syncable arr (Exp a) where 
+  sync = pSyncA
+
+instance (Syncable Array a, Syncable Array b) => Syncable Array (a,b) where
+  sync arr = do
+    a1' <- sync a1
+    a2' <- sync a2
+    return (zippH (a1',a2'))
+    where 
+      (a1,a2) = unzippH arr
+
 
 {- 
 instance ( Elem a

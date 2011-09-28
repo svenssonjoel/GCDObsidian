@@ -76,7 +76,8 @@ instance Scalar a => InOut (Array (Exp a)) where
     if ( len arr <= threadBudget ) 
       then do 
          let parr = push arr
-         return$ SyncUnit threadBudget  [pushApp parr (targetArray  name)] e
+         return$ SyncUnit (len arr) {-threadBudget-}  
+           [pushApp parr (targetArray  name)] e
       else do 
          let n  = len arr
              tb = threadBudget 

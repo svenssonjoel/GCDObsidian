@@ -97,6 +97,9 @@ data Exp a where
              -> Exp a 
              -> Exp b 
   
+  -- TODO: Replace Tuples with something way more limited
+  --        + That does not support nesting 
+  --        + That can be processed efficiently by GPU 
   Tuple   :: (Elem a, Tuple.IsTuple a) 
              => Tuple.Tuple Exp (Tuple.Repr a) 
              -> Exp a  
@@ -107,6 +110,18 @@ data Exp a where
              -> Exp a 
              -> Exp b
              
+  -- Experimental 
+  Pair    :: (Scalar a, Scalar b) 
+             => Exp a -> Exp b -> Exp (Struct2 a b)
+  Tripple :: (Scalar a, Scalar b, Scalar c) 
+             => Exp a -> Exp b -> Exp c -> Exp (Struct3 a b c)  
+  Quad    :: (Scalar a, Scalar b, Scalar c, Scalar d) 
+             => Exp a ->  Exp b -> Exp c -> Exp d -> Exp (Struct4 a b c d) 
+             
+             
+data Struct2 a b = Struct2 a b
+data Struct3 a b c = Struct3 a b c 
+data Struct4 a b c d = Struct4 a b c d
 ------------------------------------------------------------------------------
 -- Operations
 

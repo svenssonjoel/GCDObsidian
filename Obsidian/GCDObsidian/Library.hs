@@ -16,7 +16,7 @@ import Prelude hiding (splitAt,zipWith)
 
 instance Functor Array where 
   fmap f arr = Array (\ix -> f (arr ! ix)) (len arr) 
-arrayMap f arr = Array (\ix -> f (arr ! ix)) (len arr) 
+
 
 
 ------------------------------------------------------------------------------
@@ -68,6 +68,14 @@ zipp :: (Elem a, Elem b) => (Array (Exp a), Array (Exp b)) -> Array (Exp (a,b))
 zipp (arr1,arr2) = Array (\ix -> tup2 (arr1 ! ix, arr2 ! ix)) (len arr1)
     
 
+unzippH :: Array (a,b) -> (Array a, Array b)       
+unzippH arr = (Array (\ix -> fst (arr ! ix)) (len arr),
+              Array (\ix -> snd (arr ! ix)) (len arr))
+              
+zippH :: (Array a, Array b) -> Array (a, b)             
+zippH (arr1,arr2) = Array (\ix -> (arr1 ! ix, arr2 ! ix)) (len arr1)
+
+
 unzipp3 :: (Elem a , Elem b, Elem c) 
            =>  Array (Exp (a,b,c)) 
            -> (Array (Exp a), Array (Exp b), Array (Exp c))       
@@ -88,13 +96,37 @@ zipp3 (arr1,arr2,arr3) =
 
 
     
-zipWith :: (Exp a -> Exp b -> Exp c) -> Array (Exp a) -> Array (Exp b) -> Array (Exp c)
-zipWith op a1 a2 = Array (\ix -> (a1 ! ix) `op` (a2 ! ix)) (len a1)
+--zipWith :: (Exp a -> Exp b -> Exp c) -> Array (Exp a) -> Array (Exp b) -> Array (Exp c)
+--zipWith op a1 a2 = Array (\ix -> (a1 ! ix) `op` (a2 ! ix)) (len a1)
     
+
+zipWith :: (a -> b -> c) -> Array a -> Array b -> Array c
+zipWith op a1 a2 = Array (\ix -> (a1 ! ix) `op` (a2 ! ix)) (len a1)
+
+                   
+                   
+                   
+----------------------------------------------------------------------------
+-- pair 
+
+{-
+pair :: Elem a => Array (Exp a) -> Array (Exp (a,a))
+pair (Array ixf n) = Array (\ix -> tup2 (ixf (ix*2),ixf (ix*2+1))) n'
+  where 
+    n' = n `div` 2 
+-}                    
+-- TODO: prefer Haskell Tuples over Exp Tuples 
+pair :: Array a -> Array (a,a)
+pair (Array ixf n) = Array (\ix -> (ixf (ix*2),ixf (ix*2+1))) n'
+  where 
+    n' = n `div` 2 
+
+
+
 ------------------------------------------------------------------------------    
 -- twoK (untested for proper functionality) 
 
-twoK::Int -> (Array a -> Array b) -> Array a -> Array b 
+twoK ::Int -> (Array a -> Array b) -> Array a -> Array b 
 twoK 0 f = f  -- divide 0 times and apply f
 twoK n f =  (\arr -> 
               let arr' = Array (\i -> (f (Array (\j -> (arr ! (g i j))) m)) ! (h i)) (lt) 
