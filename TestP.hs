@@ -8,8 +8,6 @@ import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 import qualified Obsidian.GCDObsidian.CodeGen.C as C
 import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
-
-
 ----------------------------------------------------------------------------
 --  
 

@@ -17,7 +17,8 @@ import Obsidian.GCDObsidian.Elem
 import Control.Monad.Writer
 import Data.Word
 
-------------------------------------------------------------------------------
+
+----------------------------------------------------------------------------
 -- Syncs in the new setting 
 
 
@@ -29,7 +30,7 @@ sync arr = do
 
 class Syncable a where 
   type Synced a
-  
+    
   sUnit :: a -> Kernel (SyncUnit (),Synced a)
 
 
@@ -47,9 +48,30 @@ instance Scalar a => Syncable (ArrayP (Exp a)) where
                  (Allocate name (es * n) t 
                   p),result)
             
+-- TODO: This needs much improvement!!!
+instance (Scalar a, Scalar b, Syncable (ArrayP (Exp a)), 
+          Syncable (ArrayP (Exp b))) => Syncable (ArrayP (Exp a,Exp b)) where
+  type Synced (ArrayP (Exp a,Exp b)) = (Array (Exp a,Exp b))
+  
+  sUnit parr@(ArrayP f n) =
+    do 
+      name1 <- newArray    
+      name2 <- newArray
+      let result1 = (Array (index name1) n)
+          result2 = (Array (index name2) n)
+          p = pushApp parr (targetPair name1 name2)
+          es1 = fromIntegral$ sizeOf$ result1 ! 0
+          es2 = fromIntegral$ sizeOf$ result2 ! 0
+          t1  = Pointer$ Local$ typeOf$ result1 ! 0
+          t2  = Pointer$ Local$ typeOf$ result2 ! 0
+      return (syncUnit  (programThreads p)
+               (Allocate name1 (es1 * n) t1
+                 (Allocate name2 (es2 * n) t2 
+                  p)),zipp (result1,result2))
       
-
-
+      
+      
+      
 instance (Syncable a, Syncable b) => Syncable (a,b) where 
   type Synced (a,b) = (Synced a, Synced b) 
   
