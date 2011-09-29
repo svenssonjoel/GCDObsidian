@@ -18,12 +18,14 @@ codeToString :: Show extra => Code extra -> String
 codeToString Skip = "SKIP\n" 
 codeToString (su `Seq` code) = syncunitToString su ++ codeToString code
 
-syncunitToString (SyncUnit nt ps extra) = 
+syncunitToString (SyncUnit nt p extra) = 
   "SYNCUNIT " ++ show nt ++ "[" ++ show extra ++ "]" ++ "{ \n" ++ 
-  programsToString ps ++ "\n}\n"
+  programToString p ++ "\n}\n"
   
+{-
 programsToString [] = ""  
 programsToString (p:ps) = programToString p ++ programsToString ps
+-}
 
 programToString = printProgram
   

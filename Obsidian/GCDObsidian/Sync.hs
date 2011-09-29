@@ -14,6 +14,7 @@ import Obsidian.GCDObsidian.Elem
 
 
 import Control.Monad.Writer
+import Data.Word
 
 ------------------------------------------------------------------------------
 -- Syncs in the new setting 
@@ -59,11 +60,19 @@ pSyncA arrIn =
         p  = pushApp arr (targetArray name)
 
     tell$ Seq (syncUnit (programThreads p) 
-               [Allocate name (es * n) t 
-                p]) Skip
+               (Allocate name (es * n) t 
+                p)) Skip
     return result
   where 
     arr@(ArrayP func n) = push arrIn 
+
+
+pSyncAP :: Scalar a  
+        => Word32 -> Array (Exp a) -> Kernel (Array (Exp a)) 
+pSyncAP elemsPT arrIn = sync arr'
+  where 
+    arr' = push' elemsPT arrIn 
+    
 
 
 -- Work on the Scalar a thing!!!
@@ -75,8 +84,8 @@ pSyncArray arr =
     let p = pushApp parr (targetArray name)
         
     tell$ Seq (syncUnit  (programThreads p) ---(len arr) 
-                [Allocate name (es * (len arr)) t 
-                  p]) Skip
+                (Allocate name (es * (len arr)) t 
+                  p)) Skip
             
     return (Array (index name) (len arr))
       
@@ -94,10 +103,11 @@ pSyncArrays (a1,a2) =
     name1 <- newArray 
     name2 <- newArray 
     
-    tell$ Seq (syncUnit n [Allocate name1 (es1 * (len a1)) t1
+    tell$ Seq (syncUnit n (Allocate name1 (es1 * (len a1)) t1
                              (pushApp pa1 (targetArray name1))
-                            ,Allocate name2 (es2 * (len a2)) t2
-                             (pushApp pa2 (targetArray name2))]) Skip
+                             *>*
+                             Allocate name2 (es2 * (len a2)) t2
+                              (pushApp pa2 (targetArray name2)))) Skip
             
     return (Array (index name1) (len a1)
            ,Array (index name2) (len a2))
@@ -128,6 +138,6 @@ pSyncArrayP arr@(ArrayP func n)  =
         p  = pushApp arr (targetArray name)
 
     tell$ Seq (syncUnit (programThreads p) 
-               [Allocate name (es * n) t 
-                p]) Skip
+               (Allocate name (es * n) t 
+                p)) Skip
     return result

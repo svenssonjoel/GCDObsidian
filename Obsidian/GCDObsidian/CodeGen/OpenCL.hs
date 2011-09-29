@@ -71,15 +71,15 @@ genOpenCLBody conf (su `Seq` code) =
 ------------------------------------------------------------------------------
 -- 
 -- TODO: CODE DUPLICATION !!! 
-genSyncUnit conf (SyncUnit nt progs e) = 
+genSyncUnit conf (SyncUnit nt prog e) = 
   do 
     case compare nt blockSize of 
       LT -> do
             cond gc mm (tid <* (fromIntegral nt))
             begin
-            mapM_ (genProg mm nt) progs
+            genProg mm nt prog
             end
-      EQ -> mapM_ (genProg mm nt) progs
+      EQ -> genProg mm nt prog
       GT -> error "genStore: CUDA code generation is broken somewhere" 
 
     where 

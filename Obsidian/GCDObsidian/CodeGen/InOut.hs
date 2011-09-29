@@ -17,6 +17,7 @@ import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Array 
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs 
+import Obsidian.GCDObsidian.Program
 
 import Prelude hiding (splitAt)
 import Obsidian.GCDObsidian.Library (splitAt,concP)
@@ -77,7 +78,7 @@ instance Scalar a => InOut (Array (Exp a)) where
       then do 
          let parr = push arr
          return$ SyncUnit (len arr) {-threadBudget-}  
-           [pushApp parr (targetArray  name)] e
+           (pushApp parr (targetArray  name)) e
       else do 
          let n  = len arr
              tb = threadBudget 
@@ -92,7 +93,7 @@ instance Scalar a => InOut (Array (Exp a)) where
                then pa1 
                else concP pa1 pa2
          
-         return$ SyncUnit threadBudget  [pushApp parr (targetArray  name)] e
+         return$ SyncUnit threadBudget (pushApp parr (targetArray  name)) e
          
                      
   gcdThreads arr = len arr
@@ -106,11 +107,11 @@ instance (InOut a, InOut b) => InOut (a, b) where
   
   writeOutputs threadBudget (a0,a1) e = do   
     
-    (SyncUnit nt1 prgs1 e1) <- writeOutputs threadBudget a0 e
-    (SyncUnit nt2 prgs2 e2) <- writeOutputs threadBudget a1 e
+    (SyncUnit nt1 prg1 e1) <- writeOutputs threadBudget a0 e
+    (SyncUnit nt2 prg2 e2) <- writeOutputs threadBudget a1 e
     --error ( show nt1 ++ " " ++ show nt2 ++ " " ++ show threadBudget)
     return$ SyncUnit (max nt1 nt2)  -- what exactly should this be
-                      (prgs1 ++ prgs2) e1 -- syncUnitFuseGCD s0 s1
+                      (prg1 *>* prg2) e1 -- syncUnitFuseGCD s0 s1
    
   gcdThreads (a0,a1) = gcd (gcdThreads a0) (gcdThreads a1)
   

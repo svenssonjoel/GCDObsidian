@@ -74,11 +74,11 @@ genCBody conf (su `Seq` code) =
 ------------------------------------------------------------------------------
 -- New
     
-genSyncUnit conf (SyncUnit nt progs e) = 
+genSyncUnit conf (SyncUnit nt prog e) = 
   do 
    forEach gc mm (fromIntegral nt) 
    begin
-   mapM_ (genProg mm nt) progs
+   genProg mm nt prog
    end
   where 
     mm = configMM conf

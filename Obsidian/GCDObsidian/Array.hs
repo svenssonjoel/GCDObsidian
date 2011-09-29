@@ -38,6 +38,9 @@ data ArrayP a = ArrayP ((Exp Word32 -> a -> Program) -> Program) Word32
 pushApp (ArrayP func n) a = func a 
 
 
+
+-- TODO: Do you need (Exp e) where there is only e ? 
+-- TODO: Will this again influence the Exp Tuples or not issue?
 class PushyInternal a where 
   push' :: Word32 -> a e -> ArrayP e  
 
