@@ -6,6 +6,7 @@ module Obsidian.GCDObsidian.Program
        ,programThreads
        ,(*>*)
        ,targetArray
+       ,targetPair
        )where 
 
 import Data.Word
@@ -53,5 +54,6 @@ targetArray :: Scalar a => Name -> Exp Word32 -> (Exp a -> Program)
 targetArray n i = \a -> Assign n i a 
 
 
-targetArray2 :: Scalar a, Scalar b  => Name -> Exp Word32 -> ((Exp a,Exp b) -> Program)
-targetArray2 n i = undefined -- \a -> Assign n i a 
+targetPair :: (Scalar a, Scalar b) => Name -> Name -> Exp Word32 -> ((Exp a,Exp b) -> Program)
+targetPair n1 n2  i = \(a,b) -> Assign n1 i a *>*
+                                  Assign n2 i b

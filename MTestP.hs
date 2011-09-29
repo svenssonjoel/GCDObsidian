@@ -66,7 +66,7 @@ getVsort = putStrLn$ CUDA.genKernel "vsort" (vsort 5) (namedArray "apa" 32)
 ----------------------------------------------------------------------------
 -- 
 small :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
-small (arr1,arr2) = fmap fst (pSyncArrayP2 p2)
+small (arr1,arr2) = ( pSyncArrayP2 ->- pure (fmap fst)) p2
   where
     part  = zipp (arr1,arr2)  
     p2 = push part

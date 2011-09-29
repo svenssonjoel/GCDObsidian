@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleInstances, 
              FlexibleContexts, 
-             MultiParamTypeClasses,
-             IncoherentInstances  #-}    --GAH!
+             MultiParamTypeClasses  #-}  
 module Obsidian.GCDObsidian.Sync where 
 
 import Obsidian.GCDObsidian.Kernel
@@ -144,5 +143,22 @@ pSyncArrayP arr@(ArrayP func n)  =
 
 
 
-pSyncArrayP2 :: Scalar a => ArrayP (Exp a,Exp a) -> Kernel (Array (Exp a,Exp a))
-pSyncArrayP2 = undefined
+pSyncArrayP2 :: (Scalar a, Scalar b ) => ArrayP (Exp a,Exp b) -> Kernel (Array (Exp a,Exp b))
+pSyncArrayP2 arr@(ArrayP f n) =  
+  do 
+    name1 <- newArray
+    name2 <- newArray
+                      
+    let result1 = Array (index name1) n
+        result2 = Array (index name2) n
+        t1 = Pointer$ Local$ typeOf (result1 ! 0) 
+        t2 = Pointer$ Local$ typeOf (result2 ! 0)
+        es1 = fromIntegral$ sizeOf (result1 ! 0)
+        es2 = fromIntegral$ sizeOf (result2 ! 0)
+        p = pushApp arr (targetPair name1 name2)
+        
+    tell$ Seq (syncUnit (programThreads p) 
+               (Allocate name1 (es1 * n) t1
+               (Allocate name2 (es2 * n) t2
+                p))) Skip
+    return (zipp (result1,result2))
