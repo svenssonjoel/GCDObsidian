@@ -141,3 +141,8 @@ pSyncArrayP arr@(ArrayP func n)  =
                (Allocate name (es * n) t 
                 p)) Skip
     return result
+
+
+
+pSyncArrayP2 :: Scalar a => ArrayP (Exp a,Exp a) -> Kernel (Array (Exp a,Exp a))
+pSyncArrayP2 = undefined

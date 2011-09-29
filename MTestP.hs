@@ -59,7 +59,20 @@ vsort n = composeS [ pure (iv (n-i) (i-j) min max)| i <- [1..n], j <- [1..i]]
 
 getVsort = putStrLn$ CUDA.genKernel "vsort" (vsort 5) (namedArray "apa" 32)
 
-{--
 
 
---}
+
+
+----------------------------------------------------------------------------
+-- 
+small :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
+small (arr1,arr2) = fmap fst (pSyncArrayP2 p2)
+  where
+    part  = zipp (arr1,arr2)  
+    p2 = push part
+    
+
+
+showSmall = printCode$ snd$ runKernel (small (namedArray "apa" 32,namedArray "bepa" 32))
+
+getSmall = putStrLn$ CUDA.genKernel "small" small (namedArray "apa" 32,namedArray "aba" 32)
