@@ -1,6 +1,8 @@
 {-# LANGUAGE FlexibleInstances, 
              FlexibleContexts, 
-             MultiParamTypeClasses  #-}  
+             MultiParamTypeClasses,  
+             TypeFamilies,
+             UndecidableInstances #-}  
 module Obsidian.GCDObsidian.Sync where 
 
 import Obsidian.GCDObsidian.Kernel
@@ -18,9 +20,51 @@ import Data.Word
 ------------------------------------------------------------------------------
 -- Syncs in the new setting 
 
-class Syncable arr a where 
-  sync ::  arr a -> Kernel (Array a )
 
+sync arr = do 
+  (su,r) <- sUnit arr
+  tell$ code$ su
+  return r 
+
+
+class Syncable a where 
+  type Synced a
+  
+  sUnit :: a -> Kernel (SyncUnit (),Synced a)
+
+
+instance Scalar a => Syncable (ArrayP (Exp a)) where 
+  type Synced (ArrayP (Exp a)) = Array (Exp a) 
+  
+  sUnit parr@(ArrayP f n) = 
+    do
+      name <- newArray    
+      let result = (Array (index name) n)
+          p = pushApp parr (targetArray name)
+          es = fromIntegral$ sizeOf$  result ! 0
+          t  = Pointer$ Local$ typeOf$ result  ! 0
+      return (syncUnit  (programThreads p)
+                 (Allocate name (es * n) t 
+                  p),result)
+            
+      
+
+
+instance (Syncable a, Syncable b) => Syncable (a,b) where 
+  type Synced (a,b) = (Synced a, Synced b) 
+  
+  sUnit (a1,a2) = 
+    do 
+      (s1,r1) <- sUnit a1
+      (s2,r2) <- sUnit a2 
+      return (SyncUnit (max (syncThreads s1) (syncThreads s2))
+                       (syncProgram s1 *>* syncProgram s2)
+                       (),(r1,r2))
+    
+    
+
+
+{- 
 instance (Pushy arr, Scalar a) => Syncable arr (Exp a) where 
   sync = pSyncA
 
@@ -41,7 +85,7 @@ instance (Syncable Array a, Syncable Array b, Syncable Array c)
     return$ zipp3 (a1',a2',a3')
     where 
       (a1,a2,a3) = unzipp3 arr
-
+-} 
 
 composeS [] = pure id
 composeS (f:fs) = f ->- sync ->- composeS fs

@@ -26,7 +26,7 @@ small1 (arr1,arr2) = pSyncArrayP part
 
 showSmall1 = printCode$ snd$ runKernel (small1 (namedArray "apa" 32,namedArray "bepa" 32))
 
-getSmall1 = putStrLn$ CUDA.genKernel "small1" small1 (namedArray "apa" 32,namedArray "aba" 32)
+getSmall1 = putStrLn$ CUDA.genKernel "small1" small1 (namedArray "apa" 32,namedArray "bepa" 32)
   
 
 
@@ -75,4 +75,4 @@ small (arr1,arr2) = ( pSyncArrayP2 ->- pure (fmap fst)) p2
 
 showSmall = printCode$ snd$ runKernel (small (namedArray "apa" 32,namedArray "bepa" 32))
 
-getSmall = putStrLn$ CUDA.genKernel "small" small (namedArray "apa" 32,namedArray "aba" 32)
+getSmall = putStrLn$ CUDA.genKernel "small" small (namedArray "apa" 32,namedArray "bepa" 32)
