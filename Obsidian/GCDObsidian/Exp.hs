@@ -15,9 +15,9 @@ import qualified Foreign.Storable as Storable
 
 ------------------------------------------------------------------------------
 -- Obsidian imports
---import qualified Obsidian.GCDObsidian.Tuple as Tuple 
---import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil) ) 
-import Obsidian.GCDObsidian.Elem
+-- import qualified Obsidian.GCDObsidian.Tuple as Tuple 
+-- import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil) ) 
+-- import Obsidian.GCDObsidian.Elem
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 
@@ -36,7 +36,7 @@ type ULongE  = Exp Word64
 
 ------------------------------------------------------------------------------
 -- Class Scalar. (Things that are not tuples) 
-class Elem a => Scalar a where 
+class Show a => Scalar a where 
   sizeOf :: Exp a -> Int   --  
   typeOf :: Exp a -> Type  --   Good enough for me ... 
 
@@ -176,10 +176,10 @@ collectArrays (UnOp  _ e) = collectArrays e
 ------------------------------------------------------------------------------
 -- 
   
-instance Elem a => Show (Exp a) where 
+instance Scalar a => Show (Exp a) where 
   show = printExp 
 
-instance Elem a => Eq (Exp a) where 
+instance Scalar a => Eq (Exp a) where 
   (==) = undefined 
 
 instance (Scalar a, Ord a) => Ord (Exp a) where 
@@ -287,7 +287,7 @@ instance (Choice a, Choice b) => Choice (a,b) where
 ----------------------------------------------------------------------------
 -- Print Expressions
 
-printExp :: Elem a => Exp a -> String
+printExp :: Scalar a => Exp a -> String
 printExp (Literal a) = show a 
 printExp (Index (name,[])) = name
 printExp (Index (name,es)) = 

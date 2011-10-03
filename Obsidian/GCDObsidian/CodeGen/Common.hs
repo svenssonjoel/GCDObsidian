@@ -10,7 +10,7 @@ import Obsidian.GCDObsidian.Kernel
 import Obsidian.GCDObsidian.Exp 
 import qualified Obsidian.GCDObsidian.Tuple as Tuple 
 import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil) ) 
-import Obsidian.GCDObsidian.Elem
+-- import Obsidian.GCDObsidian.Elem
 import Obsidian.GCDObsidian.Memory
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
@@ -53,7 +53,7 @@ parens s = '(' : s ++ ")"
 
 ------------------------------------------------------------------------------
 -- genExp C-style 
-genExp :: Elem a => GenConfig -> MemMap -> Exp a -> [String]
+genExp :: Scalar a => GenConfig -> MemMap -> Exp a -> [String]
 genExp gc _ (Literal a) = [show a] 
 genExp gc _ (Index (name,[])) = [name]
 genExp gc mm exp@(Index (name,es)) = 
@@ -177,7 +177,7 @@ data Config = Config {configThreads  :: NumThreads,
 config = Config
 
 
-assign :: Elem a => GenConfig -> MemMap -> Exp a -> Exp a -> PP () 
+assign :: Scalar a => GenConfig -> MemMap -> Exp a -> Exp a -> PP () 
 assign gc mm name val = line ((concat (genExp gc mm name)) ++ 
                            " = " ++  concat (genExp gc mm val) ++ 
                            ";") 
