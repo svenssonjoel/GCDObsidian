@@ -71,15 +71,24 @@ genExp gc mm exp@(Index (name,es)) =
             else name
 
    
-                 
-genExp gc mm (Op op e) = [genOp op (genExp gc mm e)]
-genExp gc mm (Tuple t) = genTup gc mm t
+genExp gc mm (BinOp op e1 e2) = 
+  [genOp op (genExp gc mm e1 ++ genExp gc mm e2)]
+
+genExp gc mm (UnOp op e) = 
+  [genOp op (genExp gc mm e)] 
+  
+genExp gc mm (If b e1 e2) =   
+  [genIf (genExp gc mm b ++ 
+          genExp gc mm e1 ++ 
+          genExp gc mm e2 )] 
+
 
 genIndices gc mm es = concatMap (pIndex mm) es  
   where 
     pIndex mm e = "[" ++ concat (genExp gc mm e) ++ "]"
 
 
+genIf         [b,e1,e2] = b ++ " ? " ++ e1 ++ " : " ++ e2
 ------------------------------------------------------------------------------
 -- genOp
 genOp :: Op a -> [String] -> String
@@ -88,7 +97,7 @@ genOp Sub     [a,b] = oper "-" a b
 genOp Mul     [a,b] = oper "*" a b 
 genOp Div     [a,b] = oper "/" a b 
 
-genOp If      [b,e1,e2] = b ++ " ? " ++ e1 ++ " : " ++ e2
+
 
 genOp Sin     [a]   = func "sin" a 
 genOp Cos     [a]   = func "cos" a 
@@ -117,18 +126,11 @@ oper  f a b = "(" ++ a ++ f ++ b ++ ")"
 unOp  f a   = "(" ++ f ++ a ++ ")"
 
 
-genTup :: forall t. GenConfig -> MemMap -> Tuple.Tuple Exp t -> [String]
-genTup _  _ Nil = []
-genTup gc mm (a :. t) = genExp gc mm a ++ (genTup gc mm t) 
-  
-genPrj = undefined 
-
-
 ------------------------------------------------------------------------------
 -- print and indent and stuff... 
 --  This is probably very ugly 
 
--- TODO: There is a chapter about this (PP) in "implementing functional lang..." 
+-- TODO: There is a chapter about this pretty printing in "implementing functional lang..." 
 --       Look at that and learn 
 
 

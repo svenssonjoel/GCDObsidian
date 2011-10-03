@@ -59,8 +59,6 @@ allocate m b =
                                          allocated = (a,b):allocated m}) ,a)
                           
                           
-                          
-                          
 free :: Memory -> Address -> Memory
 free m a = mem 
     where 
