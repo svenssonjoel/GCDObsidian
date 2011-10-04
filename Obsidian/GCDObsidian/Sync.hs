@@ -1,7 +1,6 @@
 {-# LANGUAGE FlexibleInstances, 
              FlexibleContexts, 
              MultiParamTypeClasses,  
-             TypeFamilies,
              UndecidableInstances #-}  
 module Obsidian.GCDObsidian.Sync where 
 
@@ -17,76 +16,12 @@ import Obsidian.GCDObsidian.Elem
 import Control.Monad.Writer
 import Data.Word
 
-
 ----------------------------------------------------------------------------
--- Syncs in the new setting 
+-- Sync
 
-
-sync arr = do 
-  (su,r) <- sUnit arr
-  tell$ code$ su
-  return r 
-
-
-class Syncable a where 
-  type Synced a
-    
-  sUnit :: a -> Kernel (SyncUnit (),Synced a)
-
-
-instance Scalar a => Syncable (ArrayP (Exp a)) where 
-  type Synced (ArrayP (Exp a)) = Array (Exp a) 
-  
-  sUnit parr@(ArrayP f n) = 
-    do
-      name <- newArray    
-      let result = (Array (index name) n)
-          p = pushApp parr (targetArray name)
-          es = fromIntegral$ sizeOf$  result ! 0
-          t  = Pointer$ Local$ typeOf$ result  ! 0
-      return (syncUnit  (programThreads p)
-                 (Allocate name (es * n) t 
-                  p),result)
-            
--- TODO: This needs much improvement!!!
-instance (Scalar a, Scalar b, Syncable (ArrayP (Exp a)), 
-          Syncable (ArrayP (Exp b))) => Syncable (ArrayP (Exp a,Exp b)) where
-  type Synced (ArrayP (Exp a,Exp b)) = (Array (Exp a,Exp b))
-  
-  sUnit parr@(ArrayP f n) =
-    do 
-      name1 <- newArray    
-      name2 <- newArray
-      let result1 = (Array (index name1) n)
-          result2 = (Array (index name2) n)
-          p = pushApp parr (targetPair name1 name2)
-          es1 = fromIntegral$ sizeOf$ result1 ! 0
-          es2 = fromIntegral$ sizeOf$ result2 ! 0
-          t1  = Pointer$ Local$ typeOf$ result1 ! 0
-          t2  = Pointer$ Local$ typeOf$ result2 ! 0
-      return (syncUnit  (programThreads p)
-               (Allocate name1 (es1 * n) t1
-                 (Allocate name2 (es2 * n) t2 
-                  p)),zipp (result1,result2))
-      
-      
-      
-      
-instance (Syncable a, Syncable b) => Syncable (a,b) where 
-  type Synced (a,b) = (Synced a, Synced b) 
-  
-  sUnit (a1,a2) = 
-    do 
-      (s1,r1) <- sUnit a1
-      (s2,r2) <- sUnit a2 
-      return (SyncUnit (max (syncThreads s1) (syncThreads s2))
-                       (syncProgram s1 *>* syncProgram s2)
-                       (),(r1,r2))
-    
-    
-
-
-{- 
+class Syncable a b where 
+  sync :: a b -> Kernel (Array b)
+ 
 instance (Pushy arr, Scalar a) => Syncable arr (Exp a) where 
   sync = pSyncA
 
@@ -107,7 +42,7 @@ instance (Syncable Array a, Syncable Array b, Syncable Array c)
     return$ zipp3 (a1',a2',a3')
     where 
       (a1,a2,a3) = unzipp3 arr
--} 
+ 
 
 composeS [] = pure id
 composeS (f:fs) = f ->- sync ->- composeS fs
