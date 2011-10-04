@@ -22,7 +22,7 @@ import Data.Word
 class Syncable a b where 
   sync :: a b -> Kernel (Array b)
  
-instance (Pushy arr, Scalar a) => Syncable arr (Exp a) where 
+instance (Scalar a) => Syncable Array (Exp a) where 
   sync = pSyncA
 
 instance (Syncable Array a, Syncable Array b) => Syncable Array (a,b) where
@@ -43,7 +43,12 @@ instance (Syncable Array a, Syncable Array b, Syncable Array c)
     where 
       (a1,a2,a3) = unzipp3 arr
  
+instance Scalar a => Syncable ArrayP (Exp a) where  
+  sync arr =  pSyncA arr
+  
 
+              
+    
 composeS [] = pure id
 composeS (f:fs) = f ->- sync ->- composeS fs
 
@@ -141,7 +146,6 @@ pSyncArrayP arr@(ArrayP func n)  =
                (Allocate name (es * n) t 
                 p)) Skip
     return result
-
 
 
 pSyncArrayP2 :: (Scalar a, Scalar b ) => ArrayP (Exp a,Exp b) -> Kernel (Array (Exp a,Exp b))
