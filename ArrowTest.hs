@@ -38,7 +38,12 @@ test4  = pure (fmap (+1)) ->- sync ->- (runArrow (Pure (fmap (+1))))
 getTest4 = putStrLn$ CUDA.genKernel "test4" test4 (namedArray "apa" 32)
 
 
+test5 :: Array (Exp Int) -> Kernel (Array (Exp Int)) 
+test5 = runArrow$ two ((Pure rev) . aSync . (Pure rev))
+getTest5 = putStrLn$ CUDA.genKernel "test5" test5 (namedArray "apa" 32)
+
 {- These tests show the need for a few things. 
    #1 overloaded pure
    #2 overloaded sync ? 
    #3 use . for composition in base Obsidian also for uniform look 
+-}
