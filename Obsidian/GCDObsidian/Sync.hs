@@ -46,6 +46,9 @@ instance (Syncable Array a, Syncable Array b, Syncable Array c)
 instance Scalar a => Syncable ArrayP (Exp a) where  
   sync arr =  pSyncA arr
   
+-- GAH! not good !! 
+instance (Scalar a, Scalar b) => Syncable ArrayP (Exp a, Exp b) where 
+  sync = pSyncArrayP2 
 
               
     
