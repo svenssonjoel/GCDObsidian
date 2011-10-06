@@ -155,13 +155,17 @@ index name ix = Index (name,[ix])
 ------------------------------------------------------------------------------
 -- Collect array names
 
-collectArrays :: Exp a -> [Name]
+collectArrays :: Scalar a => Exp a -> [Name]
 collectArrays (Literal _) = []
 collectArrays (Index (name,[])) = []
 collectArrays (Index (name,_)) = [name]
 -- collectArrays (Op _ t) = collectArrays t 
 collectArrays (BinOp _ e1 e2) = collectArrays e1 ++ collectArrays e2
 collectArrays (UnOp  _ e) = collectArrays e
+collectArrays (If b e1 e2) = collectArrays b ++ 
+                             collectArrays e1 ++ 
+                             collectArrays e2
+
 --collectArrays (Tuple t) = collectArraysTup t 
 --collectArrays (Prj t e) = collectArraysPrj t e 
 

@@ -17,7 +17,7 @@ import Data.Word
 --  
 
 small1 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
-small1 (arr1,arr2) = pSyncArrayP part
+small1 (arr1,arr2) = sync part
   where
     part = concP arr1' arr2'  
     arr1' = push arr1
@@ -31,7 +31,7 @@ getSmall1 = putStrLn$ CUDA.genKernel "small1" small1 (namedArray "apa" 32,namedA
 
 
 small2 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
-small2 (arr1,arr2) = pSyncArrayP part
+small2 (arr1,arr2) = sync part
   where
     part = concP arr1' arr2'
     arr1' = push $ zipWith (+) arr1 arr2

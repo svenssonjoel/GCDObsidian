@@ -39,7 +39,7 @@ getTest4 = putStrLn$ CUDA.genKernel "test4" test4 (namedArray "apa" 32)
 
 
 test5 :: Array (Exp Int) -> Kernel (Array (Exp Int)) 
-test5 = runArrow$ two ((Pure rev) . aSync . (Pure rev))
+test5 = pure rev ->- (runArrow (two ((Pure rev) . aSync . (Pure rev))))
 getTest5 = putStrLn$ CUDA.genKernel "test5" test5 (namedArray "apa" 32)
 
 {- These tests show the need for a few things. 
