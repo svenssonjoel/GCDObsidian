@@ -8,6 +8,7 @@ import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 import qualified Obsidian.GCDObsidian.CodeGen.C as C
 import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
+import Prelude hiding (zipWith)
 ----------------------------------------------------------------------------
 --  
 
@@ -134,5 +135,32 @@ runSmall8 = liveness$ snd$ runKernel (small8 inputSmall8 )
 getSmall8 = putStrLn$ CUDA.genKernel "small8" small8 inputSmall8
 getSmall8C = putStrLn$ C.genKernel "small8" small8 inputSmall8
 getSmall8CL = putStrLn$ CL.genKernel "small8" small8 inputSmall8
+
+----------------------------------------------------------------------------
+-- Used in Writing
+
+example1 :: (Array (Exp Int), Array (Exp Int) ) -> Kernel (Array (Exp Int))
+example1 (arr1,arr2) = return$ zipWith (+) arr1 arr2
+
+inputExample1 = (namedArray "apa" 32,namedArray "apa" 32)
+
+runExample1 = liveness$ snd$ runKernel (example1 inputExample1 )
+
+getExample1 = putStrLn$ CUDA.genKernel "example1" example1 inputExample1
+getExample1C = putStrLn$ C.genKernel "example1" example1 inputExample1
+getExample1CL = putStrLn$ CL.genKernel "example1" example1 inputExample1
+
+
+
+example2 :: (Array (Exp Int), Array (Exp Int) ) -> Kernel (Array (Exp Int))
+example2 (arr1,arr2) = return$ conc (arr1,arr2)
+
+inputExample2 = (namedArray "apa" 32,namedArray "apa" 32)
+
+runExample2 = liveness$ snd$ runKernel (example2 inputExample2 )
+
+getExample2 = putStrLn$ CUDA.genKernel "example2" example2 inputExample2
+getExample2C = putStrLn$ C.genKernel "example2" example2 inputExample2
+getExample2CL = putStrLn$ CL.genKernel "example2" example2 inputExample2
 
 

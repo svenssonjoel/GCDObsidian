@@ -28,8 +28,10 @@ tidLine = line "unsigned int tid = threadIdx.x;"
 bidLine = line "unsigned int bid = blockIdx.x;" 
 
 
-sBase = line "extern __shared__ __attribute__ ((aligned (16))) unsigned char sbase[];" 
-
+sBase size = if size > 0 
+                then line "extern __shared__ __attribute__ ((aligned (16))) unsigned char sbase[];" 
+                else return ()     
+                     
 sbaseStr 0 t    = parens$ genCast gc t ++ "sbase" 
 sbaseStr addr t = parens$ genCast gc t ++ "(sbase + " ++ show addr ++ ")" 
 
@@ -89,7 +91,7 @@ getCUDA conf c name ins outs =
          begin >>
          tidLine >> newline >>
          bidLine >> newline >>
-         sBase >> newline >> 
+         sBase (configLocalMem conf) >> newline >> 
          genCUDABody conf c >>
          end ) 0 
 
