@@ -1,7 +1,8 @@
 {-# LANGUAGE FlexibleInstances, 
              FlexibleContexts, 
              MultiParamTypeClasses,  
-             UndecidableInstances #-}  
+             UndecidableInstances, 
+             TypeFamilies #-}  
 module Obsidian.GCDObsidian.Sync where 
 
 import Obsidian.GCDObsidian.Kernel
@@ -19,6 +20,33 @@ import Data.Word
 ----------------------------------------------------------------------------
 -- Sync
 
+
+-- TODO: is this an approach to more general syncs ? (see limitations on Syncable class) 
+class Syncable' a where 
+  type Synced a  
+  sync' :: a -> Kernel (Synced a) 
+  
+instance Syncable Array (Exp a) => Syncable' (Array (Exp a)) where 
+  type Synced (Array (Exp a)) = Array (Exp a) 
+  sync' = sync 
+  
+instance Syncable ArrayP (Exp a)  => Syncable' (ArrayP (Exp a)) where 
+  type Synced (ArrayP (Exp a)) = Array (Exp a) 
+  sync' = sync 
+
+
+instance (Syncable' a, Syncable' b) => Syncable' (a,b) where 
+  type Synced (a,b) = (Synced a, Synced b) 
+  sync' (a1,a2) = 
+    do  
+      a1' <- sync' a1
+      a2' <- sync' a2
+      return (a1',a2') 
+
+         
+   
+  
+-- TODO: Here only possible to sync on arrays ? 
 class Syncable a b where 
   sync :: a b -> Kernel (Array b)
  

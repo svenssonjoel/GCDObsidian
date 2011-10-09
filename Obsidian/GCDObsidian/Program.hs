@@ -18,10 +18,9 @@ import Obsidian.GCDObsidian.Globs
 ----------------------------------------------------------------------------
 -- Scalars for now. Learn how to loosen that demand
 -- TODO: really need to loosen it ??? 
--- TODO: This might be related to the issue of having Tuples 
---       in the Exp type or not... Look into this! 
 -- TODO: Program type can represent a whole lot more kinds of programs 
 --       than those that we actually generate.
+
 data Program 
   = forall a. Scalar a => Assign Name (Data Word32) (Data a)
   | ForAll (Data Word32 -> Program) Word32
@@ -46,8 +45,6 @@ printProgram (ProgramSeq p1 p2) = printProgram p1 ++ printProgram p2
     
 instance Show Program where 
   show = printProgram 
-
-
 
 
 targetArray :: Scalar a => Name -> Exp Word32 -> (Exp a -> Program)

@@ -28,7 +28,7 @@ type NumThreads = Word32
       
 
 ------------------------------------------------------------------------------
--- Pushy Kernels
+-- Kernels
 
 data SyncUnit extra = SyncUnit {syncThreads  :: Word32, 
                                 syncProgram  :: Program,
@@ -39,10 +39,11 @@ syncUnit :: Word32 -> Program -> SyncUnit ()
 syncUnit w p = SyncUnit w p ()
 
 
-data Code extra = Skip -- nothing to do 
+data Code extra = Skip 
                 | (SyncUnit extra) `Seq` (Code extra) 
                 deriving Show                    
                    
+                         
 code :: SyncUnit a -> Code a 
 code su = su `Seq` Skip                          
 
@@ -97,10 +98,8 @@ liveness Skip = Skip
 livenessSyncUnit aliveNext (SyncUnit nt prg _) = 
   SyncUnit nt prg alive
   where alive = livenessProgram aliveNext prg
---  where alive = foldr Set.union Set.empty (livenessPrograms aliveNext prgs)
-{- 
-livenessPrograms aliveNext = map (livenessProgram aliveNext) 
--}
+
+
 livenessProgram aliveNext (Assign name ix e)  = livingArrs
   where 
     arrays = collectArrays e
@@ -142,12 +141,8 @@ mapMemory (su `Seq` code) m mm = mapMemory code m' mm'
     
     
 mapMemorySyncUnit (SyncUnit nt p e) m mm  = mapMemoryProgram p m mm 
-{-
-mapMemoryPrograms [] m mm = (m,mm) 
-mapMemoryPrograms (p:ps) m mm = mapMemoryPrograms ps m' mm'
-  where 
-    (m',mm') = mapMemoryProgram p m mm
--}    
+
+
 mapMemoryProgram (Assign name i a) m mm = (m,mm) 
 mapMemoryProgram (ForAll f n) m mm = mapMemoryProgram (f (variable "X")) m mm       
 mapMemoryProgram (Cond c p) m mm = mapMemoryProgram p m mm 
