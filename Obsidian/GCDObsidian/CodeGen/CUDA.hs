@@ -69,10 +69,10 @@ genKernel name kernel a = cuda
         
     (m,mm) = mapMemory lc sharedMem  (Map.empty)
     (outCode,outs)   = 
-      runInOut (writeOutputs threadBudget res nosync) (0,[])
+      runInOut (writeOutputs threadBudget res {-nosync-}) (0,[])
 
-    c' = sc +++ (code outCode) 
-    sc = syncPoints c 
+    c' = sc *>* outCode -- (code outCode) 
+    sc = c -- syncPoints c 
     
     cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
 
@@ -80,7 +80,8 @@ genKernel name kernel a = cuda
 ------------------------------------------------------------------------------
 -- put together all the parts that make a CUDA kernel.     
 getCUDA :: Config 
-           -> Code Syncthreads 
+          -- -> Code Syncthreads 
+           -> Program a 
            -> Name 
            -> [(String,Type)] 
            -> [(String,Type)] 
@@ -98,20 +99,30 @@ getCUDA conf c name ins outs =
 
 ----------------------------------------------------------------------------
 -- Code to a CUDA kernel Body
-genCUDABody :: Config -> Code Syncthreads -> PP () 
-genCUDABody _ Skip  = return () 
-genCUDABody conf (su `Seq` code) = 
+genCUDABody :: Config 
+              -- -> Code Syncthreads 
+               -> Program a 
+               -> PP () 
+-- genCUDABody _ Skip  = return () 
+genCUDABody conf prg = genProg mm nt prg
+   where 
+      mm = configMM conf
+      nt = configThreads conf
+
+  
+  {-(su `ProgramSeq` code) = 
   do 
     genSyncUnit conf su
     if syncUnitNeedsSync su 
       then syncLine >> newline
       else return () 
     genCUDABody conf code  
-
+-} 
 
 
 ------------------------------------------------------------------------------
 -- 
+      {- 
 genSyncUnit conf (SyncUnit nt prog e) = 
   do 
     case compare nt blockSize of 
@@ -128,10 +139,10 @@ genSyncUnit conf (SyncUnit nt prog e) =
     where 
       mm = configMM conf
       blockSize = configThreads conf
-
+-}
 ----------------------------------------------------------------------------
 -- pretty print a "Program", CUDA STYLE!
-genProg :: MemMap -> Word32 ->  Program -> PP () 
+genProg :: MemMap -> Word32 ->  Program a -> PP () 
 genProg mm nt (Assign name ix a) = 
   case Map.lookup name mm of 
     Just (addr,t) -> 
@@ -145,7 +156,7 @@ genProg mm nt (Assign name ix a) =
           concat (genExp gc mm a) ++ ";"
         newline
 genProg mm nt (ForAll f n) = genProg mm nt (f (variable "tid"))
-genProg mm nt (Allocate name size t prg) = genProg mm nt prg
+genProg mm nt (Allocate name size t _) = return () -- genProg mm nt prg
 genProg mm nt (ProgramSeq p1 p2) = 
   do 
     genProg mm nt p1

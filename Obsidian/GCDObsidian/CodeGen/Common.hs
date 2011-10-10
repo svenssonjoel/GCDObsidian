@@ -8,8 +8,8 @@ import qualified Data.Map as Map
 
 import Obsidian.GCDObsidian.Kernel 
 import Obsidian.GCDObsidian.Exp 
-import qualified Obsidian.GCDObsidian.Tuple as Tuple 
-import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil) ) 
+-- import qualified Obsidian.GCDObsidian.Tuple as Tuple 
+-- import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil) ) 
 -- import Obsidian.GCDObsidian.Elem
 import Obsidian.GCDObsidian.Memory
 import Obsidian.GCDObsidian.Types
@@ -204,11 +204,12 @@ data Syncthreads = Syncthreads {needsSync :: Bool}
 syncthreads = Syncthreads True    
 nosync      = Syncthreads False
                      
+-- TODO: All of this needs to change in the new setting              
 -- Performs no analysis, just says "yes, we need a sync" everywhere. 
-syncPoints :: Code a -> Code Syncthreads
-syncPoints Skip = Skip
-syncPoints ((SyncUnit nt ps e) `Seq` code) = 
-   SyncUnit nt ps syncthreads  `Seq` (syncPoints code)
+-- syncPoints :: Code a -> Code Syncthreads
+-- syncPoints Skip = Skip
+-- syncPoints ((SyncUnit nt ps e) `Seq` code) = 
+--   SyncUnit nt ps syncthreads  `Seq` (syncPoints code)
   
    
-syncUnitNeedsSync (SyncUnit _ _ s) = needsSync s    
+--syncUnitNeedsSync (SyncUnit _ _ s) = needsSync s    

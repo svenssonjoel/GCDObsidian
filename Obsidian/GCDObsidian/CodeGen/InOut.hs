@@ -2,7 +2,7 @@
              FlexibleContexts#-}
 
 {- 
-  TODO: use a splitAt in the writeOutputs when 
+  DONE: use a splitAt in the writeOutputs when 
         The output array is larger than the threadbudget
         and use two or many more levels of writes. (Possibly) 
 
@@ -45,8 +45,8 @@ class InOut a where
   
   writeOutputs :: NumThreads -> 
                   a -> 
-                  e -> 
-                  State (Int,[(String,Type,Word32)]) (SyncUnit e)
+            --      e -> 
+                  State (Int,[(String,Type,Word32)]) (Program ())
   
   -- is this a hack ?
   gcdThreads :: a -> Word32
@@ -70,15 +70,16 @@ instance Scalar a => InOut (Array (Exp a)) where
     let n = fromIntegral (len arr) 
     return$ Array (\ix -> index name (bid * n + ix))  (len arr)
     
-  writeOutputs threadBudget arr e = do   
+  writeOutputs threadBudget arr {-e-} = do   
     
     name <- newInOut "result" (cTypeOfArray arr) (len arr)
     
     if ( len arr <= threadBudget ) 
       then do 
          let parr = push arr
-         return$ SyncUnit (len arr) {-threadBudget-}  
-           (pushApp parr (targetArray  name)) e
+         --return$ SyncUnit (len arr) {-threadBudget-}  
+         --  (pushApp parr (targetArray  name)) e
+         return$ pushApp parr (targetArray  name) 
       else do 
          let n  = len arr
              tb = threadBudget 
@@ -93,7 +94,9 @@ instance Scalar a => InOut (Array (Exp a)) where
                then pa1 
                else concP pa1 pa2
          
-         return$ SyncUnit threadBudget (pushApp parr (targetArray  name)) e
+         --return$ SyncUnit threadBudget (pushApp parr (targetArray  name)) e
+         return$ pushApp parr (targetArray  name)
+         
          
                      
   gcdThreads arr = len arr
@@ -105,13 +108,17 @@ instance (InOut a, InOut b) => InOut (a, b) where
       a1' <- createInputs a1 
       return (a0',a1')
   
-  writeOutputs threadBudget (a0,a1) e = do   
+  writeOutputs threadBudget (a0,a1) {-e-}= do   
     
-    (SyncUnit nt1 prg1 e1) <- writeOutputs threadBudget a0 e
-    (SyncUnit nt2 prg2 e2) <- writeOutputs threadBudget a1 e
+    --(SyncUnit nt1 prg1 e1) <- writeOutputs threadBudget a0 e
+    --(SyncUnit nt2 prg2 e2) <- writeOutputs threadBudget a1 e
+    prg1 <- writeOutputs threadBudget a0 {-e-}
+    prg2 <- writeOutputs threadBudget a1 {-e-}
     --error ( show nt1 ++ " " ++ show nt2 ++ " " ++ show threadBudget)
-    return$ SyncUnit (max nt1 nt2)  -- what exactly should this be
-                      (prg1 *>* prg2) e1 -- syncUnitFuseGCD s0 s1
+    return$ prg1 *>* prg2  -- syncUnitFuseGCD s0 s1
+   
+   -- return$ SyncUnit (max nt1 nt2)  -- what exactly should this be
+   --                   (prg1 *>* prg2) e1 -- syncUnitFuseGCD s0 s1
    
   gcdThreads (a0,a1) = gcd (gcdThreads a0) (gcdThreads a1)
   

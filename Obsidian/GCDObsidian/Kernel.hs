@@ -198,7 +198,32 @@ mapMemory (su `Seq` code) m mm = mapMemory code m' mm'
     
 mapMemorySyncUnit (SyncUnit nt p e) m mm  = mapMemoryProgram p m mm 
 
+-} 
+    
+mapMemory :: Program Liveness -> Memory -> MemMap -> (Memory,MemMap) 
+mapMemory = mapMemoryProgram 
 
+
+mapMemoryProgram :: Program Liveness -> Memory -> MemMap -> (Memory,MemMap)    
+mapMemoryProgram (Assign name i a) m mm = (m,mm) 
+mapMemoryProgram (ForAll f n) m mm = mapMemoryProgram (f (variable "X")) m mm       
+mapMemoryProgram (Cond c p) m mm = mapMemoryProgram p m mm 
+mapMemoryProgram (Allocate name size t _) m mm = (m',mm')
+  where 
+    (m'',addr) = allocate m size
+    -- TODO: maybe create Global arrays if Local memory is full.
+    -- t = Pointer$ Local$ typeOf$ getLLArray (head ws) `llIndex`  tid
+    (m',mm') = 
+      case Map.lookup name mm of 
+        Nothing      -> (m'',Map.insert name (addr,t) mm)
+        (Just (a,t)) -> (m,mm) -- what does this case really mean ? -
+mapMemoryProgram (prg1 `ProgramSeq` prg2) m mm = mapMemoryProgram prg2 m' mm'
+  where 
+    (m',mm') = mapMemoryProgram prg1 m mm 
+
+
+
+{-
 mapMemoryProgram (Assign name i a) m mm = (m,mm) 
 mapMemoryProgram (ForAll f n) m mm = mapMemoryProgram (f (variable "X")) m mm       
 mapMemoryProgram (Cond c p) m mm = mapMemoryProgram p m mm 

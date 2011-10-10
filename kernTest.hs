@@ -5,6 +5,7 @@ import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Sync
 
+import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA 
 
 test1 :: Array (Exp Int) -> Kernel (Array (Exp Int))
 test1 = pure (fmap (+1))
@@ -20,4 +21,5 @@ test2 inp = do
   return a3
   
   
+getTest2 = CUDA.genKernel "test2" test2 (namedArray "apa" 32) 
 
