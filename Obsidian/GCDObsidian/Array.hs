@@ -33,7 +33,7 @@ import Data.Word
 data Array a = Array (Exp Word32 -> a) Word32 
 
 -- PUSHY ARRAYS! 
-data ArrayP a = ArrayP ((Exp Word32 -> a -> Program) -> Program) Word32
+data ArrayP a = ArrayP ((Exp Word32 -> a -> Program ()) -> Program ()) Word32
 
 pushApp (ArrayP func n) a = func a 
 

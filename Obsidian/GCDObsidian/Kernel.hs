@@ -30,33 +30,33 @@ type NumThreads = Word32
 ------------------------------------------------------------------------------
 -- Kernels
 
-data SyncUnit extra = SyncUnit {syncThreads  :: Word32, 
-                                syncProgram  :: Program,
-                                syncExtra    :: extra }
-                 deriving Show
+--data SyncUnit extra = SyncUnit {syncThreads  :: Word32, 
+--                                syncProgram  :: Program,
+--                                syncExtra    :: extra }
+--                 deriving Show
                           
-syncUnit :: Word32 -> Program -> SyncUnit ()                          
-syncUnit w p = SyncUnit w p ()
+--syncUnit :: Word32 -> Program -> SyncUnit ()                          
+--syncUnit w p = SyncUnit w p ()
 
 
-data Code extra = Skip 
-                | (SyncUnit extra) `Seq` (Code extra) 
-                deriving Show                    
+--data Code extra = Skip 
+--                | (SyncUnit extra) `Seq` (Code extra) 
+--                deriving Show                    
                    
                          
-code :: SyncUnit a -> Code a 
-code su = su `Seq` Skip                          
+--code :: SyncUnit a -> Code a 
+--code su = su `Seq` Skip                          
 
-(+++) :: Code a -> Code a -> Code a 
-(+++) = mappend
+--(+++) :: Code a -> Code a -> Code a 
+--(+++) = mappend
                           
-instance Monoid (Code extra) where                    
-  mempty = Skip
-  mappend Skip a = a 
-  mappend a Skip = a 
-  mappend (ps `Seq` c) c2 = ps `Seq` (mappend c c2)
+--instance Monoid (Code extra) where                    
+--  mempty = Skip
+--  mappend Skip a = a 
+--  mappend a Skip = a 
+--  mappend (ps `Seq` c) c2 = ps `Seq` (mappend c c2)
                    
-type Kernel a = StateT Integer (Writer (Code ())) a   
+type Kernel a = StateT Integer (Writer (Program ())) a   
 
 runKernel k = runWriter (runStateT k 0)
 
@@ -75,11 +75,8 @@ pure f a = return (f a)
 
 ----------------------------------------------------------------------------
 -- Figure out how many threads a piece of Code requires
-threadsNeeded :: Code e -> Word32
-threadsNeeded Skip = 0
-threadsNeeded (Seq (SyncUnit nt _ _) c) = 
-  max nt (threadsNeeded c)
-
+threadsNeeded :: Program e -> Word32
+threadsNeeded = programThreads 
 
 ------------------------------------------------------------------------------
 -- LIVENESS on CODE 
