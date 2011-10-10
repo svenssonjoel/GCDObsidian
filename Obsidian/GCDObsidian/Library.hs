@@ -159,7 +159,7 @@ revP  arr = ArrayP (revHelp (\ix -> (fromIntegral (n-1)) - ix) h) n
 --revHelp :: (a -> b) -> ((a -> c) -> d) -> (b -> c) -> d
 
 -- TODO: This can be used in general to apply some indexing transformation.
-revHelp :: (Exp Word32 -> Exp Word32) -> ((Exp Word32 -> a) -> Program) -> (Exp Word32 -> a) -> Program
+revHelp :: (Exp Word32 -> Exp Word32) -> ((Exp Word32 -> a) -> Program ()) -> (Exp Word32 -> a) -> Program ()
 revHelp f g h = g (\i -> h (f i))
     
     

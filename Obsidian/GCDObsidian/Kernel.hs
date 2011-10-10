@@ -56,6 +56,13 @@ type NumThreads = Word32
 --  mappend a Skip = a 
 --  mappend (ps `Seq` c) c2 = ps `Seq` (mappend c c2)
                    
+instance Monoid (Program extra) where 
+  mempty = Skip 
+  mappend Skip a = a 
+  mappend a Skip = a 
+  mappend (p1 `ProgramSeq` p2) p3 = p1 `ProgramSeq` (mappend p2 p3) 
+  mappend p1 (p2 `ProgramSeq` p3) = (p1 ` ProgramSeq` p2) `mappend` p3                
+  mappend p1 p2 = p1 `ProgramSeq` p2
 type Kernel a = StateT Integer (Writer (Program ())) a   
 
 runKernel k = runWriter (runStateT k 0)
@@ -83,6 +90,42 @@ threadsNeeded = programThreads
 
 type Liveness = Set.Set Name
 
+liveness :: Program e -> Program Liveness
+liveness p = fst$ liveness' p Set.empty 
+
+liveness' :: Program e -> Liveness -> (Program Liveness,Liveness) 
+liveness' (Assign name ix exp ) s = (Assign name ix exp, living)
+  where 
+    arrays = collectArrays exp 
+    living    = Set.fromList arrays `Set.union` s
+   
+liveness' (Allocate name size t _) s = 
+  (Allocate name size t alive,alive)
+  where 
+    alive = name `Set.delete` s
+  
+liveness' (ForAll ixfToPrg n) s = (ForAll (fst . ixf') n,living)    
+  where 
+    ixf' = ((flip liveness') Set.empty) . ixfToPrg
+    aliveInside = snd$ ixf' (variable "X") 
+    living = s `Set.union` aliveInside
+    -- NOTE: Performs local liveness check (to what use ?) 
+liveness' e@(Cond b p) s = (Cond b p',s') 
+  where 
+    (p',s') = liveness' p s 
+  -- TODO: Change this if the conditions depend on 
+  -- previously computed arrays 
+  -- NOTE: Need to traverse p here just to shift its type to Program Liveness
+
+liveness' (p1 `ProgramSeq` p2) s = 
+  (p1' `ProgramSeq` p2',l1) 
+  where 
+    (p2',l2) = liveness' p2 s
+    (p1',l1) = liveness' p1 l2
+
+ 
+
+{- 
 liveness :: Code a -> Code Liveness 
 liveness (s `Seq` c) = lives `Seq` livec 
     where 
@@ -91,7 +134,8 @@ liveness (s `Seq` c) = lives `Seq` livec
       aliveNext = whatsAliveNext livec
 
 liveness Skip = Skip 
-
+-} 
+{- 
 livenessSyncUnit aliveNext (SyncUnit nt prg _) = 
   SyncUnit nt prg alive
   where alive = livenessProgram aliveNext prg
@@ -107,13 +151,27 @@ livenessProgram aliveNext (Allocate name size t prg) = livenessProgram aliveNext
 livenessProgram aliveNext (Cond c p) = livenessProgram aliveNext p
 livenessProgram aliveNext (prg1 `ProgramSeq` prg2) = 
   livenessProgram aliveNext prg1 `Set.union` livenessProgram aliveNext prg2
+-}
 
-
+{-
+-- TODO: Think about what kind of programs there 
+--       will be. Is the below correct ? 
+whatsAliveNext :: Program Liveness -> Liveness
+whatsAliveNext (Allocate _ _ _ _ l) = l 
+whatsAliveNext (Assign _ _ _) = Set.empty
+whatsAliveNext (ForAll _{-p-} _) = Set.empty 
+-- I dont think any programs we generate will 
+-- allocate things within a forAll! 
+-- (Make this more clear in the type ?)
+whatsAliveNext (Cond _ _ _ p) = whatsAliveNext p
+-- Most likely Cond will not contain Alloc nodes
+-- beneath it either. 
+whatsAliveNext (_ `ProgramSeq` p) = whatsAliveNext p 
 
 whatsAliveNext :: Code Liveness -> Liveness
 whatsAliveNext Skip = Set.empty
 whatsAliveNext (s `Seq` _) = syncExtra s
-
+-}
 ------------------------------------------------------------------------------ 
 
 
@@ -121,6 +179,7 @@ whatsAliveNext (s `Seq` _) = syncExtra s
 
 ------------------------------------------------------------------------------
 -- Create a memory map on CODE 
+    {- 
 mapMemory :: Code Liveness -> Memory -> MemMap -> (Memory,MemMap) 
 mapMemory Skip m mm = (m,mm) 
 mapMemory (su `Seq` code) m mm = mapMemory code m' mm' 
@@ -156,3 +215,4 @@ mapMemoryProgram (prg1 `ProgramSeq` prg2) m mm = mapMemoryProgram prg2 m' mm'
   where 
     (m',mm') = mapMemoryProgram prg1 m mm 
 
+-}

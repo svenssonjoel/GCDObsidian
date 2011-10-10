@@ -20,7 +20,29 @@ import Data.Word
 ----------------------------------------------------------------------------
 -- Sync
 
+pSyncArray  :: Scalar a => Array (Exp a) -> Kernel (Array (Exp a))
+pSyncArray arr = 
+  do 
+    name <- newArray
+    
+    let p = pushApp parr (targetArray name)
+        
+    tell$ 
+      ProgramSeq 
+        (Allocate name (es * (len arr)) t ()) 
+        p 
+            
+    return (Array (index name) (len arr))
+      
+  where 
+    es = fromIntegral$ sizeOf (arr ! 0) 
+    t  = Pointer$ Local$ typeOf (arr ! 0)
 
+    parr = push arr 
+        
+
+
+{- 
 -- TODO: is this an approach to more general syncs ? (see limitations on Syncable class) 
 class Syncable' a where 
   type Synced a  
@@ -198,3 +220,4 @@ pSyncArrayP2 arr@(ArrayP f n) =
                (Allocate name2 (es2 * n) t2
                 p))) Skip
     return (zipp (result1,result2))
+-}

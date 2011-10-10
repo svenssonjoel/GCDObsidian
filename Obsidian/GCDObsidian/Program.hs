@@ -19,9 +19,11 @@ import Obsidian.GCDObsidian.Globs
 -- 
 
 data Program extra 
-  = forall a. Scalar a => Assign Name (Data Word32) (Data a)
+  = Skip
+  | forall a. Scalar a => Assign Name (Data Word32) (Data a)
   | ForAll (Data Word32 -> (Program extra)) Word32
-  | Allocate Name Word32 Type (Program extra) 
+-- DONE: I Think Allocate should not introduce nesting
+  | Allocate Name Word32 Type extra
   | Cond (Exp Bool) (Program extra)       -- Conditional such as if (tid < x) (assign bla bla)  
   | ProgramSeq (Program extra) 
                (Program extra) 
@@ -32,16 +34,21 @@ data Program extra
 (*>*) = ProgramSeq 
     
 programThreads :: Program extra -> Word32
+programThreads Skip = 0
 programThreads (Assign _ _ _) = 1
 programThreads (ForAll f n) = n -- inner ForAlls are sequential
-programThreads (Allocate _ _ _ p) = programThreads p 
+programThreads (Allocate _ _ _ _) = 0 -- programThreads p 
+programThreads (Cond b p ) = programThreads p
 programThreads (p1 `ProgramSeq` p2) = max (programThreads p1) (programThreads p2)
     
                                       
 printProgram :: Show extra => Program extra -> String 
+printProgram Skip = ";" 
 printProgram (Assign n t e) = n ++ "[" ++ show t ++ "]" ++ " = " ++ show e ++ ";\n"  
 printProgram (ForAll f n)   = "forall i 0.." ++ show n ++ " {\n" ++ printProgram (f (variable "tid")) ++ "\n}" 
-printProgram (Allocate name n t p) = name ++ " = malloc(" ++ show n ++ ")\n" ++ printProgram p
+printProgram (Cond b p)     = "cond {\n" ++ printProgram p ++ "\n}"
+printProgram (Allocate name n t e) = name ++ " = malloc(" ++ show n ++ ")\n" ++ 
+                                     "[*** " ++ show e ++ " ***]\n" 
 printProgram (ProgramSeq p1 p2) = printProgram p1 ++ printProgram p2
     
 instance Show extra => Show (Program extra) where 
