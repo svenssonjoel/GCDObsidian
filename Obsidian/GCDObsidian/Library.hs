@@ -163,13 +163,13 @@ revHelp :: (Exp Word32 -> Exp Word32) -> ((Exp Word32 -> a) -> Program ()) -> (E
 revHelp f g h = g (\i -> h (f i))
     
     
---concP :: ArrayP a -> ArrayP a -> ArrayP a     
---concP (ArrayP f n1) (ArrayP g n2) = 
---  ArrayP (\func -> ProgramSeq ( f func )
---                              ( g (\i -> func (fromIntegral n1 + i))))
---                       (n1+n2)
+concP :: ArrayP a -> ArrayP a -> ArrayP a     
+concP (ArrayP f n1) (ArrayP g n2) = 
+  ArrayP (\func -> ProgramSeq ( f func )
+                              ( g (\i -> func (fromIntegral n1 + i))))
+                       (n1+n2)
 
-
+{- 
 concP :: Pushy arr => arr a -> arr a -> ArrayP a     
 concP arr1 arr2 = 
   case compare n1 n2 of 
@@ -194,7 +194,7 @@ concP arr1 arr2 =
     newlen = n1+n2
     (ArrayP f n1) = push arr1
     (ArrayP g n2) = push arr2
-
+-} 
 
 ----------------------------------------------------------------------------
 -- 

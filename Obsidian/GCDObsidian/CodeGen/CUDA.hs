@@ -168,11 +168,12 @@ genProg mm nt (ProgramSeq p1 p2) =
   do 
     genProg mm nt p1
     genProg mm nt p2
-genProg mm nt (Cond c p) = 
+{-     
+genProg mm nt (Cond c p) =
   line ("if" ++ concat (genExp gc mm c)) >> begin >>
   genProg mm nt p >>
   end 
-
+-} 
 
 potentialCond mm n nt pp 
   | n < nt = 

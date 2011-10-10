@@ -110,9 +110,9 @@ liveness' (ForAll ixfToPrg n) s = (ForAll (fst . ixf') n,living)
     aliveInside = snd$ ixf' (variable "X") 
     living = s `Set.union` aliveInside
     -- NOTE: Performs local liveness check (to what use ?) 
-liveness' e@(Cond b p) s = (Cond b p',s') 
-  where 
-    (p',s') = liveness' p s 
+--liveness' e@(Cond b p) s = (Cond b p',s') 
+--  where 
+--    (p',s') = liveness' p s 
   -- TODO: Change this if the conditions depend on 
   -- previously computed arrays 
   -- NOTE: Need to traverse p here just to shift its type to Program Liveness
@@ -210,7 +210,7 @@ mapMemoryProgram :: Program Liveness -> Memory -> MemMap -> (Memory,MemMap)
 mapMemoryProgram Skip m mm = (m,mm) 
 mapMemoryProgram (Assign name i a) m mm = (m,mm) 
 mapMemoryProgram (ForAll f n) m mm = mapMemoryProgram (f (variable "X")) m mm       
-mapMemoryProgram (Cond c p) m mm = mapMemoryProgram p m mm 
+-- mapMemoryProgram (Cond c p) m mm = mapMemoryProgram p m mm 
 mapMemoryProgram Synchronize m mm = (m,mm)
 mapMemoryProgram (Allocate name size t _) m mm = (m',mm')
   where 
