@@ -61,7 +61,24 @@ pSyncArrayP arr@(ArrayP func n)  =
           
     return result
 
-
+pSyncArrayP2 :: (Scalar a, Scalar b ) => ArrayP (Exp a,Exp b) -> Kernel (Array (Exp a,Exp b))
+pSyncArrayP2 arr@(ArrayP f n) =  
+  do 
+    name1 <- newArray
+    name2 <- newArray
+                      
+    let result1 = Array (index name1) n
+        result2 = Array (index name2) n
+        t1 = Pointer$ Local$ typeOf (result1 ! 0) 
+        t2 = Pointer$ Local$ typeOf (result2 ! 0)
+        es1 = fromIntegral$ sizeOf (result1 ! 0)
+        es2 = fromIntegral$ sizeOf (result2 ! 0)
+        p = pushApp arr (targetPair name1 name2)
+        
+    tell$ (Allocate name1 (es1 * n) t1 ()) *>* 
+          (Allocate name2 (es2 * n) t2 ()) *>* 
+          p
+    return (zipp (result1,result2))
 
 -- TODO: is this an approach to more general syncs ? (see limitations on Syncable class) 
 class Syncable' a where 
@@ -118,7 +135,7 @@ instance Scalar a => Syncable ArrayP (Exp a) where
   
 -- GAH! not good !! 
 instance (Scalar a, Scalar b) => Syncable ArrayP (Exp a, Exp b) where 
-  sync = undefined -- pSyncArrayP2 
+  sync =  pSyncArrayP2 
 
               
     
