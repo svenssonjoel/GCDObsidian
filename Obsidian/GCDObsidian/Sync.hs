@@ -62,7 +62,7 @@ pSyncArrayP arr@(ArrayP func n)  =
     return result
 
 
-{- 
+
 -- TODO: is this an approach to more general syncs ? (see limitations on Syncable class) 
 class Syncable' a where 
   type Synced a  
@@ -93,7 +93,7 @@ class Syncable a b where
   sync :: a b -> Kernel (Array b)
  
 instance (Scalar a) => Syncable Array (Exp a) where 
-  sync = pSyncA
+  sync = pSyncArray
 
 instance (Syncable Array a, Syncable Array b) => Syncable Array (a,b) where
   sync arr = do
@@ -114,11 +114,11 @@ instance (Syncable Array a, Syncable Array b, Syncable Array c)
       (a1,a2,a3) = unzipp3 arr
  
 instance Scalar a => Syncable ArrayP (Exp a) where  
-  sync arr =  pSyncA arr
+  sync arr =  pSyncArrayP arr
   
 -- GAH! not good !! 
 instance (Scalar a, Scalar b) => Syncable ArrayP (Exp a, Exp b) where 
-  sync = pSyncArrayP2 
+  sync = undefined -- pSyncArrayP2 
 
               
     
@@ -126,6 +126,7 @@ composeS [] = pure id
 composeS (f:fs) = f ->- sync ->- composeS fs
 
 
+{- 
 pSyncA :: (Scalar a, Pushy arr) 
           => arr (Exp a) -> Kernel (Array (Exp a)) 
 pSyncA arrIn = 
