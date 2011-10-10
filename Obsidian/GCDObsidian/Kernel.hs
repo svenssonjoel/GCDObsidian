@@ -117,6 +117,8 @@ liveness' e@(Cond b p) s = (Cond b p',s')
   -- previously computed arrays 
   -- NOTE: Need to traverse p here just to shift its type to Program Liveness
 
+liveness' Synchronize s = (Synchronize,s) 
+
 liveness' (p1 `ProgramSeq` p2) s = 
   (p1' `ProgramSeq` p2',l1) 
   where 
@@ -205,9 +207,11 @@ mapMemory = mapMemoryProgram
 
 
 mapMemoryProgram :: Program Liveness -> Memory -> MemMap -> (Memory,MemMap)    
+mapMemoryProgram Skip m mm = (m,mm) 
 mapMemoryProgram (Assign name i a) m mm = (m,mm) 
 mapMemoryProgram (ForAll f n) m mm = mapMemoryProgram (f (variable "X")) m mm       
 mapMemoryProgram (Cond c p) m mm = mapMemoryProgram p m mm 
+mapMemoryProgram Synchronize m mm = (m,mm)
 mapMemoryProgram (Allocate name size t _) m mm = (m',mm')
   where 
     (m'',addr) = allocate m size

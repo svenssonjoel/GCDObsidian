@@ -20,11 +20,21 @@ import Obsidian.GCDObsidian.Globs
 
 data Program extra 
   = Skip
-  | forall a. Scalar a => Assign Name (Data Word32) (Data a)
-  | ForAll (Data Word32 -> (Program extra)) Word32
+    
+  | forall a. Scalar a => Assign Name (Data Word32) (Data a) 
+-- Note: Writing of a scalar value into an array location.     
+  | ForAll (Data Word32 -> (Program extra)) Word32   
 -- DONE: I Think Allocate should not introduce nesting
   | Allocate Name Word32 Type extra
+  | Synchronize 
+-- NOTE: Adding a synchronize statement here 
+--       the sync operation can now insert a Syncronizze as a guide 
+--       to the code generation 
+-- TODO: What will this mean when nested inside something ? 
+--       Again, to start with, I will ensure that none of my library function 
+--       introduces a Synchronize nested in anything. 
   | Cond (Exp Bool) (Program extra)       -- Conditional such as if (tid < x) (assign bla bla)  
+    
   | ProgramSeq (Program extra) 
                (Program extra) 
   
@@ -35,6 +45,7 @@ data Program extra
     
 programThreads :: Program extra -> Word32
 programThreads Skip = 0
+programThreads Synchronize = 0 
 programThreads (Assign _ _ _) = 1
 programThreads (ForAll f n) = n -- inner ForAlls are sequential
 programThreads (Allocate _ _ _ _) = 0 -- programThreads p 

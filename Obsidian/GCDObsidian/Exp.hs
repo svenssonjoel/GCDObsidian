@@ -298,6 +298,7 @@ printExp (Index (name,es)) =
   name ++ "[" ++ ((concat . intersperse "," . map printExp) es) ++ "]"
 printExp (BinOp op e1 e2) = "(" ++ printOp op ++ " " ++  printExp e1 ++ " " ++ printExp e2 ++ " )"
 printExp (UnOp  op e) = "(" ++ printOp op ++ " " ++ printExp e ++ " )"
+printExp (If b e1 e2) = "(" ++ printExp b ++ " ? " ++ printExp e1 ++ " : " ++ printExp e2 ++ ")"
 --printExp (Op op e) = "(" ++ printOp op  ++ printExp e ++ ")"
 --printExp (Tuple t) = printTup t
 --printExp (Prj i t) = printPrj i t

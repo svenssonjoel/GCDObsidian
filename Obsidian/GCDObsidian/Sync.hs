@@ -28,9 +28,11 @@ pSyncArray arr =
     let p = pushApp parr (targetArray name)
         
     tell$ 
-      ProgramSeq 
         (Allocate name (es * (len arr)) t ()) 
+        `ProgramSeq`
         p 
+        `ProgramSeq`
+        Synchronize 
             
     return (Array (index name) (len arr))
       
@@ -40,6 +42,24 @@ pSyncArray arr =
 
     parr = push arr 
         
+
+pSyncArrayP :: Scalar a => ArrayP (Exp a) -> Kernel (Array (Exp a)) 
+pSyncArrayP arr@(ArrayP func n)  = 
+  do 
+    name <- newArray
+    
+    let result = Array (index name) n         
+        es = fromIntegral$ sizeOf (result ! 0) 
+        t  = Pointer$ Local$ typeOf (result ! 0)
+        p  = pushApp arr (targetArray name)
+
+    tell$ (Allocate name (es * n) t () )
+          `ProgramSeq`
+          p  
+          `ProgramSeq`
+          Synchronize
+          
+    return result
 
 
 {- 

@@ -155,8 +155,15 @@ genProg mm nt (Assign name ix a) =
         line$  name ++ "[" ++ concat (genExp gc mm ix) ++ "] = " ++ 
           concat (genExp gc mm a) ++ ";"
         newline
-genProg mm nt (ForAll f n) = genProg mm nt (f (variable "tid"))
+        
+        
+genProg mm nt (ForAll f n) = potentialCond mm n nt (genProg mm nt (f (variable "tid"))) 
+  -- TODO: Many details missing here, think about nested ForAlls 
+  -- TODO: Sync only if needed here                              
+  --      ++ Might help to add information to Program type that a "sync is requested"                              
+                             
 genProg mm nt (Allocate name size t _) = return () -- genProg mm nt prg
+genProg mm nt Synchronize = syncLine >> newline 
 genProg mm nt (ProgramSeq p1 p2) = 
   do 
     genProg mm nt p1
@@ -167,3 +174,13 @@ genProg mm nt (Cond c p) =
   end 
 
 
+potentialCond mm n nt pp 
+  | n < nt = 
+    do
+      cond gc mm (tid <* (fromIntegral n))
+      begin
+      pp       
+      end 
+  | n == nt = pp
+              
+  | otherwise = error "potentialCond: should not happen"

@@ -21,5 +21,23 @@ test2 inp = do
   return a3
   
   
-getTest2 = CUDA.genKernel "test2" test2 (namedArray "apa" 32) 
+getTest2 = putStrLn$ CUDA.genKernel "test2" test2 (namedArray "apa" 32) 
 
+small1 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
+small1 (arr1,arr2) = pSyncArrayP part
+  where
+    part = concP arr1' arr2'  
+    arr1' = push arr1
+    arr2' = push arr2 
+
+getSmall1 = putStrLn$ CUDA.genKernel "small1" small1 (namedArray "apa" 32,namedArray "apa" 32)
+
+small6 :: (Array (Data Int),Array (Data Int)) -> Kernel (Array (Data Int))
+small6 (a1,a2) = 
+  do 
+    a1' <- pSyncArray a1
+    a2' <- pSyncArray a2
+    pSyncArray  (conc (a1',a2')) -- length is (len a1 + len a2) here 
+    
+getSmall6 = putStrLn$ CUDA.genKernel "small6" small6 (namedArray "apa" 32, namedArray "bepa" 16)
+getSmall6' = runKernel$ small6 (namedArray "apa" 32, namedArray "bepa" 16)
