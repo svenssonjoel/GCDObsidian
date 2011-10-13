@@ -86,7 +86,8 @@ zipp3 (arr1,arr2,arr3) =
 
 
 zipWith :: (a -> b -> c) -> Array a -> Array b -> Array c
-zipWith op a1 a2 = Array (\ix -> (a1 ! ix) `op` (a2 ! ix)) (len a1)
+zipWith op a1 a2 = Array (\ix -> (a1 ! ix) `op` (a2 ! ix)) 
+                   (min (len a1) (len a2))
 
                    
 ----------------------------------------------------------------------------
