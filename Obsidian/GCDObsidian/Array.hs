@@ -30,6 +30,7 @@ import Data.Word
 
 ------------------------------------------------------------------------------
 -- Arrays!
+--data Array a = Array (Exp Word32 -> a) Word32 
 data Array a = Array (Exp Word32 -> a) Word32 
 
 -- PUSHY ARRAYS! 
