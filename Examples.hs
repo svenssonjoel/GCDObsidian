@@ -1,4 +1,5 @@
-{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleContexts,  
+             TypeFamilies#-}
 
 module Examples where 
 
@@ -29,11 +30,12 @@ getMapUnFused = putStrLn$ CUDA.genKernel "mapUnFused" mapUnFused input1
 
 
 -- reduce a power of two length array 
-reduce :: Syncable Array a => (a -> a -> a) -> Array a -> Kernel (Array a)
+reduce :: (Syncable' (Array a), 
+          Synced (Array a) ~ (Array a)) => (a -> a -> a) -> Array a -> Kernel (Array a)
 reduce op arr | len arr == 1 = return arr
               | otherwise    = 
                 (pure ((uncurry (zipWith op)) . halve)
-                 ->- sync 
+                 ->- sync' 
                  ->- reduce op) arr
 
 

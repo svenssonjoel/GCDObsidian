@@ -2,7 +2,10 @@
              FlexibleContexts, 
              MultiParamTypeClasses,  
              UndecidableInstances, 
-             TypeFamilies #-}  
+             TypeFamilies,  
+             RankNTypes, 
+             GADTs, 
+             ScopedTypeVariables #-}  
 module Obsidian.GCDObsidian.Sync where 
 
 import Obsidian.GCDObsidian.Kernel
@@ -16,6 +19,9 @@ import Obsidian.GCDObsidian.Elem
 
 import Control.Monad.Writer
 import Data.Word
+
+----------------------------------------------------------------------------
+--  
 
 ----------------------------------------------------------------------------
 -- Sync
