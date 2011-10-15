@@ -50,14 +50,14 @@ allocate m b =
                    in a+b
   in case adress of 
     -- use the first candidate (try better approaches 
-    --  such as searching for best match, so that not to waste memory)
+    -- such as searching for best match, so that not to waste memory)
     ((a,bytes):_)  -> let fl = filter (\(addr,_) -> a /= addr) (freeList m)
                           fl' = if b < bytes 
                                 then (a+b,bytes-b):fl
                                 else fl
                       in  (updateMax (m {freeList = fl', 
                                          allocated = (a,b):allocated m}) ,a)
-                          
+   
                           
 free :: Memory -> Address -> Memory
 free m a = mem 

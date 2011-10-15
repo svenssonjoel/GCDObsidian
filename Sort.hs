@@ -12,7 +12,7 @@ import Data.Bits
 import Data.List
 
 
-
+{-
 iv :: Elem a => Int -> Int -> (Exp b -> Exp b-> Exp a) -> (Exp b -> Exp b -> Exp a) -> Array (Exp b) -> Array (Exp a)
 iv i j f g arr = Array ixf (len arr)
   where
@@ -22,10 +22,11 @@ iv i j f g arr = Array ixf (len arr)
                  r = arr ! newix
                  newix = ix `xor` (fromIntegral j')
              in (ifThenElse ((ix .&. (fromIntegral (2^ij))) ==* 0) (f l r) (g l r))
-
+-}
 
 ------------------------------------------------------------------------------
 -- Generate the indices! 
+{-
 iv_pattern :: Int -> Int -> Int -> ([Int],[Int])
 iv_pattern i j n = ([ix 
                     | ix <- [0..n]
@@ -57,7 +58,7 @@ isTotal (as,bs) =  length (nub (asbs)) == n
   where 
     n = length as + length bs 
     asbs = as++bs
-    
+ -}   
 ------------------------------------------------------------------------------    
 --    
     
@@ -72,8 +73,8 @@ vsort :: Int -> Array (Exp Int) -> Kernel (Array (Exp Int))
 vsort n = composeS [ pure (iv (n-i) (i-j) min max)| i <- [1..n], j <- [1..i]]
 
 
-composeS [f] = f
-composeS (f:fs) = f ->- sync ->- composeS fs
+--composeS [f] = f
+--composeS (f:fs) = f ->- sync ->- composeS fs
 
 runs = writeFile "sort.cu" $ CUDA.genKernel "vsort" (vsort 9) (namedArray "apa" 512)
 runs' = putStrLn$ CUDA.genKernel "vsort" (vsort 9) (namedArray "apa" 512)

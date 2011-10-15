@@ -157,21 +157,27 @@ livenessProgram aliveNext (prg1 `ProgramSeq` prg2) =
   livenessProgram aliveNext prg1 `Set.union` livenessProgram aliveNext prg2
 -}
 
-{-
+
 -- TODO: Think about what kind of programs there 
 --       will be. Is the below correct ? 
 whatsAliveNext :: Program Liveness -> Liveness
-whatsAliveNext (Allocate _ _ _ _ l) = l 
+whatsAliveNext Skip = Set.empty
+whatsAliveNext Synchronize = Set.empty
+whatsAliveNext (Allocate _ _ _ l) = l 
 whatsAliveNext (Assign _ _ _) = Set.empty
 whatsAliveNext (ForAll _{-p-} _) = Set.empty 
 -- I dont think any programs we generate will 
 -- allocate things within a forAll! 
 -- (Make this more clear in the type ?)
-whatsAliveNext (Cond _ _ _ p) = whatsAliveNext p
+-- whatsAliveNext (Cond _ _ _ p) = whatsAliveNext p
 -- Most likely Cond will not contain Alloc nodes
 -- beneath it either. 
-whatsAliveNext (_ `ProgramSeq` p) = whatsAliveNext p 
+whatsAliveNext (p1 `ProgramSeq` p2) = 
+  let s1 = whatsAliveNext p1  
+      s2 = whatsAliveNext p2 
+  in s1 `Set.union` s2
 
+{-
 whatsAliveNext :: Code Liveness -> Liveness
 whatsAliveNext Skip = Set.empty
 whatsAliveNext (s `Seq` _) = syncExtra s
@@ -214,6 +220,24 @@ mapMemoryProgram (Assign name i a) m mm = (m,mm)
 mapMemoryProgram (ForAll f n) m mm = mapMemoryProgram (f (variable "X")) m mm       
 -- mapMemoryProgram (Cond c p) m mm = mapMemoryProgram p m mm 
 mapMemoryProgram Synchronize m mm = (m,mm)
+mapMemoryProgram ((Allocate name size t alive) `ProgramSeq` prg2) m mm 
+  = mapMemoryProgram prg2 {-m'-} mNew mm'
+  where 
+    (m'',addr) = allocate m size
+    aliveNext  = whatsAliveNext prg2
+    diff       = alive Set.\\ aliveNext
+    diffAddr   = mapM (\x -> Map.lookup x mm') (filter (not . (isPrefixOf "input")) (Set.toList diff))
+    mNew       =  
+      case diffAddr of 
+        (Just addys) -> freeAll m'' (map fst addys)
+        Nothing      -> error "atleast one array does not exist in memorymap" 
+   
+    -- TODO: maybe create Global arrays if Local memory is full.
+   
+    (m',mm') = 
+      case Map.lookup name mm of 
+        Nothing      -> (m'',Map.insert name (addr,t) mm)
+        (Just (a,t)) -> (m,mm) -- what does this case really mean ? -
 mapMemoryProgram (Allocate name size t _) m mm = (m',mm')
   where 
     (m'',addr) = allocate m size
@@ -226,7 +250,7 @@ mapMemoryProgram (Allocate name size t _) m mm = (m',mm')
 mapMemoryProgram (prg1 `ProgramSeq` prg2) m mm = mapMemoryProgram prg2 m' mm'
   where 
     (m',mm') = mapMemoryProgram prg1 m mm 
-
+    
 
 
 {-

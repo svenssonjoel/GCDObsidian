@@ -57,6 +57,7 @@ programThreads (p1 `ProgramSeq` p2) = max (programThreads p1) (programThreads p2
                                       
 printProgram :: Show extra => Program extra -> String 
 printProgram Skip = ";" 
+printProgram Synchronize = "Sync\n" 
 printProgram (Assign n t e) = n ++ "[" ++ show t ++ "]" ++ " = " ++ show e ++ ";\n"  
 printProgram (ForAll f n)   = "forall i 0.." ++ show n ++ " {\n" ++ printProgram (f (variable "tid")) ++ "\n}" 
 -- printProgram (Cond b p)     = "cond {\n" ++ printProgram p ++ "\n}"
