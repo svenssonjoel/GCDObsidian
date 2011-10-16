@@ -35,6 +35,9 @@ bid = variable "bid"
 cTypeOfArray :: Scalar a =>  Array (Exp a) -> Type 
 cTypeOfArray arr = Pointer (typeOf (arr ! variable "X"))
 
+globalTarget :: Scalar a => Name -> Exp Word32 -> Exp Word32 -> (Exp a -> Program ())
+globalTarget n blockSize i = \a -> Assign n ((bid * blockSize) + i)  a 
+
 
 -----------------------------------------------------------------------------
 -- Inputs Outputs 
@@ -79,7 +82,7 @@ instance Scalar a => InOut (Array (Exp a)) where
          let parr = push arr
          --return$ SyncUnit (len arr) {-threadBudget-}  
          --  (pushApp parr (targetArray  name)) e
-         return$ pushApp parr (targetArray  name) 
+         return$ pushApp parr (globalTarget name (fromIntegral (len arr))) 
       else do 
          let n  = len arr
              tb = threadBudget 
@@ -95,7 +98,7 @@ instance Scalar a => InOut (Array (Exp a)) where
                else concP pa1 pa2
          
          --return$ SyncUnit threadBudget (pushApp parr (targetArray  name)) e
-         return$ pushApp parr (targetArray  name)
+         return$ pushApp parr (globalTarget name (fromIntegral (len arr))) -- (targetArray  name)
          
          
                      

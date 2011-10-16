@@ -11,7 +11,7 @@ module Obsidian.GCDObsidian.Array ((!)
                                   , Pushy
                                   , PushyInternal
                                   , pushApp
-                                  , targetArray
+                                  -- , targetArray
                                   , push
                                   , push' -- this is more for "internal" use
                                   , ArrayP(..)
