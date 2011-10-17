@@ -1,10 +1,15 @@
 #include <stdio.h>
 #include <stdlib.h>
 
+#include <sys/time.h>
+#include <time.h>
+#include "diff_ms.h"
+
 #define ELEMS 512
 #define THREADS 256
 
 #define NUM_TEST_BLOCKS 32768 // 16384 //32768 // 65576
+#define NUM_TEST_RUNS   1000
 
 // Code Generated with GCDObsidian
 __global__ void vsort(int *input0,int *result0){
@@ -156,7 +161,11 @@ int main(int argc, char **argv){
   int *result;
   int *dvalues;
   int *dresult;
- 
+
+
+  timeval start;
+  timeval stop; 
+  
 
   values = (int*)malloc(NUM_TEST_BLOCKS * ELEMS * sizeof(int)); 
   result = (int*)malloc(NUM_TEST_BLOCKS * ELEMS * sizeof(int)); 
@@ -173,10 +182,22 @@ int main(int argc, char **argv){
   }
   printf("\n");
   
+
+  
   cudaMalloc((void**)&dvalues, sizeof(int) * NUM_TEST_BLOCKS * ELEMS ); 
   cudaMalloc((void**)&dresult, sizeof(int) * NUM_TEST_BLOCKS * ELEMS ); 
   cudaMemcpy(dvalues, values, sizeof(int) * NUM_TEST_BLOCKS * ELEMS, cudaMemcpyHostToDevice);
-  vsort<<<NUM_TEST_BLOCKS, THREADS,ELEMS*2* sizeof(int)>>>((int*)dvalues,(int*)dresult);
+
+  // start time 
+  gettimeofday(&start,NULL);
+
+  for (int i = 0; i < NUM_TEST_RUNS; ++i)  {     
+    vsort<<<NUM_TEST_BLOCKS, THREADS,ELEMS*2* sizeof(int)>>>((int*)dvalues,(int*)dresult);
+  } 
+  cudaThreadSynchronize();
+  // stop time 
+  gettimeofday(&stop,NULL);
+
   cudaMemcpy(result, dresult, sizeof(int) * NUM_TEST_BLOCKS * ELEMS , cudaMemcpyDeviceToHost);
   cudaFree(dvalues);
   cudaFree(dresult);
@@ -202,6 +223,9 @@ int main(int argc, char **argv){
       }
     }
   }
+  
+  printf("running %d blocks took %fms\n",NUM_TEST_BLOCKS, diff_ms(&start,&stop) / ((float)NUM_TEST_RUNS) );
+
   printf("PASSED!\n");
   free(result);
   free(values);
