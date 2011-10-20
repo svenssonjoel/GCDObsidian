@@ -200,17 +200,25 @@ zipP arr1 arr2 =
     
     
     
+-- Combine assumes the two push arrays     
+-- Pushes to completely disjoint sets of indices     
+-- and that all indices between 0 and their combined 
+-- length is being pushed to. 
+-- should definitely not be exposed to the outside. 
+combine :: ArrayP a -> ArrayP a -> ArrayP a    
+combine a1 a2 = 
+  ArrayP (\k -> pushApp a1 k *>* pushApp a2 k) (len a1 + len a2) 
+    
+  
 -- The oposite to ivDiv    
 ivMerge :: Pushy arr => Int -> Int -> arr a -> arr a -> ArrayP a
-ivMerge i j arr1 arr2  = 
---   ArrayP (\func -> (f (func . left) *>* (g (func . right)))) (n1+n2)
-  ArrayP (\k -> pushApp a1' k *>* pushApp a2' k) (len arr1 + len arr2)
+ivMerge i j arr1 arr2 = combine a1 a2
   where
     left ix = ix + (ix .&. complement (oneBits (i+j)))
     right ix = (left ix) `xor` (fromIntegral mask)
     mask = (oneBits j :: Word32) `shiftL` i
-    a1' = ixMap left (push arr1)
-    a2' = ixMap right (push arr2)
+    a1 = ixMap left (push arr1)
+    a2 = ixMap right (push arr2)
    
    
 
