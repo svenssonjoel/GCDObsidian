@@ -35,8 +35,8 @@ bid = variable "bid"
 cTypeOfArray :: Scalar a =>  Array (Exp a) -> Type 
 cTypeOfArray arr = Pointer (typeOf (arr ! variable "X"))
 
-globalTarget :: Scalar a => Name -> Exp Word32 -> Exp Word32 -> (Exp a -> Program ())
-globalTarget n blockSize i = \a -> Assign n ((bid * blockSize) + i)  a 
+globalTarget :: Scalar a => Name -> Exp Word32 -> (Exp Word32, Exp a) -> Program ()
+globalTarget n blockSize (i,a) = Assign n ((bid * blockSize) + i)  a 
 
 
 -----------------------------------------------------------------------------

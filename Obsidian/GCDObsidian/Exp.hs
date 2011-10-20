@@ -252,7 +252,11 @@ instance Bits (Exp Word32) where
   xor   a b = BinOp BitwiseXor a b 
   complement (Literal i) = Literal (complement i) 
   complement a = UnOp BitwiseNeg a
+  
+  shiftL (Literal j) i = Literal (j `shiftL` i) 
   shiftL a i = BinOp ShiftL a (Literal i)
+  
+  shiftR (Literal j) i = Literal (j `shiftL` i)
   shiftR a i = BinOp ShiftR a (Literal i)
   bitSize a  = 32
   isSigned a = False

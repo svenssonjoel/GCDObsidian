@@ -69,10 +69,10 @@ instance Show extra => Show (Program extra) where
   show = printProgram 
 
 
-targetArray :: Scalar a => Name -> Exp Word32 -> (Exp a -> Program ())
-targetArray n i = \a -> Assign n i a 
+targetArray :: Scalar a => Name -> (Exp Word32,Exp a) -> Program ()
+targetArray n (i,a) = Assign n i a 
 
 
-targetPair :: (Scalar a, Scalar b) => Name -> Name -> Exp Word32 -> ((Exp a,Exp b) -> Program ())
-targetPair n1 n2  i = \(a,b) -> Assign n1 i a *>*
-                                  Assign n2 i b
+targetPair :: (Scalar a, Scalar b) => Name -> Name -> (Exp Word32,(Exp a,Exp b)) -> Program ()
+targetPair n1 n2  (i,(a,b)) = Assign n1 i a *>*
+                              Assign n2 i b

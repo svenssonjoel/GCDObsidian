@@ -134,6 +134,7 @@ ivt i j f arr = Array g nl
 -- Split an array into two equal length parts.
 -- How they are divided is controlled by i and j 
 -- TODO: Ask Mary for info on the "how"
+{-
 ivDiv :: Int -> Int -> Array a -> (Array a, Array a)
 ivDiv i j arr = (Array (\ix -> arr ! newix0 i j ix) (n-n2),
                  Array (\ix -> arr ! newix1 i j ix) n2)
@@ -145,8 +146,17 @@ ivDiv i j arr = (Array (\ix -> arr ! newix0 i j ix) (n-n2),
     tij = 2^(i+j)
     newix1 i j ix = (newix0 i j ix) `xor` (fromIntegral j')
     j' = (((2^(j+1))-1) :: Word32) `shiftL` i
+-} 
 
-
+-- Improved ivDiv
+ivDiv :: Int -> Int -> Array a -> (Array a, Array a)
+ivDiv i j (Array ixf n) = (Array (ixf . left) (n-n2),
+                           Array (ixf . right) n2   )
+  where 
+    n2 = n `div` 2
+    left = insertZero (i+j) 
+    right ix = (left ix) `xor` (fromIntegral mask)
+    mask = (oneBits j :: Word32) `shiftL` i
 
 
 ----------------------------------------------------------------------------
@@ -154,69 +164,88 @@ ivDiv i j arr = (Array (\ix -> arr ! newix0 i j ix) (n-n2),
 ----------------------------------------------------------------------------
 
 revP :: Pushy arr => arr a -> ArrayP a 
-revP  arr = ArrayP (revHelp (\ix -> (fromIntegral (n-1)) - ix) h) n 
+revP  arr = ixMap (\ix -> (fromIntegral (n-1)) - ix) parr -- ArrayP (ixMap (\ix -> (fromIntegral (n-1)) - ix) h) n 
   where
-    (ArrayP h n) = push arr
---revHelp :: (a -> b) -> ((a -> c) -> d) -> (b -> c) -> d
+    parr@(ArrayP h n) = push arr
 
--- TODO: This can be used in general to apply some indexing transformation.
-revHelp :: (Exp Word32 -> Exp Word32) -> ((Exp Word32 -> a) -> Program ()) -> (Exp Word32 -> a) -> Program ()
-revHelp f g h = g (\i -> h (f i))
-    
-    
+
+ixMap :: (Exp Word32 -> Exp Word32) 
+         -> ArrayP a 
+         -> ArrayP a 
+ixMap f (ArrayP p n) = ArrayP (ixMap' f p) n
+
+ixMap' :: (Exp Word32 -> Exp Word32) 
+         -> P (Exp Word32, a)
+         -> P (Exp Word32, a) 
+ixMap' f p = \g -> p (\(i,a) -> g (f i,a))
+
 concP :: ArrayP a -> ArrayP a -> ArrayP a     
 concP (ArrayP f n1) (ArrayP g n2) = 
   ArrayP (\func -> ProgramSeq ( f func )
-                              ( g (\i -> func (fromIntegral n1 + i))))
+                              ( g (\(i,a) -> func (fromIntegral n1 + i,a))))
                        (n1+n2)
-
-{- 
-concP :: Pushy arr => arr a -> arr a -> ArrayP a     
-concP arr1 arr2 = 
-  case compare n1 n2 of 
-    EQ -> ArrayP (\func -> ( f func )
-                           *>* 
-                           (g (\i -> func (fromIntegral n1 + i))))
-           newlen
-          
-    LT -> ArrayP (\func -> (f (\i  a ->  
-                                Cond (i <* (fromIntegral n1)) 
-                                (func i a )))
-                           *>*
-                           (g (\i -> func (fromIntegral n1 + i))))
-           newlen
-          
-    GT -> ArrayP (\func -> (f func ) 
-                           *>*
-                           (g (\i a -> Cond (i <* (fromIntegral n2))
-                                       (func (fromIntegral n1 + i) a ))))
-          newlen
-  where 
-    newlen = n1+n2
-    (ArrayP f n1) = push arr1
-    (ArrayP g n2) = push arr2
--} 
 
 ----------------------------------------------------------------------------
 -- 
     
 zipP :: Pushy arr  => arr a -> arr a -> ArrayP a  
 zipP arr1 arr2 =
-  ArrayP (\func -> (f (\i -> func (2*i)))
+  ArrayP (\func -> (f (\(i,a) -> func (2*i,a)))
                    *>*
-                   (g (\i -> func (2*i + 1))))
+                   (g (\(i,a) -> func (2*i + 1,a))))
          (n1+n2)
   where 
     (ArrayP f n1) = push arr1
     (ArrayP g n2) = push arr2
     
-
+    
+    
 -- The oposite to ivDiv    
 ivMerge :: Pushy arr => Int -> Int -> arr a -> arr a -> ArrayP a
 ivMerge i j arr1 arr2  = 
-  ArrayP (\func -> (f (\ix -> func (newix0 i j ix)))
+--   ArrayP (\func -> (f (func . left) *>* (g (func . right)))) (n1+n2)
+  ArrayP (\k -> pushApp a1' k *>* pushApp a2' k) (len arr1 + len arr2)
+  where
+    left ix = ix + (ix .&. complement (oneBits (i+j)))
+    right ix = (left ix) `xor` (fromIntegral mask)
+    mask = (oneBits j :: Word32) `shiftL` i
+    a1' = ixMap left (push arr1)
+    a2' = ixMap right (push arr2)
+   
+   
+
+    
+-- iv  a sorter building block
+iv i j f g arr = ivMerge i j arr1' arr2'
+  where
+    (arr1,arr2) = ivDiv i j arr
+    arr1' = push $ zipWith f arr1 arr2
+    arr2' = push $ zipWith g arr1 arr2
+
+
+insertZero :: Int -> Exp Word32 -> Exp Word32
+insertZero i a = a + (a .&. fromIntegral (complement (oneBits i :: Word32)))
+
+flipBits :: Bits a => Int -> Int -> a -> a
+flipBits i j a = a `xor` (fromIntegral mask)
+  where
+    mask = (oneBits j :: Word32) `shiftL` i
+
+
+
+oneBits i = bit i - 1
+    
+    
+    
+    
+{-
+-- The oposite to ivDiv    
+    
+ivMerge :: Pushy arr => Int -> Int -> arr a -> arr a -> ArrayP a
+ivMerge i j arr1 arr2  = 
+  ArrayP (\func -> (f (\(ix,a) -> func (newix0 i j ix,a)))
                    *>*
-                   (g (\ix -> func (newix1 i j ix))))
+                   (g (\(ix,a) -> func (newix1 i j ix,a))))
           (n1+n2)
   where
     newix0 i j ix = ix + (ix .&. complement (fromIntegral (tij - 1)))
@@ -234,4 +263,6 @@ iv i j f g arr = part
     part = ivMerge i j arr1' arr2'
     arr1' = push $ zipWith f arr1 arr2
     arr2' = push $ zipWith g arr1 arr2
+
+-} 
 

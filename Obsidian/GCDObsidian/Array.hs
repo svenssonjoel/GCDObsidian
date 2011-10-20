@@ -11,10 +11,10 @@ module Obsidian.GCDObsidian.Array ((!)
                                   , Pushy
                                   , PushyInternal
                                   , pushApp
-                                  -- , targetArray
                                   , push
                                   , push' -- this is more for "internal" use
                                   , ArrayP(..)
+                                  , P
                                   )where 
 
 import Obsidian.GCDObsidian.Elem
@@ -34,36 +34,39 @@ import Data.Word
 data Array a = Array (Exp Word32 -> a) Word32 
 
 -- PUSHY ARRAYS! 
-data ArrayP a = ArrayP ((Exp Word32 -> a -> Program ()) -> Program ()) Word32
+
+type P a = (a -> Program ()) -> Program () 
+
+data ArrayP a = ArrayP (P (Exp Word32, a)) Word32
+
+--data ArrayP a = ArrayP ((Exp Word32 -> a -> Program ()) -> Program ()) Word32
 
 pushApp (ArrayP func n) a = func a 
 
 
-
 -- TODO: Do you need (Exp e) where there is only e ? 
 -- TODO: Will this again influence the Exp Tuples or not issue?
-class PushyInternal a where 
+class Len a => PushyInternal a where 
   push' :: Word32 -> a e -> ArrayP e  
 
 instance PushyInternal Array  where   
   push' m (Array ixf n) = 
     ArrayP (\func -> ForAll (\i -> foldr1 (*>*) 
-                                   [func (i*(fromIntegral m)+
-                                          (fromIntegral j))  
-                                    (ixf (i*(fromIntegral m)+
-                                            (fromIntegral j)))
-                                                     | j<-  [0..m-1]
-                                                     ]) (n `div` m)) n
-
+                                   [func (ix,a)
+                                   | j <-  [0..m-1],
+                                     let ix = (i*(fromIntegral m) + (fromIntegral j)),
+                                     let a  = ixf ix
+                                   ]) (n `div` m)) n
+    
          
-class Pushy a where 
+class Len a => Pushy a where 
   push :: a e -> ArrayP e 
 
 instance Pushy ArrayP where 
   push = id 
   
 instance Pushy Array  where   
-  push (Array ixf n) = ArrayP (\func -> ForAll (\i -> func i (ixf i)) n) n 
+  push (Array ixf n) = ArrayP (\func -> ForAll (\i -> func (i,(ixf i))) n) n 
 
 ----------------------------------------------------------------------------
 --
@@ -77,9 +80,14 @@ class Indexible a e where
 instance Indexible Array a where
   access (Array ixf _) ix = ixf ix
 
+class Len a where 
+  len :: a e -> Word32
 
-len :: Array a -> Word32
-len (Array _ n) = n 
+instance Len Array where 
+  len (Array _ n) = n 
+instance Len ArrayP where   
+  len (ArrayP _ n) = n
+  
 
 (!) :: Indexible a e => a e -> Exp Word32 -> e 
 (!) = access
