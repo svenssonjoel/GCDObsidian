@@ -146,9 +146,10 @@ ivDiv i j arr = (Array (\ix -> arr ! newix0 i j ix) (n-n2),
     tij = 2^(i+j)
     newix1 i j ix = (newix0 i j ix) `xor` (fromIntegral j')
     j' = (((2^(j+1))-1) :: Word32) `shiftL` i
--} 
+-}
 
 -- Improved ivDiv
+
 ivDiv :: Int -> Int -> Array a -> (Array a, Array a)
 ivDiv i j (Array ixf n) = (Array (ixf . left) (n-n2),
                            Array (ixf . right) n2   )
@@ -156,7 +157,7 @@ ivDiv i j (Array ixf n) = (Array (ixf . left) (n-n2),
     n2 = n `div` 2
     left = insertZero (i+j) 
     right ix = (left ix) `xor` (fromIntegral mask)
-    mask = (oneBits j :: Word32) `shiftL` i
+    mask = (oneBits (j+1) :: Word32) `shiftL` i
 
 
 ----------------------------------------------------------------------------
@@ -204,24 +205,38 @@ zipP arr1 arr2 =
 -- Pushes to completely disjoint sets of indices     
 -- and that all indices between 0 and their combined 
 -- length is being pushed to. 
--- should definitely not be exposed to the outside. 
+-- Should definitely not be exposed to the outside. 
 combine :: ArrayP a -> ArrayP a -> ArrayP a    
 combine a1 a2 = 
   ArrayP (\k -> pushApp a1 k *>* pushApp a2 k) (len a1 + len a2) 
     
   
 -- The oposite to ivDiv    
+
 ivMerge :: Pushy arr => Int -> Int -> arr a -> arr a -> ArrayP a
 ivMerge i j arr1 arr2 = combine a1 a2
   where
     left ix = ix + (ix .&. complement (oneBits (i+j)))
     right ix = (left ix) `xor` (fromIntegral mask)
-    mask = (oneBits j :: Word32) `shiftL` i
+    mask = (oneBits (j+1) :: Word32) `shiftL` i
     a1 = ixMap left (push arr1)
     a2 = ixMap right (push arr2)
-   
-   
-
+  
+{-  
+ivMerge :: Pushy arr => Int -> Int -> arr a -> arr a -> ArrayP a
+ivMerge i j arr1 arr2  = 
+  ArrayP (\func -> (f (\(ix,a) -> func (newix0 i j ix,a)))
+                   *>*
+                   (g (\(ix,a) -> func (newix1 i j ix,a))))
+          (n1+n2)
+  where
+    newix0 i j ix = ix + (ix .&. complement (fromIntegral (tij - 1)))
+    tij = 2^(i+j)
+    newix1 i j ix = (newix0 i j ix) `xor` (fromIntegral j')
+    j' = (((2^(j+1))-1) :: Word32) `shiftL` i
+    (ArrayP f n1) = push arr1
+    (ArrayP g n2) = push arr2   
+-}
     
 -- iv  a sorter building block
 iv i j f g arr = ivMerge i j arr1' arr2'
@@ -246,24 +261,11 @@ oneBits i = bit i - 1
     
     
     
-{-
+
 -- The oposite to ivDiv    
+
     
-ivMerge :: Pushy arr => Int -> Int -> arr a -> arr a -> ArrayP a
-ivMerge i j arr1 arr2  = 
-  ArrayP (\func -> (f (\(ix,a) -> func (newix0 i j ix,a)))
-                   *>*
-                   (g (\(ix,a) -> func (newix1 i j ix,a))))
-          (n1+n2)
-  where
-    newix0 i j ix = ix + (ix .&. complement (fromIntegral (tij - 1)))
-    tij = 2^(i+j)
-    newix1 i j ix = (newix0 i j ix) `xor` (fromIntegral j')
-    j' = (((2^(j+1))-1) :: Word32) `shiftL` i
-    (ArrayP f n1) = push arr1
-    (ArrayP g n2) = push arr2
-    
-    
+{-    
 -- iv  a sorter building block
 iv i j f g arr = part
   where
