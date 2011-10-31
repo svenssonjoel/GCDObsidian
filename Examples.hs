@@ -6,8 +6,8 @@ module Examples where
 import Obsidian.GCDObsidian
 
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
---import qualified Obsidian.GCDObsidian.CodeGen.C as C
---import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
+import qualified Obsidian.GCDObsidian.CodeGen.C as C
+import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
 
 import Prelude hiding (zipWith,sum )
@@ -25,8 +25,8 @@ input1 :: Array IntE
 input1 = namedArray "apa" 32
 
 getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
---getMapFusionC  = putStrLn$ C.genKernel "mapFusion" mapFusion input1
---getMapFusionCL = putStrLn$ CL.genKernel "mapFusion" mapFusion input1
+getMapFusionC  = putStrLn$ C.genKernel "mapFusion" mapFusion input1
+getMapFusionCL = putStrLn$ CL.genKernel "mapFusion" mapFusion input1
 
 
 mapUnFused :: Array IntE -> Kernel (Array IntE) 
@@ -60,7 +60,7 @@ input16 = namedArray "input" 16
 
 
 getReduceAdd = putStrLn$ CUDA.genKernel "reduceAdd" (reduce (+)) input8
---getReduceAddC = putStrLn$ C.genKernel "reduceAdd" (reduce (+)) input8                
+getReduceAddC = putStrLn$ C.genKernel "reduceAdd" (reduce (+)) input8                
 
 getReduceSAdd = putStrLn$ CUDA.genKernel "reduceSAdd" (reduceS (+)) input8
 

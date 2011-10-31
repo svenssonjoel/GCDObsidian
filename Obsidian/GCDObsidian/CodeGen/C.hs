@@ -104,7 +104,7 @@ genProg mm nt (ForAll f n) =
   forEach gc mm (fromIntegral n) (genProg mm nt (f (variable "tid")))
 genProg mm nt (Allocate name size t _) = return () 
 genProg mm nt Skip = return ()
-genProg mm nt Synchronize = return ()
+genProg mm nt (Synchronize _) = return ()
 genProg mm nt (ProgramSeq p1 p2) = 
   do 
     genProg mm nt p1
