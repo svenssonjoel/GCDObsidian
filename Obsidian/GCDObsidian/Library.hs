@@ -1,9 +1,7 @@
 module Obsidian.GCDObsidian.Library where 
 
 import Obsidian.GCDObsidian.Array 
-import Obsidian.GCDObsidian.Elem 
 import Obsidian.GCDObsidian.Exp 
-import Obsidian.GCDObsidian.Tuple
 import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.Kernel
 
@@ -27,9 +25,16 @@ rev arr = Array (\ix -> arr ! ((fromIntegral (n-1)) - ix)) n
     
 ------------------------------------------------------------------------------
 -- splitAt (name clashes with Prelude.splitAt 
-splitAt :: Integral i => i -> Array a -> (Array a, Array a) 
-splitAt n arr = (Array (\ix -> arr ! ix) (fromIntegral n) , 
-                 Array (\ix -> arr ! (ix + fromIntegral n)) (len arr - (fromIntegral n)))
+-- splitAt :: Integral i => i -> Array a -> (Array a, Array a) 
+-- splitAt n arr = (Array (\ix -> arr ! ix) (fromIntegral n) , 
+--                 Array (\ix -> arr ! (ix + fromIntegral n)) (len arr - (fromIntegral n)))
+
+
+splitAt :: Word32 -> Array a -> (Array a, Array a) 
+splitAt n arr = (Array (\ix -> arr ! ix) n , 
+                 Array (\ix -> arr ! (ix + fromIntegral n)) (len arr - n))
+
+
 
 halve arr = splitAt n2 arr
   where 
@@ -65,7 +70,7 @@ unzipp arr = (Array (\ix -> fst (arr ! ix)) (len arr),
               Array (\ix -> snd (arr ! ix)) (len arr))
               
 zipp :: (Array a, Array b) -> Array (a, b)             
-zipp (arr1,arr2) = Array (\ix -> (arr1 ! ix, arr2 ! ix)) (len arr1)
+zipp (arr1,arr2) = Array (\ix -> (arr1 ! ix, arr2 ! ix)) (min (len arr1) (len arr2))
 
 
 unzipp3 :: Array (a,b,c) 
@@ -98,6 +103,14 @@ pair (Array ixf n) = Array (\ix -> (ixf (ix*2),ixf (ix*2+1))) n'
   where 
     n' = n `div` 2 
 
+
+
+unpair :: Choice a => Array (a,a) -> Array a
+unpair arr = 
+    let n = len arr
+    in  Array (\ix -> ifThenElse ((mod ix 2) ==* 0) 
+                      (fst (arr ! (ix `shiftR` 1)))
+                      (snd (arr ! (ix `shiftR` 1)))) (2*n)
 
 
 ------------------------------------------------------------------------------    
@@ -178,14 +191,43 @@ ixMap f (ArrayP p n) = ArrayP (ixMap' f p) n
 ixMap' :: (Exp Word32 -> Exp Word32) 
          -> P (Exp Word32, a)
          -> P (Exp Word32, a) 
-ixMap' f p = \g -> p (\(i,a) -> g (f i,a))
+ixMap' f p = \g -> ( p) (\(i,a) -> g (f i,a))
 
-concP :: ArrayP a -> ArrayP a -> ArrayP a     
-concP (ArrayP f n1) (ArrayP g n2) = 
-  ArrayP (\func -> ProgramSeq ( f func )
-                              ( g (\(i,a) -> func (fromIntegral n1 + i,a))))
-                       (n1+n2)
+concP :: (Pushy arr1,
+          Pushy arr2) => (arr1 a, arr2 a) -> ArrayP a     
+concP (arr1,arr2) = 
+  ArrayP (\func -> f func
+                   *>* 
+                   g (\(i,a) -> func (fromIntegral n1 + i,a)))
+                         (n1+n2)
+  where 
+     ArrayP f n1 = push arr1
+     ArrayP g n2 = push arr2
+unpairP :: Pushy arr => arr (a,a) -> ArrayP a 
+unpairP arr =  ArrayP (\k -> f (everyOther k))
+         (2 * n)
+  where 
+    ArrayP f n = push arr 
+--unpairP :: Pushy arr => arr (a,a) -> ArrayP a 
+--unpairP arr =  ArrayP (\k -> pushApp parr (everyOther k))
+--         (2* len arr)
+--  where 
+--    parr = push arr 
+    
 
+everyOther :: ((Exp Word32, a) -> Program ()) 
+              -> (Exp Word32, (a,a)) -> Program ()
+everyOther f  = \(ix,(a,b)) -> f (ix * 2,a) *>* f (ix * 2 + 1,b)  
+    
+
+--(&) :: Loc a -> Loc b -> Loc (a,b)
+--loc1 & loc2 = \(x,y) -> loc1 x .>> loc2 y
+
+--unpair :: Pushy p => Array p (a,a) -> Array Push a
+--unpair arr =
+--  Array{ size = size arr .* Num 2
+--       , doit = Push $ \iloc -> push (doit (toPush arr)) (\i -> iloc (i .* Num 2) & iloc ((i .* Num 2) .+ Num 1))
+--       }
 ----------------------------------------------------------------------------
 -- 
     
@@ -213,14 +255,17 @@ combine a1 a2 =
   
 -- The oposite to ivDiv    
 
+-- combine a1 a2
+
 ivMerge :: Pushy arr => Int -> Int -> arr a -> arr a -> ArrayP a
-ivMerge i j arr1 arr2 = combine a1 a2
+ivMerge i j arr1 arr2 = ArrayP (\k -> app a1 k *>* app a2 k) (len a1 + len a2) 
   where
     left ix = ix + (ix .&. complement (oneBits (i+j)))
     right ix = (left ix) `xor` (fromIntegral mask)
     mask = (oneBits (j+1) :: Word32) `shiftL` i
     a1 = ixMap left (push arr1)
     a2 = ixMap right (push arr2)
+    app (ArrayP f _) a = f a 
   
 {-  
 ivMerge :: Pushy arr => Int -> Int -> arr a -> arr a -> ArrayP a

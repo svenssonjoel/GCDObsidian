@@ -14,11 +14,9 @@ module Obsidian.GCDObsidian.Array ((!)
                                   , push
                                   , push' -- this is more for "internal" use
                                   , ArrayP(..)
-                                  , P
+                                  , P(..)
                                   )where 
 
-import Obsidian.GCDObsidian.Elem
-import Obsidian.GCDObsidian.Tuple
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
@@ -37,11 +35,25 @@ data Array a = Array (Exp Word32 -> a) Word32
 
 type P a = (a -> Program ()) -> Program () 
 
+{- 
+To look at later !!!! (needs to be a newtype though!
+instance Monad P where 
+  return a = P $ \k -> k a 
+  (>>=) (P m) f = P $ \k -> m (\a -> runP (f a) k) 
+
+instance Functor P where 
+  ... 
+
+instance Applicative P where 
+  ...
+
+-} 
+
 data ArrayP a = ArrayP (P (Exp Word32, a)) Word32
 
 --data ArrayP a = ArrayP ((Exp Word32 -> a -> Program ()) -> Program ()) Word32
 
-pushApp (ArrayP func n) a = func a 
+pushApp (ArrayP func n) a =  func a 
 
 
 -- TODO: Do you need (Exp e) where there is only e ? 

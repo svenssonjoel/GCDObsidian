@@ -14,7 +14,7 @@ import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.Library
-import Obsidian.GCDObsidian.Elem
+
 
 
 import Control.Monad.Writer

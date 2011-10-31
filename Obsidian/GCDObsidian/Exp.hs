@@ -15,9 +15,6 @@ import qualified Foreign.Storable as Storable
 
 ------------------------------------------------------------------------------
 -- Obsidian imports
--- import qualified Obsidian.GCDObsidian.Tuple as Tuple 
--- import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil) ) 
--- import Obsidian.GCDObsidian.Elem
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 
@@ -121,6 +118,8 @@ data Op a where
   Div :: Num a => Op ((a,a) -> a) 
   -- If  :: Op ((Bool,a,a) -> a) 
   
+  Mod :: Integral a => Op ((a,a) -> a)
+         
   -- Trig
   Sin :: Floating a => Op (a -> a) 
   Cos :: Floating a => Op (a -> a)
@@ -261,6 +260,13 @@ instance Bits (Exp Word32) where
   bitSize a  = 32
   isSigned a = False
 
+instance Real (Exp Word32)  
+
+instance Enum (Exp Word32) 
+
+instance Integral (Exp Word32) where
+  mod a b = BinOp Mod a b 
+  div a b = BinOp Div a b
   
   
 ----------------------------------------------------------------------------

@@ -1,5 +1,5 @@
 Name: GCDObsidian
-Version: 0.0.1
+Version: 0.0.2
 
 License:      BSD3 
 License-file: LICENSE
@@ -30,18 +30,19 @@ Library
               
 
   exposed-modules: Obsidian.GCDObsidian.Array 
-  		 , Obsidian.GCDObsidian.Library
-		 , Obsidian.GCDObsidian.Kernel 
+                 , Obsidian.GCDObsidian.Library
+                 , Obsidian.GCDObsidian.Kernel 
                  , Obsidian.GCDObsidian.Exp  
-                 , Obsidian.GCDObsidian.Elem 
-		 , Obsidian.GCDObsidian.Tuple
-		 , Obsidian.GCDObsidian.Printing
-		 , Obsidian.GCDObsidian.Store
-		 , Obsidian.GCDObsidian.CodeGen.Common
-		 , Obsidian.GCDObsidian.CodeGen.OpenCL
-		 , Obsidian.GCDObsidian.CodeGen.CUDA 
-		 , Obsidian.GCDObsidian.CodeGen.C
-		 
+                 , Obsidian.GCDObsidian.Printing
+                 , Obsidian.GCDObsidian.Sync
+                 , Obsidian.GCDObsidian.Memory
+                 , Obsidian.GCDObsidian.Globs
+                 , Obsidian.GCDObsidian.CodeGen.Common
+                 , Obsidian.GCDObsidian.CodeGen.OpenCL
+                 , Obsidian.GCDObsidian.CodeGen.CUDA 
+                 , Obsidian.GCDObsidian.CodeGen.C
+                 , Obsidian.GCDObsidian.AddOn.ArrowObsidian
+                 , Obsidian.GCDObsidian.AddOn.SortLang
 
 
               

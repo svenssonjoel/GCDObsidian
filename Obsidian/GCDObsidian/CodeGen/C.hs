@@ -30,16 +30,26 @@ gc = genConfig "" ""
 
     
 sBase size = 
-  do 
-    line "unsigned char *sbase;" 
-    newline  
-    line ("sbase = (unsigned char*) malloc(" ++ show size ++ ");")
+  if size > 0 
+  then  
+    do 
+      line "unsigned char *sbase;" 
+      newline  
+      line ("sbase = (unsigned char*) malloc(" ++ show size ++ ");")
+  else
+    return () 
+    
              
-free_sBase = line "free(sbase);" 
+free_sBase size = 
+  if size > 0 
+  then line "free(sbase);" 
+  else return ()
 
--- TODO: make more general and move to Common    
-forEach :: GenConfig -> MemMap -> Exp Word32 -> PP ()   
-forEach gc mm e = line ("for (uint32_t tid = 0; tid < " ++ concat (genExp gc mm e) ++"; ++tid)")
+forEach ::  GenConfig -> MemMap -> Exp Word32 -> PP () -> PP ()
+forEach gc mm e pp = line ("for (uint32_t tid = 0; tid < " ++ concat (genExp gc mm e) ++"; ++tid)") >>
+                     begin >>
+                     pp >> 
+                     end 
 
 -- TODO: DUPLICATED CODE 
 sbaseStr 0 t    = parens$ genCast gc t ++ "sbase" 
@@ -48,7 +58,7 @@ sbaseStr addr t = parens$ genCast gc t ++ "(sbase + " ++ show addr ++ ")"
 -- sequential C code generation
 
 getC :: Config 
-        -> Code a 
+        -> Program a 
         -> Name 
         -> [(String,Type)] 
         -> [(String,Type)] 
@@ -57,38 +67,26 @@ getC :: Config
 getC conf c name ins outs = 
   runPP (kernelHead name ins outs >>  
          begin >>
-         sBase (configLocalMem conf) >> newline >> 
+         sBase size >> newline >> 
          genCBody conf c >>
-         free_sBase >>
+         free_sBase size >>
          end ) 0 
-
-------------------------------------------------------------------------------
-
-genCBody :: Config -> Code a -> PP () 
-genCBody _ Skip  = return () 
-genCBody conf (su `Seq` code) = 
-  do 
-    genSyncUnit conf su
-    genCBody conf code  
-
-------------------------------------------------------------------------------
--- New
-    
-genSyncUnit conf (SyncUnit nt prog e) = 
-  do 
-   forEach gc mm (fromIntegral nt) 
-   begin
-   genProg mm nt prog
-   end
   where 
-    mm = configMM conf
+    size = (configLocalMem conf)
 
+------------------------------------------------------------------------------
+
+genCBody :: Config -> Program a -> PP () 
+genCBody conf prg = genProg mm nt prg
+  where
+    mm = configMM conf
+    nt = configThreads conf
 
 ----------------------------------------------------------------------------
 -- pretty print a "Program", now C STYLE! 
 -- But it is the same ??? 
 -- TODO: DUPLICATED CODE 
-genProg :: MemMap -> Word32 ->  Program -> PP () 
+genProg :: MemMap -> Word32 -> Program a -> PP () 
 genProg mm nt (Assign name ix a) = 
   case Map.lookup name mm of 
     Just (addr,t) -> 
@@ -96,21 +94,22 @@ genProg mm nt (Assign name ix a) =
         line$  sbaseStr addr t ++ "[" ++ concat (genExp gc mm ix) ++ "] = " ++ 
           concat (genExp gc mm a) ++ ";" 
         newline
-    Nothing ->  --- A result array
+    Nothing ->  -- a result array
       do
         line$  name ++ "[" ++ concat (genExp gc mm ix) ++ "] = " ++ 
           concat (genExp gc mm a) ++ ";"
         newline
-genProg mm nt (ForAll f n) = genProg mm nt (f (variable "tid"))
-genProg mm nt (Allocate name size t prg) = genProg mm nt prg
+-- A bit ugly.         
+genProg mm nt (ForAll f n) = 
+  forEach gc mm (fromIntegral n) (genProg mm nt (f (variable "tid")))
+genProg mm nt (Allocate name size t _) = return () 
+genProg mm nt Skip = return ()
+genProg mm nt Synchronize = return ()
 genProg mm nt (ProgramSeq p1 p2) = 
   do 
     genProg mm nt p1
     genProg mm nt p2
-genProg mm nt (Cond c p) = 
-  line ("if" ++ concat (genExp gc mm c)) >> begin >>
-  genProg mm nt p >>
-  end 
+
 ------------------------------------------------------------------------------
 -- C style function "header"
 kernelHead :: Name -> 
@@ -146,9 +145,9 @@ genKernel name kernel a = seqc
         
     (m,mm) = mapMemory lc sharedMem Map.empty
     (outCode,outs)   = 
-      runInOut (writeOutputs threadBudget res ()) (0,[])
+      runInOut (writeOutputs threadBudget res) (0,[])
       
-    c' = c +++ (code outCode)
+    c' = c *>* outCode
     
     seqc = getC (config threadBudget mm (size m)) 
                 c' 

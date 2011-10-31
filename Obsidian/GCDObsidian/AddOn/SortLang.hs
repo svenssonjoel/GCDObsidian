@@ -23,8 +23,6 @@ import Data.Bits
 import Data.Word
 
 
-
--- is there a way to add the powerful Push arrays also ?   
 data a :-> b where 
   Pure  :: (Array a -> Array b) -> (Array a :-> Array b) 
   Two   :: (Array a :-> Array b) -> (Array a :-> Array b) 

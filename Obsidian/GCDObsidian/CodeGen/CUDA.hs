@@ -62,7 +62,7 @@ genKernel name kernel a = cuda
     ((res,_),c)  = runKernel (kernel input)
     lc = liveness c
    
-    threadBudget = 
+    threadBudget =  
       case c of 
         Skip -> gcdThreads res
         a  -> threadsNeeded c 
@@ -71,8 +71,8 @@ genKernel name kernel a = cuda
     (outCode,outs)   = 
       runInOut (writeOutputs threadBudget res {-nosync-}) (0,[])
 
-    c' = sc *>* outCode -- (code outCode) 
-    sc = c -- syncPoints c 
+    c' = sc *>* outCode 
+    sc = c -- remove
     
     cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
 
@@ -109,37 +109,6 @@ genCUDABody conf prg = genProg mm nt prg
       mm = configMM conf
       nt = configThreads conf
 
-  
-  {-(su `ProgramSeq` code) = 
-  do 
-    genSyncUnit conf su
-    if syncUnitNeedsSync su 
-      then syncLine >> newline
-      else return () 
-    genCUDABody conf code  
--} 
-
-
-------------------------------------------------------------------------------
--- 
-      {- 
-genSyncUnit conf (SyncUnit nt prog e) = 
-  do 
-    case compare nt blockSize of 
-      LT -> do
-            cond gc mm (tid <* (fromIntegral nt))
-            begin
-            -- mapM_ (genProg mm nt) progs
-            genProg mm nt prog
-            end
-      EQ -> -- mapM_ (genProg mm nt) progs
-            genProg mm nt prog
-      GT -> error "genStore: CUDA code generation is broken somewhere" 
-
-    where 
-      mm = configMM conf
-      blockSize = configThreads conf
--}
 ----------------------------------------------------------------------------
 -- pretty print a "Program", CUDA STYLE!
 genProg :: MemMap -> Word32 ->  Program a -> PP () 
@@ -169,12 +138,6 @@ genProg mm nt (ProgramSeq p1 p2) =
   do 
     genProg mm nt p1
     genProg mm nt p2
-{-     
-genProg mm nt (Cond c p) =
-  line ("if" ++ concat (genExp gc mm c)) >> begin >>
-  genProg mm nt p >>
-  end 
--} 
 
 potentialCond mm n nt pp 
   | n < nt = 

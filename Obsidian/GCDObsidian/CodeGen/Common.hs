@@ -97,7 +97,7 @@ genOp Sub     [a,b] = oper "-" a b
 genOp Mul     [a,b] = oper "*" a b 
 genOp Div     [a,b] = oper "/" a b 
 
-
+genOp Mod     [a,b] = oper "%" a b 
 
 genOp Sin     [a]   = func "sin" a 
 genOp Cos     [a]   = func "cos" a 

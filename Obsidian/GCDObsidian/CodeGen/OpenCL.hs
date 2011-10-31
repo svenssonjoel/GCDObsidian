@@ -38,7 +38,10 @@ bidLine = line "unsigned int bid = (get_global_id(0)-tid) / get_local_size(0);"
 -- Note:  You can set the size here (in the kernel) or 
 --        from the outside. Setting it from the "outside" requires an 
 --        extra parameter passed to the kernel and is thus more cumbersome.
-sBase size = line$ "__local unsigned char sbase[" ++ show size ++ "];" 
+sBase size = 
+  if size > 0 
+  then line$ "__local unsigned char sbase[" ++ show size ++ "];" 
+  else return () 
 
 -- TODO: CODE DUPLICATION
 sbaseStr 0 t    = parens$ genCast gc t ++ "sbase" 
@@ -47,7 +50,7 @@ sbaseStr addr t = parens$ genCast gc t ++ "(sbase + " ++ show addr ++ ")"
 ------------------------------------------------------------------------------
 -- Generate OpenCL code to a String 
 
-getOpenCL :: Config -> Code Syncthreads -> Name -> [(String,Type)] -> [(String,Type)] -> String 
+getOpenCL :: Config -> Program a -> Name -> [(String,Type)] -> [(String,Type)] -> String 
 getOpenCL conf c name ins outs = 
   runPP (kernelHead name ins outs >>  
          begin >>
@@ -58,36 +61,13 @@ getOpenCL conf c name ins outs =
          end ) 0 
 
 
-genOpenCLBody :: Config -> Code Syncthreads -> PP () 
-genOpenCLBody _ Skip  = return () 
-genOpenCLBody conf (su `Seq` code) = 
-  do 
-    genSyncUnit conf su
-    if (syncUnitNeedsSync su) 
-      then syncLine >> newline 
-      else return () 
-    genOpenCLBody conf code  
+genOpenCLBody :: Config -> Program a -> PP () 
+genOpenCLBody conf prg = genProg mm nt prg
+  where 
+    mm = configMM conf
+    nt = configThreads conf
   
-------------------------------------------------------------------------------
--- 
--- TODO: CODE DUPLICATION !!! 
-genSyncUnit conf (SyncUnit nt prog e) = 
-  do 
-    case compare nt blockSize of 
-      LT -> do
-            cond gc mm (tid <* (fromIntegral nt))
-            begin
-            genProg mm nt prog
-            end
-      EQ -> genProg mm nt prog
-      GT -> error "genStore: CUDA code generation is broken somewhere" 
-
-    where 
-      mm = configMM conf
-      blockSize = configThreads conf   
-
-
-genProg :: MemMap -> Word32 ->  Program -> PP () 
+genProg :: MemMap -> Word32 ->  Program a -> PP () 
 genProg mm nt (Assign name ix a) = 
   case Map.lookup name mm of 
     Just (addr,t) -> 
@@ -101,15 +81,13 @@ genProg mm nt (Assign name ix a) =
           concat (genExp gc mm a) ++ ";"
         newline
 genProg mm nt (ForAll f n) = genProg mm nt (f (variable "tid"))
-genProg mm nt (Allocate name size t prg) = genProg mm nt prg
+genProg mm nt (Allocate name size t _) = return ()
+genProg mm nt Skip = return ()
+genProg mm nt Synchronize = syncLine
 genProg mm nt (ProgramSeq p1 p2) = 
   do 
     genProg mm nt p1
     genProg mm nt p2
-genProg mm nt (Cond c p) = 
-  line ("if" ++ concat (genExp gc mm c)) >> begin >>
-  genProg mm nt p >>
-  end 
 
 
 ------------------------------------------------------------------------------
@@ -147,10 +125,10 @@ genKernel name kernel a = opencl
         
     (m,mm) = mapMemory lc sharedMem Map.empty
     (outCode,outs)   = 
-      runInOut (writeOutputs threadBudget res nosync) (0,[])
+      runInOut (writeOutputs threadBudget res) (0,[])
       
-    c' = sc +++ (code outCode)
-    sc = syncPoints c 
+    c' = sc *>* outCode
+    sc = c  -- remove 
     
     opencl = getOpenCL (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
     
