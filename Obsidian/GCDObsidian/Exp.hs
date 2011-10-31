@@ -260,14 +260,19 @@ instance Bits (Exp Word32) where
   bitSize a  = 32
   isSigned a = False
 
-instance Real (Exp Word32)  
+instance Real (Exp Word32) where 
+  toRational = undefined
+  
 
-instance Enum (Exp Word32) 
+instance Enum (Exp Word32) where
+  toEnum = undefined
+  fromEnum = undefined
 
 instance Integral (Exp Word32) where
   mod a b = BinOp Mod a b 
   div a b = BinOp Div a b
-  
+  quotRem = undefined
+  toInteger = undefined
   
 ----------------------------------------------------------------------------
   
