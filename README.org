@@ -5,25 +5,27 @@
   + Generates Sequential C code for testing purposes
     
 * News in GCDObsidian 
+  + Push Arrays: Explanation to come
+
   + Sync can be performed on groups of arrays. This leads 
     to that a number of threads equal to the GCD of the lengths of
     the arrays is used to compute and store them. 
-  + The Sync concept will gradually be replaced by a group 
-    of functions, "store" functions. 
+  
   + Kernel Building blocks: 
     There are pure functions, (Array a -> Array a), that can be composed
     using Haskell functional composition. These are turned into "kernels" using the function pure.
-    There are built in kernel building blocks, (things like, Array a -> Kernel (Array a)).
-    These represents (hopefully) efficient ways to store intermediate values 
-    in GPU shared memory. (store, storeIlv, storeIlvF, storeP - currently) 
     
     
 * Work in progress
-  + Small generated kernels have been executed 
-    successfully using C, OpenCL and CUDA. 
+  + Small Kernels seem to generate ok CUDA under the new Push array setting.
+    There are issues! 
+   
   + More library functions needed
-      
+  + Library of Pushy array functions needed too.
+    Should provide a lot of room for experimentation.
+    
 * Latest changes
+  + Trying to add the idea of Push arrays to Obsidian. 
   + What used to be (Array Int) is now (Array (Exp Int) or 
     (Array (Data Int)), whichever is preferable. 
     This means the Array datatype changed from 
@@ -31,12 +33,14 @@
     to 
     data Array a = Array (Exp Word32 -> a) Word32 
     
-    LLarrays still have the (Exp Word32 -> Exp a) indexing function 
-    so big parts of the code could be reused. 
+  + LLArrays have been removed along with many hundreds 
+    of lines of code that needs to be completely rewritten. 
+    The push array takes the role of the old LLArray in this version. 
 
 
 * Notes
-  + OpenCL: The kind of pointer arithmetic + casting, that has worked so well 
+  + (Solved, it works, see below)
+    OpenCL: The kind of pointer arithmetic + casting, that has worked so well 
     in CUDA, seems to not work in OpenCL on the local memory. 
     Will need to scan the specification/documentation to find exactly what is 
     allowed and not on pointers to local memory in an OpenCL kernel. (Solved, see below)

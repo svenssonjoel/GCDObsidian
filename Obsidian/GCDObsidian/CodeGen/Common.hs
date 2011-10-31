@@ -8,9 +8,12 @@ import qualified Data.Map as Map
 
 import Obsidian.GCDObsidian.Kernel 
 import Obsidian.GCDObsidian.Exp 
-import qualified Obsidian.GCDObsidian.Tuple as Tuple 
-import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil) ) 
-import Obsidian.GCDObsidian.Elem
+-- import qualified Obsidian.GCDObsidian.Tuple as Tuple 
+-- import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil) ) 
+-- import Obsidian.GCDObsidian.Elem
+import Obsidian.GCDObsidian.Memory
+import Obsidian.GCDObsidian.Types
+import Obsidian.GCDObsidian.Globs
 
 import Control.Monad.State
 
@@ -46,11 +49,11 @@ genType gc (Local t)  = local gc  ++" "++ genType gc t
 
 genCast gc t = "(" ++ genType gc t ++ ")"
 
-parens s = "(" ++ s ++ ")"
+parens s = '(' : s ++ ")"
 
 ------------------------------------------------------------------------------
 -- genExp C-style 
-genExp :: Elem a => GenConfig -> MemMap -> Exp a -> [String]
+genExp :: Scalar a => GenConfig -> MemMap -> Exp a -> [String]
 genExp gc _ (Literal a) = [show a] 
 genExp gc _ (Index (name,[])) = [name]
 genExp gc mm exp@(Index (name,es)) = 
@@ -68,15 +71,24 @@ genExp gc mm exp@(Index (name,es)) =
             else name
 
    
-                 
-genExp gc mm (Op op e) = [genOp op (genExp gc mm e)]
-genExp gc mm (Tuple t) = genTup gc mm t
+genExp gc mm (BinOp op e1 e2) = 
+  [genOp op (genExp gc mm e1 ++ genExp gc mm e2)]
+
+genExp gc mm (UnOp op e) = 
+  [genOp op (genExp gc mm e)] 
+  
+genExp gc mm (If b e1 e2) =   
+  [genIf (genExp gc mm b ++ 
+          genExp gc mm e1 ++ 
+          genExp gc mm e2 )] 
+
 
 genIndices gc mm es = concatMap (pIndex mm) es  
   where 
     pIndex mm e = "[" ++ concat (genExp gc mm e) ++ "]"
 
 
+genIf         [b,e1,e2] = b ++ " ? " ++ e1 ++ " : " ++ e2
 ------------------------------------------------------------------------------
 -- genOp
 genOp :: Op a -> [String] -> String
@@ -85,10 +97,10 @@ genOp Sub     [a,b] = oper "-" a b
 genOp Mul     [a,b] = oper "*" a b 
 genOp Div     [a,b] = oper "/" a b 
 
-genOp If      [b,e1,e2] = b ++ " ? " ++ e1 ++ " : " ++ e2
+genOp Mod     [a,b] = oper "%" a b 
 
 genOp Sin     [a]   = func "sin" a 
-
+genOp Cos     [a]   = func "cos" a 
 -- Bool ops
 genOp Eq      [a,b] = oper "==" a b 
 genOp Lt      [a,b] = oper "<" a b 
@@ -113,21 +125,12 @@ func  f a = f ++ "(" ++ a ++ ")"
 oper  f a b = "(" ++ a ++ f ++ b ++ ")" 
 unOp  f a   = "(" ++ f ++ a ++ ")"
 
- 
-
-
-genTup :: forall t. GenConfig -> MemMap -> Tuple.Tuple Exp t -> [String]
-genTup _  _ Nil = []
-genTup gc mm (a :. t) = genExp gc mm a ++ (genTup gc mm t) 
-  
-genPrj = undefined 
-
 
 ------------------------------------------------------------------------------
 -- print and indent and stuff... 
 --  This is probably very ugly 
 
--- TODO: There is a chapter about this (PP) in "implementing functional lang..." 
+-- TODO: There is a chapter about this pretty printing in "implementing functional lang..." 
 --       Look at that and learn 
 
 
@@ -174,7 +177,7 @@ data Config = Config {configThreads  :: NumThreads,
 config = Config
 
 
-assign :: Elem a => GenConfig -> MemMap -> Exp a -> Exp a -> PP () 
+assign :: Scalar a => GenConfig -> MemMap -> Exp a -> Exp a -> PP () 
 assign gc mm name val = line ((concat (genExp gc mm name)) ++ 
                            " = " ++  concat (genExp gc mm val) ++ 
                            ";") 
@@ -190,48 +193,23 @@ end =  unindent >> newline >> line "}" >> newline
 
 
 
-
-
-
-
-
 ------------------------------------------------------------------------------
--- First Synchtreads analysis 
+-- First Synchtreads analysis:
+-- This code is needed but both OpenCL and CUDA so 
+-- therefore in Common.hs
     
 data Syncthreads = Syncthreads {needsSync :: Bool}
                  deriving Show
+                          
 syncthreads = Syncthreads True    
 nosync      = Syncthreads False
-                   
-syncPoints :: Code a -> Code Syncthreads
-syncPoints Skip = Skip
-syncPoints (su `Seq` code) = syncPointsSyncUnit su `Seq` 
-                                syncPoints code
-                                
-syncPointsSyncUnit :: SyncUnit a -> SyncUnit Syncthreads
-syncPointsSyncUnit (SyncUnit nt sl)  = SyncUnit nt (syncPointsStoreList sl)
-
-syncPointsStoreList :: StoreList a -> StoreList Syncthreads
-syncPointsStoreList StoreListNil = StoreListNil
-syncPointsStoreList (StoreListCons s rest) = StoreListCons (syncPointsStore s)
-                                               (syncPointsStoreList rest)
-                                
-
-
-storeListNeedsSync StoreListNil = False
-storeListNeedsSync (StoreListCons s r) = storeNeedsSync s || storeListNeedsSync r
-
-storeNeedsSync :: Store a Syncthreads -> Bool                                 
-storeNeedsSync (Store _ _ ws) = any writeNeedsSync ws
-
-
-syncPointsStore :: Store a extra -> Store a Syncthreads
-syncPointsStore (Store name size ws) = Store name size (map syncPointsWrite ws)
-
-writeNeedsSync :: Write a Syncthreads -> Bool 
-writeNeedsSync (Write _ _ s) = needsSync s
-
-syncPointsWrite :: Write a extra -> Write a Syncthreads
-syncPointsWrite (Write targ arr _) = 
-  Write targ arr syncthreads
+                     
+-- TODO: All of this needs to change in the new setting              
+-- Performs no analysis, just says "yes, we need a sync" everywhere. 
+-- syncPoints :: Code a -> Code Syncthreads
+-- syncPoints Skip = Skip
+-- syncPoints ((SyncUnit nt ps e) `Seq` code) = 
+--   SyncUnit nt ps syncthreads  `Seq` (syncPoints code)
   
+   
+--syncUnitNeedsSync (SyncUnit _ _ s) = needsSync s    

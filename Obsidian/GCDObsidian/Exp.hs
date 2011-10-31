@@ -15,20 +15,8 @@ import qualified Foreign.Storable as Storable
 
 ------------------------------------------------------------------------------
 -- Obsidian imports
-import qualified Obsidian.GCDObsidian.Tuple as Tuple 
-import Obsidian.GCDObsidian.Tuple (Tuple ((:.),Nil) ) 
-import Obsidian.GCDObsidian.Elem
-
-------------------------------------------------------------------------------
--- 
-data Type = Bool | Int | Word8 | Word16 | Word32 | Word64 
-          | Float | Double                     
-                    
-          -- Used by CUDA, C And OpenCL generators          
-          | Pointer Type   -- C thing 
-          | Global Type    -- OpenCL thing
-          | Local Type     -- OpenCL thing
-                    deriving Show
+import Obsidian.GCDObsidian.Types
+import Obsidian.GCDObsidian.Globs
 
 ------------------------------------------------------------------------------
 -- some synonyms
@@ -45,7 +33,7 @@ type ULongE  = Exp Word64
 
 ------------------------------------------------------------------------------
 -- Class Scalar. (Things that are not tuples) 
-class Elem a => Scalar a where 
+class Show a => Scalar a where 
   sizeOf :: Exp a -> Int   --  
   typeOf :: Exp a -> Type  --   Good enough for me ... 
 
@@ -89,13 +77,7 @@ instance Scalar Word64 where
   sizeOf _ = 8 
   typeOf _ = Word64
 
-
-------------------------------------------------------------------------------
--- Aliases
-
-type Name = String
-
------------------------------------------------------------------------------- 
+----------------------------------------------------------------------------
 -- Expressions 
 data Exp a where
   Literal :: Scalar a 
@@ -106,23 +88,27 @@ data Exp a where
              (Name,[Exp Word32]) 
              -> Exp a 
              
+  If      :: Scalar a 
+             => Exp Bool
+             -> Exp a 
+             -> Exp a 
+             -> Exp a 
              
-  Op      :: (Elem a, Elem b) 
-             => Op (a -> b) 
+  BinOp   :: (Scalar a,
+              Scalar b, 
+              Scalar c) 
+             => Op ((a,b) -> c) 
+             -> Exp a 
+             -> Exp b 
+             -> Exp c 
+             
+  UnOp    :: (Scalar a, 
+              Scalar b)
+             => Op (a -> b)            
              -> Exp a 
              -> Exp b 
   
-  Tuple   :: (Elem a, Tuple.IsTuple a) 
-             => Tuple.Tuple Exp (Tuple.Repr a) 
-             -> Exp a  
-             
-             
-  Prj     :: (Elem a, Elem b, Tuple.IsTuple a) 
-             => Tuple.TupIx (Tuple.Repr a) b 
-             -> Exp a 
-             -> Exp b
-             
-------------------------------------------------------------------------------
+----------------------------------------------------------------------------
 -- Operations
 
 data Op a where 
@@ -130,11 +116,13 @@ data Op a where
   Sub :: Num a => Op ((a,a) -> a) 
   Mul :: Num a => Op ((a,a) -> a) 
   Div :: Num a => Op ((a,a) -> a) 
-  If  :: Op ((Bool,a,a) -> a) 
+  -- If  :: Op ((Bool,a,a) -> a) 
   
+  Mod :: Integral a => Op ((a,a) -> a)
+         
   -- Trig
   Sin :: Floating a => Op (a -> a) 
-  
+  Cos :: Floating a => Op (a -> a)
   
   -- Comparisons
   Eq  :: Ord a => Op ((a,a) -> Bool)
@@ -162,58 +150,44 @@ data Op a where
 variable name = Index (name,[])
 index name ix = Index (name,[ix])
 
-
-------------------------------------------------------------------------------
--- Create Tuples
-tup2 :: (Elem a, Elem b) => (Exp a, Exp b) -> Exp (a,b) 
-tup2 (a,b) = Tuple (a :. b :. Nil )
-
-tup3 :: (Elem a, Elem b, Elem c) => (Exp a, Exp b, Exp c) -> Exp (a,b,c) 
-tup3 (a,b,c) = Tuple (a :. b :. c :. Nil )
-
-
-
-untup2 :: (Elem a, Elem b, Elem r, 
-           Tuple.Repr r ~ (a,(b,())), Tuple.IsTuple r) => 
-          Exp r -> (Exp a, Exp b) 
-untup2 (Tuple (a :. b :. Nil)) = (a,b) 
-
-untup3 :: (Elem a, Elem b, Elem c, Elem r, 
-           Tuple.Repr r ~ (a,(b,(c,()))), Tuple.IsTuple r) => 
-          Exp r -> (Exp a, Exp b, Exp c) 
-untup3 (Tuple (a :. b :. c :. Nil)) = (a,b,c) 
-
+ 
 ------------------------------------------------------------------------------
 -- Collect array names
 
-collectArrays :: Exp a -> [Name]
+collectArrays :: Scalar a => Exp a -> [Name]
 collectArrays (Literal _) = []
 collectArrays (Index (name,[])) = []
 collectArrays (Index (name,_)) = [name]
-collectArrays (Op _ t) = collectArrays t 
-collectArrays (Tuple t) = collectArraysTup t 
-collectArrays (Prj t e) = collectArraysPrj t e 
+-- collectArrays (Op _ t) = collectArrays t 
+collectArrays (BinOp _ e1 e2) = collectArrays e1 ++ collectArrays e2
+collectArrays (UnOp  _ e) = collectArrays e
+collectArrays (If b e1 e2) = collectArrays b ++ 
+                             collectArrays e1 ++ 
+                             collectArrays e2
 
-collectArraysTup :: forall t. Tuple.Tuple Exp t -> [String]
-collectArraysTup Nil = []
-collectArraysTup (a :. t) = collectArrays a ++ (collectArraysTup t) 
+--collectArrays (Tuple t) = collectArraysTup t 
+--collectArrays (Prj t e) = collectArraysPrj t e 
+
+--collectArraysTup :: forall t. Tuple.Tuple Exp t -> [String]
+--collectArraysTup Nil = []
+--collectArraysTup (a :. t) = collectArrays a ++ (collectArraysTup t) 
   
-collectArraysPrj = undefined 
+--collectArraysPrj = undefined 
 
 
 
 ------------------------------------------------------------------------------
 -- 
   
-instance Elem a => Show (Exp a) where 
+instance Scalar a => Show (Exp a) where 
   show = printExp 
 
-instance Elem a => Eq (Exp a) where 
+instance Scalar a => Eq (Exp a) where 
   (==) = undefined 
 
-instance (Elem a, Ord a) => Ord (Exp a) where 
-    min a b = Op Min (tup2 (a,b))
-    max a b = Op Max (tup2 (a,b))
+instance (Scalar a, Ord a) => Ord (Exp a) where 
+    min a b = BinOp Min a b
+    max a b = BinOp Max a b
 
 ------------------------------------------------------------------------------
 -- INT Instances 
@@ -221,15 +195,15 @@ instance Num (Exp Int) where
   (+) a (Literal 0) = a
   (+) (Literal 0) a = a
   (+) (Literal a) (Literal b) = Literal (a+b)
-  (+) a b = Op Add (tup2 (a,b))  
+  (+) a b = BinOp Add a b  
   
   (-) a (Literal 0) = a 
   (-) (Literal a) (Literal b) = Literal (a - b) 
-  (-) a b = Op Sub (tup2 (a,b)) 
+  (-) a b = BinOp Sub a b 
   
   (*) a (Literal 1) = a 
   (*) (Literal 1) a = a
-  (*) a b = Op Mul (tup2 (a,b)) 
+  (*) a b = BinOp Mul a b 
   
   signum = undefined 
   abs = undefined
@@ -237,30 +211,34 @@ instance Num (Exp Int) where
   
   
 instance Bits (Exp Int) where 
-  (.&.) a b = Op BitwiseAnd (tup2 (a,b))
-  (.|.) a b = Op BitwiseOr  (tup2 (a,b))
-  xor   a b = Op BitwiseXor (tup2 (a,b)) 
-  complement a = Op BitwiseNeg a
-  shiftL a i = Op ShiftL (tup2 (a,Literal i))
-  shiftR a i = Op ShiftR (tup2 (a,Literal i))
+  (.&.) a b = BinOp BitwiseAnd a b
+  (.|.) a b = BinOp BitwiseOr  a b
+  xor   a b = BinOp BitwiseXor a b 
+  
+  --TODO: See that this is not breaking something (32/64 bit, CUDA/Haskell)
+  complement (Literal i) = Literal (complement i)
+  
+  complement a = UnOp BitwiseNeg a
+  shiftL a i = BinOp ShiftL  a (Literal i)
+  shiftR a i = BinOp ShiftR  a (Literal i)
   bitSize a  = sizeOf a * 8
   isSigned a = True
 
-------------------------------------------------------------------------------
+----------------------------------------------------------------------------
 -- Word32 Instances 
 instance Num (Exp Word32) where 
   (+) a (Literal 0) = a
   (+) (Literal 0) a = a
   (+) (Literal a) (Literal b) = Literal (a+b)
-  (+) a b = Op Add (tup2 (a,b))  
+  (+) a b = BinOp Add a b  
   
   (-) a (Literal 0) = a 
   (-) (Literal a) (Literal b) = Literal (a - b) 
-  (-) a b = Op Sub (tup2 (a,b)) 
+  (-) a b = BinOp Sub a b 
   
   (*) a (Literal 1) = a 
   (*) (Literal 1) a = a
-  (*) a b = Op Mul (tup2 (a,b)) 
+  (*) a b = BinOp Mul a b 
   
   signum = undefined 
   abs = undefined
@@ -268,55 +246,72 @@ instance Num (Exp Word32) where
   
   
 instance Bits (Exp Word32) where 
-  (.&.) a b = Op BitwiseAnd (tup2 (a,b))
-  (.|.) a b = Op BitwiseOr  (tup2 (a,b))
-  xor   a b = Op BitwiseXor (tup2 (a,b)) 
-  complement a = Op BitwiseNeg a
-  shiftL a i = Op ShiftL (tup2 (a,Literal i))
-  shiftR a i = Op ShiftR (tup2 (a,Literal i))
+  (.&.) a b = BinOp BitwiseAnd a b   
+  (.|.) a b = BinOp BitwiseOr  a b
+  xor   a b = BinOp BitwiseXor a b 
+  complement (Literal i) = Literal (complement i) 
+  complement a = UnOp BitwiseNeg a
+  
+  shiftL (Literal j) i = Literal (j `shiftL` i) 
+  shiftL a i = BinOp ShiftL a (Literal i)
+  
+  shiftR (Literal j) i = Literal (j `shiftL` i)
+  shiftR a i = BinOp ShiftR a (Literal i)
   bitSize a  = 32
   isSigned a = False
 
+instance Real (Exp Word32)  
+
+instance Enum (Exp Word32) 
+
+instance Integral (Exp Word32) where
+  mod a b = BinOp Mod a b 
+  div a b = BinOp Div a b
   
   
-------------------------------------------------------------------------------  
+----------------------------------------------------------------------------
   
 (==*) (Literal a) (Literal b) = Literal (a == b) 
-(==*) a b = Op Eq $ tup2 (a,b)
+(==*) a b = BinOp Eq a b
 (<*)  (Literal a) (Literal b) = Literal (a < b) 
-(<*)  a b = Op Lt  $ tup2 (a,b)
+(<*)  a b = BinOp Lt a b
 (<=*) (Literal a) (Literal b) = Literal (a <= b) 
-(<=*) a b = Op LEq $ tup2 (a,b)
-(>*)  a b = Op Gt  $ tup2 (a,b)
-(>=*) a b = Op GEq $ tup2 (a,b)
+(<=*) a b = BinOp LEq a b
+(>*)  a b = BinOp Gt  a b
+(>=*) a b = BinOp GEq a b
 
 
 class Choice a where 
   ifThenElse :: Exp Bool -> a -> a -> a 
 
-instance Elem a => Choice (Exp a) where  
+instance Scalar a => Choice (Exp a) where  
   ifThenElse (Literal False) e1 e2 = e2
   ifThenElse (Literal True)  e1 e2 = e1
-  ifThenElse b e1 e2 = Op If $ tup3 (b,e1,e2)
+  ifThenElse b e1 e2 = If b e1 e2
+  
+instance (Choice a, Choice b) => Choice (a,b) where
+  ifThenElse b (e1,e1') (e2,e2') = (ifThenElse b e1 e2,
+                                    ifThenElse b e1' e2') 
+  
 
------------------------------------------------------------------------------- 
+----------------------------------------------------------------------------
 -- Built-ins
 
 
-------------------------------------------------------------------------------
--- PrintExpressions... 
-
-------------------------------------------------------------------------------
+----------------------------------------------------------------------------
 -- Print Expressions
 
-printExp :: Elem a => Exp a -> String
+printExp :: Scalar a => Exp a -> String
 printExp (Literal a) = show a 
 printExp (Index (name,[])) = name
 printExp (Index (name,es)) = 
   name ++ "[" ++ ((concat . intersperse "," . map printExp) es) ++ "]"
-printExp (Op op e) = "(" ++ printOp op  ++ printExp e ++ ")"
-printExp (Tuple t) = printTup t
-printExp (Prj i t) = printPrj i t
+printExp (BinOp op e1 e2) = "(" ++ printOp op ++ " " ++  printExp e1 ++ " " ++ printExp e2 ++ " )"
+printExp (UnOp  op e) = "(" ++ printOp op ++ " " ++ printExp e ++ " )"
+printExp (If b e1 e2) = "(" ++ printExp b ++ " ? " ++ printExp e1 ++ " : " ++ printExp e2 ++ ")"
+--printExp (Op op e) = "(" ++ printOp op  ++ printExp e ++ ")"
+--printExp (Tuple t) = printTup t
+--printExp (Prj i t) = printPrj i t
 
 
 printOp :: Op a -> String
@@ -324,7 +319,7 @@ printOp Add = " + "
 printOp Sub = " - " 
 printOp Mul = " * "
 
-printOp If  = " if "
+-- printOp If  = " if "
 
 printOp Eq  = " == "
 printOp Lt  = " < " 
@@ -332,17 +327,14 @@ printOp LEq = " <= "
 printOp Gt  = " > "
 printOp GEq = " >= " 
 
+printOp Min = " Min "
+printOp Max = " Max " 
+
+printOp Sin = " Sin " 
+printOp Cos = " Cos "
+
 printOp BitwiseAnd = " & "
 printOp BitwiseOr  = " | " 
 printOp BitwiseXor = " ^ " 
 printOp BitwiseNeg = " ~ "  
-
-printTup t = "(" ++ (concat . intersperse "," . printTup') t ++ ")" 
-
-printTup' :: forall t. Tuple.Tuple Exp t -> [String]
-printTup' Nil = []
-printTup' (a :. t) = printExp a : (printTup' t) 
-  
-printPrj = undefined 
-
 
