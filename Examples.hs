@@ -6,8 +6,8 @@ module Examples where
 import Obsidian.GCDObsidian
 
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
-import qualified Obsidian.GCDObsidian.CodeGen.C as C
-import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
+--import qualified Obsidian.GCDObsidian.CodeGen.C as C
+--import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
 
 import Prelude hiding (zipWith,sum )
@@ -25,8 +25,8 @@ input1 :: Array IntE
 input1 = namedArray "apa" 32
 
 getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
-getMapFusionC  = putStrLn$ C.genKernel "mapFusion" mapFusion input1
-getMapFusionCL = putStrLn$ CL.genKernel "mapFusion" mapFusion input1
+--getMapFusionC  = putStrLn$ C.genKernel "mapFusion" mapFusion input1
+--getMapFusionCL = putStrLn$ CL.genKernel "mapFusion" mapFusion input1
 
 
 mapUnFused :: Array IntE -> Kernel (Array IntE) 
@@ -60,7 +60,7 @@ input16 = namedArray "input" 16
 
 
 getReduceAdd = putStrLn$ CUDA.genKernel "reduceAdd" (reduce (+)) input8
-getReduceAddC = putStrLn$ C.genKernel "reduceAdd" (reduce (+)) input8                
+--getReduceAddC = putStrLn$ C.genKernel "reduceAdd" (reduce (+)) input8                
 
 getReduceSAdd = putStrLn$ CUDA.genKernel "reduceSAdd" (reduceS (+)) input8
 
@@ -79,6 +79,11 @@ zippUnpair = pure (unpair . zipp)
 input32 :: Array IntE 
 input32 = namedArray "apa" 32
 
+input64 :: Array IntE 
+input64 = namedArray "apa" 64
+
+input128 :: Array IntE
+input128 = namedArray "apa" 128
 
 getZippUnpair = putStrLn$ CUDA.genKernel "zippUnpair" zippUnpair (input32,input32)
 
@@ -108,3 +113,18 @@ sum arr | len arr == 1 = return arr
                          
 getSum = putStrLn$ CUDA.genKernel "sum" sum input8                   
 getSumIM = snd $ runKernel (sum input8)
+
+
+
+-- SyncAnalysis seems to work for extremely simple cases. 
+testSA arr = 
+  do 
+    arr1 <- sync arr 
+    arr2 <- sync arr1 
+    arr3 <- sync arr2
+    arr4 <- sync arr3 
+    arr5 <- sync arr4 
+    arr6 <- (pure (twoK 2 rev) ->- sync) arr5
+    return arr6
+    
+getTestSA  = putStrLn$ CUDA.genKernel "sa" testSA input64

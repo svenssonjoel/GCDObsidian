@@ -29,32 +29,6 @@ type NumThreads = Word32
 
 ------------------------------------------------------------------------------
 -- Kernels
-
---data SyncUnit extra = SyncUnit {syncThreads  :: Word32, 
---                                syncProgram  :: Program,
---                                syncExtra    :: extra }
---                 deriving Show
-                          
---syncUnit :: Word32 -> Program -> SyncUnit ()                          
---syncUnit w p = SyncUnit w p ()
-
-
---data Code extra = Skip 
---                | (SyncUnit extra) `Seq` (Code extra) 
---                deriving Show                    
-                   
-                         
---code :: SyncUnit a -> Code a 
---code su = su `Seq` Skip                          
-
---(+++) :: Code a -> Code a -> Code a 
---(+++) = mappend
-                          
---instance Monoid (Code extra) where                    
---  mempty = Skip
---  mappend Skip a = a 
---  mappend a Skip = a 
---  mappend (ps `Seq` c) c2 = ps `Seq` (mappend c c2)
                    
 instance Monoid (Program extra) where 
   mempty = Skip 
@@ -117,7 +91,7 @@ liveness' (ForAll ixfToPrg n) s = (ForAll (fst . ixf') n,living)
   -- previously computed arrays 
   -- NOTE: Need to traverse p here just to shift its type to Program Liveness
 
-liveness' Synchronize s = (Synchronize,s) 
+liveness' (Synchronize b) s = (Synchronize b,s) 
 liveness' Skip s = (Skip, s)
 
 liveness' (p1 `ProgramSeq` p2) s = 
@@ -162,7 +136,7 @@ livenessProgram aliveNext (prg1 `ProgramSeq` prg2) =
 --       will be. Is the below correct ? 
 whatsAliveNext :: Program Liveness -> Liveness
 whatsAliveNext Skip = Set.empty
-whatsAliveNext Synchronize = Set.empty
+whatsAliveNext (Synchronize _) = Set.empty
 whatsAliveNext (Allocate _ _ _ l) = l 
 whatsAliveNext (Assign _ _ _) = Set.empty
 whatsAliveNext (ForAll _{-p-} _) = Set.empty 
@@ -219,7 +193,7 @@ mapMemoryProgram Skip m mm = (m,mm)
 mapMemoryProgram (Assign name i a) m mm = (m,mm) 
 mapMemoryProgram (ForAll f n) m mm = mapMemoryProgram (f (variable "X")) m mm       
 -- mapMemoryProgram (Cond c p) m mm = mapMemoryProgram p m mm 
-mapMemoryProgram Synchronize m mm = (m,mm)
+mapMemoryProgram (Synchronize _) m mm = (m,mm)
 mapMemoryProgram ((Allocate name size t alive) `ProgramSeq` prg2) m mm 
   = mapMemoryProgram prg2 {-m'-} mNew mm'
   where 

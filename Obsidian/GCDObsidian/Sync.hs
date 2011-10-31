@@ -38,7 +38,7 @@ pSyncArray arr =
         `ProgramSeq`
         p 
         `ProgramSeq`
-        Synchronize 
+        (Synchronize True)
             
     return (Array (index name) (len arr))
       
@@ -63,7 +63,7 @@ pSyncArrayP arr@(ArrayP func n)  =
           `ProgramSeq`
           p  
           `ProgramSeq`
-          Synchronize
+          (Synchronize True)
           
     return result
 

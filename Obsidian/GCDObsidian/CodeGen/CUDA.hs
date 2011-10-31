@@ -16,6 +16,7 @@ import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.CodeGen.Common
 import Obsidian.GCDObsidian.CodeGen.InOut 
 
+import Obsidian.GCDObsidian.CodeGen.SyncAnalysis
 
 
 ----------------------------------------------------------------------------
@@ -59,8 +60,13 @@ genKernel name kernel a = cuda
   where 
     (input,ins)  = runInOut (createInputs a) (0,[])
   
-    ((res,_),c)  = runKernel (kernel input)
-    lc = liveness c
+    ((res,_),c_old)  = runKernel (kernel input)
+    
+    c = snd$ syncAnalysis c_old (Map.empty) 
+    lc  = liveness c
+    
+    
+    
    
     threadBudget =  
       case c of 
@@ -132,7 +138,8 @@ genProg mm nt (ForAll f n) = potentialCond mm n nt (genProg mm nt (f (variable "
   --      ++ Might help to add information to Program type that a "sync is requested"                              
                              
 genProg mm nt (Allocate name size t _) = return () -- genProg mm nt prg
-genProg mm nt Synchronize = syncLine >> newline 
+genProg mm nt (Synchronize True) = syncLine >> newline 
+genProg mm nt (Synchronize False) = return () -- line "\\\\__synchthreads();" >> newline 
 genProg mm nt Skip = return ()
 genProg mm nt (ProgramSeq p1 p2) = 
   do 

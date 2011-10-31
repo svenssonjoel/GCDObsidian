@@ -26,7 +26,9 @@ data Program extra
   | ForAll (Data Word32 -> (Program extra)) Word32   
 -- DONE: I Think Allocate should not introduce nesting
   | Allocate Name Word32 Type extra
-  | Synchronize 
+-- potentially a synch is needed. 
+-- TODO: Analysis will check if it is REALLY needed
+  | Synchronize Bool 
 -- NOTE: Adding a synchronize statement here 
 --       the sync operation can now insert a Syncronizze as a guide 
 --       to the code generation 
@@ -47,7 +49,7 @@ data Program extra
     
 programThreads :: Program extra -> Word32
 programThreads Skip = 0
-programThreads Synchronize = 0 
+programThreads (Synchronize _) = 0 
 programThreads (Assign _ _ _) = 1
 programThreads (ForAll f n) = n -- inner ForAlls are sequential
 programThreads (Allocate _ _ _ _) = 0 -- programThreads p 
@@ -57,7 +59,7 @@ programThreads (p1 `ProgramSeq` p2) = max (programThreads p1) (programThreads p2
                                       
 printProgram :: Show extra => Program extra -> String 
 printProgram Skip = ";" 
-printProgram Synchronize = "Sync\n" 
+printProgram (Synchronize b) = "Sync " ++ show b ++ "\n" 
 printProgram (Assign n t e) = n ++ "[" ++ show t ++ "]" ++ " = " ++ show e ++ ";\n"  
 printProgram (ForAll f n)   = "par i " ++ show n ++ " {\n" ++ printProgram (f (variable "i")) ++ "\n}" 
 -- printProgram (Cond b p)     = "cond {\n" ++ printProgram p ++ "\n}"

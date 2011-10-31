@@ -158,12 +158,24 @@ collectArrays :: Scalar a => Exp a -> [Name]
 collectArrays (Literal _) = []
 collectArrays (Index (name,[])) = []
 collectArrays (Index (name,_)) = [name]
--- collectArrays (Op _ t) = collectArrays t 
 collectArrays (BinOp _ e1 e2) = collectArrays e1 ++ collectArrays e2
 collectArrays (UnOp  _ e) = collectArrays e
 collectArrays (If b e1 e2) = collectArrays b ++ 
                              collectArrays e1 ++ 
                              collectArrays e2
+
+collectArrayIndexPairs :: Scalar a => Exp a -> [(Name,Exp Word32)]
+collectArrayIndexPairs (Literal _) = []
+collectArrayIndexPairs (Index (name,[])) = []
+collectArrayIndexPairs (Index (name,[ix])) = [(name,ix)]
+collectArrayIndexPairs (BinOp _ e1 e2) = collectArrayIndexPairs e1 ++ collectArrayIndexPairs e2
+collectArrayIndexPairs (UnOp  _ e) = collectArrayIndexPairs e
+collectArrayIndexPairs (If b e1 e2) = collectArrayIndexPairs b ++ 
+                                      collectArrayIndexPairs e1 ++ 
+                                      collectArrayIndexPairs e2
+
+
+
 
 --collectArrays (Tuple t) = collectArraysTup t 
 --collectArrays (Prj t e) = collectArraysPrj t e 
@@ -211,8 +223,11 @@ instance Num (Exp Int) where
   
   
 instance Bits (Exp Int) where 
+  (.&.) (Literal a) (Literal b) = Literal (a .&. b) 
   (.&.) a b = BinOp BitwiseAnd a b
+  (.|.) (Literal a) (Literal b) = Literal (a .|. b)
   (.|.) a b = BinOp BitwiseOr  a b
+  xor (Literal a) (Literal b) = Literal (a `xor` b) 
   xor   a b = BinOp BitwiseXor a b 
   
   --TODO: See that this is not breaking something (32/64 bit, CUDA/Haskell)
@@ -246,8 +261,11 @@ instance Num (Exp Word32) where
   
   
 instance Bits (Exp Word32) where 
+  (.&.) (Literal a) (Literal b) = Literal (a .&. b) 
   (.&.) a b = BinOp BitwiseAnd a b   
+  (.|.) (Literal a) (Literal b) = Literal (a .|. b) 
   (.|.) a b = BinOp BitwiseOr  a b
+  xor (Literal a) (Literal b) = Literal (a `xor` b) 
   xor   a b = BinOp BitwiseXor a b 
   complement (Literal i) = Literal (complement i) 
   complement a = UnOp BitwiseNeg a
