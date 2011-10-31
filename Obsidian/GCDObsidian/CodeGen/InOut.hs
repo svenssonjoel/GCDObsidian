@@ -102,7 +102,10 @@ instance Scalar a => InOut (Array (Exp a)) where
              rest  = n `rem` tb
              sp = tbInN * tb
              (a1,a2) = splitAt sp arr
-             pa1     = push' tbInN a1
+             
+             -- Change to push' for (tid*2,tid*2+1) scheme 
+             -- Fix this so that the switch is easier. 
+             pa1     = push'' tbInN a1
              pa2     = push a2
              
              parr = if (rest == 0) 

@@ -12,7 +12,8 @@ module Obsidian.GCDObsidian.Array ((!)
                                   , PushyInternal
                                   , pushApp
                                   , push
-                                  , push' -- this is more for "internal" use
+                                  , push' -- this is for "internal" use
+                                  , push'' -- this is for "internal" use
                                   , ArrayP(..)
                                   , P(..)
                                   )where 
@@ -60,6 +61,7 @@ pushApp (ArrayP func n) a =  func a
 -- TODO: Will this again influence the Exp Tuples or not issue?
 class Len a => PushyInternal a where 
   push' :: Word32 -> a e -> ArrayP e  
+  push'' :: Word32 -> a e -> ArrayP e 
 
 instance PushyInternal Array  where   
   push' m (Array ixf n) = 
@@ -69,7 +71,15 @@ instance PushyInternal Array  where
                                      let ix = (i*(fromIntegral m) + (fromIntegral j)),
                                      let a  = ixf ix
                                    ]) (n `div` m)) n
+  push'' m (Array ixf n) = 
+    ArrayP (\func -> ForAll (\i -> foldr1 (*>*) 
+                                   [func (ix,a)
+                                   | j <-  [0..m-1],
+                                     let ix = (i+((fromIntegral ((n `div` m) * j)))),
+                                     let a  = ixf ix
+                                   ]) (n `div` m)) n
     
+
          
 class Len a => Pushy a where 
   push :: a e -> ArrayP e 
