@@ -60,6 +60,7 @@ input16 = namedArray "input" 16
 
 
 getReduceAdd = putStrLn$ CUDA.genKernel "reduceAdd" (reduce (+)) input8
+getReduceAddLarge = putStrLn$ CUDA.genKernel "reduceAdd" (reduce (+)) input256
 getReduceAddC = putStrLn$ C.genKernel "reduceAdd" (reduce (+)) input8                
 
 getReduceSAdd = putStrLn$ CUDA.genKernel "reduceSAdd" (reduceS (+)) input8
@@ -84,6 +85,11 @@ input64 = namedArray "apa" 64
 
 input128 :: Array IntE
 input128 = namedArray "apa" 128
+
+
+input256 :: Array IntE
+input256 = namedArray "apa" 256
+
 
 getZippUnpair = putStrLn$ CUDA.genKernel "zippUnpair" zippUnpair (input32,input32)
 
@@ -117,6 +123,7 @@ getSumIM = snd $ runKernel (sum input8)
 
 
 -- SyncAnalysis seems to work for extremely simple cases. 
+-- TODO: need more involved programs to test on. 
 testSA arr = 
   do 
     arr1 <- sync arr 
@@ -124,7 +131,32 @@ testSA arr =
     arr3 <- sync arr2
     arr4 <- sync arr3 
     arr5 <- sync arr4 
-    arr6 <- (pure (twoK 2 rev) ->- sync) arr5
+    arr6 <- (pure (twoK 1 rev) ->- sync) arr5
     return arr6
     
 getTestSA  = putStrLn$ CUDA.genKernel "sa" testSA input64
+
+testSA1 arr = 
+  do 
+    arr1 <- sync arr 
+    arr2 <- sync arr1 
+    arr3 <- sync arr2
+    arr4 <- sync arr3 
+    arr5 <- sync (rev arr4)
+    arr6 <- (pure (twoK 1 rev) ->- sync) arr5
+    return arr6
+    
+getTestSA1  = putStrLn$ CUDA.genKernel "sa" testSA1 input128
+
+
+testSA2 arr = 
+  do 
+    arr1 <- sync arr 
+    arr2 <- sync arr1 
+    arr3 <- sync arr2
+    arr4 <- sync arr3 
+    arr5 <- sync (rev arr4)
+    arr6 <- (pure (twoK 2 rev) ->- sync) arr5
+    return arr6
+    
+getTestSA2  = putStrLn$ CUDA.genKernel "sa" testSA2 input256

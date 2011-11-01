@@ -68,6 +68,9 @@ bmerge n = composeS [pure (iv (n-i) 0 max min)| i <- [1..n]]
 runm =
   putStrLn$ CUDA.genKernel "mm" (bmerge 5) (namedArray "apa" 32)
 
+runm' =
+  putStrLn$ CUDA.genKernel "mm" (bmerge 9) (namedArray "apa" 512)
+
 
 vsort :: Int -> Array (Exp Int) -> Kernel (Array (Exp Int))
 vsort n = composeS [ pure (iv (n-i) (i-j) min max)| i <- [1..n], j <- [1..i]]
