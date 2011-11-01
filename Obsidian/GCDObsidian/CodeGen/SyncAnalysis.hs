@@ -93,12 +93,12 @@ analyseForAll (ForAll g n) sam = (sam'',if sNeeded
                                  -- error$ show arrloc -- (sam',prg) 
   where                                   
     threads   = [0..(n-1)]
-    gPrgs     = [(g (fromIntegral tid),tid) | tid <- threads] 
+    gPrgs     = [g (fromIntegral tid) | tid <- threads] 
     
     arrloc''   = concatMap getSourceIndices gPrgs  
     arrloc'    = filter pred arrloc''
     arrloc     = map evalSource arrloc'
-    targetMaps = map getTargIndex gPrgs 
+    targetMaps = map getTargIndex (zip gPrgs threads)
     
     (sam',sNeeded) = conflict arrloc sam
     sam''          = addMappings targetMaps sam'
@@ -109,11 +109,13 @@ analyseForAll (ForAll g n) sam = (sam'',if sNeeded
     pred (_,(x,_)) = not ("input" `isPrefixOf` x) 
     
 
-
-getSourceIndices ((Assign nom (Literal ix) a),tid) = map (\y -> (ix,y)) (collectArrayIndexPairs a)
-getSourceIndices ((Assign _ ix _),tid) = error$ "getSourceIndices: " ++ show ix ++ " is not Literal"
+getSourceIndices :: Program a -> [(Word32,(Name,Exp Word32))] 
+getSourceIndices (Assign nom (Literal ix) a) = map (\y -> (ix,y)) (collectArrayIndexPairs a)
+getSourceIndices (Assign _ ix _) = error$ "getSourceIndices: " ++ show ix ++ " is not Literal"
 getSourceIndices _ = error "getSourceIndices: Can only handle a very simple case so far"
 
+-- What array are we computing now, 
+-- create the threadId -> Ix map for that array 
 getTargIndex ((Assign nom (Literal ix) a),tid) = (nom,(ix,tid)) 
 
 -- What characterizes a conflict  
