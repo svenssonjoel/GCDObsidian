@@ -52,6 +52,9 @@ import qualified Data.Map as Map
        One way to take care of this might be to simply say that if the index 
        cannot be evaluated here it is data-dependent and a sync should be used. 
        (see eval and evalSource, local functions in analyseForAll) 
+     
+     * The implementation does not understand nested ForAll loops.
+       If we ever use nested ForAlls this needs to change. 
       
 -} 
 
