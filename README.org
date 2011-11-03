@@ -46,5 +46,5 @@
   + The address space qualifiers are important! (__local int*)shared vs (int*)shared. 
     (int*)shared tried to cast local memory array called shared into a global array, so illegal!    
 
-  + Obsidian Int are 64bit on 64bit architectures. Is it also true that 
+  + Obsidian Int are "64"bit on 64bit architectures. Is it also true that 
     a CUDA int is 64bit on 64bit architectures?
