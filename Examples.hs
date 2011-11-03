@@ -17,7 +17,8 @@ import Prelude hiding (zipWith,sum )
 --mapFusion = pure (fmap (*2)) ->- pure (fmap (+1)) 
 
 
-
+---------------------------------------------------------------------------
+-- MapFusion example
 mapFusion :: Array IntE -> Kernel (Array IntE) 
 mapFusion = pure (fmap (+1) . fmap (*2)) 
 
@@ -29,19 +30,21 @@ getMapFusionC  = putStrLn$ C.genKernel "mapFusion" mapFusion input1
 getMapFusionCL = putStrLn$ CL.genKernel "mapFusion" mapFusion input1
 
 
+---------------------------------------------------------------------------
+-- mapUnfused example
 mapUnFused :: Array IntE -> Kernel (Array IntE) 
 mapUnFused = pure (fmap (*2)) ->- sync ->- pure (fmap (+1))
 
 getMapUnFused = putStrLn$ CUDA.genKernel "mapUnFused" mapUnFused input1
 
 
--- reduce a power of two length array 
-reduce :: (Syncable' (Array a), 
-          Synced (Array a) ~ (Array a)) => (a -> a -> a) -> Array a -> Kernel (Array a)
+---------------------------------------------------------------------------
+-- reduction of array of length a power of two
+reduce :: Syncable Array a => (a -> a -> a) -> Array a -> Kernel (Array a)
 reduce op arr | len arr == 1 = return arr
               | otherwise    = 
                 (pure ((uncurry (zipWith op)) . halve)
-                 ->- sync' 
+                 ->- sync
                  ->- reduce op) arr
 
 
@@ -63,10 +66,9 @@ getReduceAdd = putStrLn$ CUDA.genKernel "reduceAdd" (reduce (+)) input8
 getReduceAddLarge = putStrLn$ CUDA.genKernel "reduceAdd" (reduce (+)) input256
 getReduceAddLargeC = putStrLn$ C.genKernel "reduceAdd" (reduce (+)) input256
 getReduceAddLargeCL = putStrLn$ CL.genKernel "reduceAdd" (reduce (+)) input256
+
 getReduceAddC = putStrLn$ C.genKernel "reduceAdd" (reduce (+)) input8                
-
 getReduceSAdd = putStrLn$ CUDA.genKernel "reduceSAdd" (reduceS (+)) input8
-
 
 
 catArrays :: (Array (Exp Int), Array (Exp Int)) 
