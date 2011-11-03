@@ -59,7 +59,9 @@ import qualified Data.Map as Map
 -} 
 
 -- TEMap is an Index->Thread map
+-- TODO: Replace with an Array. If that is more efficient.
 type TEMap = Map.Map Word32 Word32 
+
 
 -- SAMap is a name->TEMap map 
 type SAMap = Map.Map Name TEMap
@@ -132,11 +134,8 @@ conflict ((thread,(arr,ix)):xs) sam =
                     else conflict xs sam  
 
                       
-                  
-
-
-
--- What thread is computing what now
+-- What thread is computing what "now".
+-- Add that info to the SAMap
 addMappings :: [(Name,(Word32,Word32))] -> SAMap -> SAMap 
 addMappings [] sam = sam
 addMappings ((nom,(ix,thread)):xs) sam = 
