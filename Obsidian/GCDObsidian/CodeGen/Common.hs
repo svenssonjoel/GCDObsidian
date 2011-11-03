@@ -192,24 +192,16 @@ end :: PP ()
 end =  unindent >> newline >> line "}" >> newline
 
 
+-- used in both OpenCL and CUDA generation
+potentialCond gc mm n nt pp 
+  | n < nt = 
+    do
+      cond gc mm (tid <* (fromIntegral n))
+      begin
+      pp       
+      end 
+  | n == nt = pp
+              
+  | otherwise = error "potentialCond: should not happen"
 
-------------------------------------------------------------------------------
--- First Synchtreads analysis:
--- This code is needed but both OpenCL and CUDA so 
--- therefore in Common.hs
-    
-data Syncthreads = Syncthreads {needsSync :: Bool}
-                 deriving Show
-                          
-syncthreads = Syncthreads True    
-nosync      = Syncthreads False
-                     
--- TODO: All of this needs to change in the new setting              
--- Performs no analysis, just says "yes, we need a sync" everywhere. 
--- syncPoints :: Code a -> Code Syncthreads
--- syncPoints Skip = Skip
--- syncPoints ((SyncUnit nt ps e) `Seq` code) = 
---   SyncUnit nt ps syncthreads  `Seq` (syncPoints code)
-  
-   
---syncUnitNeedsSync (SyncUnit _ _ s) = needsSync s    
+

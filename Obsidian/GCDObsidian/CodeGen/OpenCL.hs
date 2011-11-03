@@ -80,10 +80,11 @@ genProg mm nt (Assign name ix a) =
         line$  name ++ "[" ++ concat (genExp gc mm ix) ++ "] = " ++ 
           concat (genExp gc mm a) ++ ";"
         newline
-genProg mm nt (ForAll f n) = genProg mm nt (f (variable "tid"))
+genProg mm nt (ForAll f n) =  potentialCond gc mm n nt $ 
+                               genProg mm nt (f (variable "tid"))
 genProg mm nt (Allocate name size t _) = return ()
 genProg mm nt Skip = return ()
-genProg mm nt (Synchronize _) = syncLine
+genProg mm nt (Synchronize _) = syncLine >> newline
 genProg mm nt (ProgramSeq p1 p2) = 
   do 
     genProg mm nt p1

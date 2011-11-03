@@ -132,7 +132,8 @@ genProg mm nt (Assign name ix a) =
         newline
         
         
-genProg mm nt (ForAll f n) = potentialCond mm n nt (genProg mm nt (f (variable "tid"))) 
+genProg mm nt (ForAll f n) = potentialCond gc mm n nt $ 
+                               genProg mm nt (f (variable "tid"))
   -- TODO: Many details missing here, think about nested ForAlls 
   -- TODO: Sync only if needed here                              
   --      ++ Might help to add information to Program type that a "sync is requested"                              
@@ -146,13 +147,3 @@ genProg mm nt (ProgramSeq p1 p2) =
     genProg mm nt p1
     genProg mm nt p2
 
-potentialCond mm n nt pp 
-  | n < nt = 
-    do
-      cond gc mm (tid <* (fromIntegral n))
-      begin
-      pp       
-      end 
-  | n == nt = pp
-              
-  | otherwise = error "potentialCond: should not happen"

@@ -61,6 +61,8 @@ input16 = namedArray "input" 16
 
 getReduceAdd = putStrLn$ CUDA.genKernel "reduceAdd" (reduce (+)) input8
 getReduceAddLarge = putStrLn$ CUDA.genKernel "reduceAdd" (reduce (+)) input256
+getReduceAddLargeC = putStrLn$ C.genKernel "reduceAdd" (reduce (+)) input256
+getReduceAddLargeCL = putStrLn$ CL.genKernel "reduceAdd" (reduce (+)) input256
 getReduceAddC = putStrLn$ C.genKernel "reduceAdd" (reduce (+)) input8                
 
 getReduceSAdd = putStrLn$ CUDA.genKernel "reduceSAdd" (reduceS (+)) input8
@@ -69,7 +71,7 @@ getReduceSAdd = putStrLn$ CUDA.genKernel "reduceSAdd" (reduceS (+)) input8
 
 catArrays :: (Array (Exp Int), Array (Exp Int)) 
            -> Kernel (Array (Exp Int))
-catArrays  = pure conc 
+catArrays  = pure conc
 
 getCatArrays = putStrLn$ CUDA.genKernel "catArrays" (catArrays) (input16,input16)
 

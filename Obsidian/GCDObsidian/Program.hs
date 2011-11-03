@@ -27,18 +27,14 @@ data Program extra
 -- DONE: I Think Allocate should not introduce nesting
   | Allocate Name Word32 Type extra
 -- potentially a synch is needed. 
--- TODO: Analysis will check if it is REALLY needed
+-- DONE: Analysis will check if it is REALLY needed
   | Synchronize Bool 
 -- NOTE: Adding a synchronize statement here 
 --       the sync operation can now insert a Syncronizze as a guide 
 --       to the code generation 
 -- TODO: What will this mean when nested inside something ? 
 --       Again, to start with, I will ensure that none of my library function 
---       introduces a Synchronize nested in anything. 
---  | Cond (Exp Bool) (Program extra)           
--- NOTE: Conditional such as if (tid < x) (assign ...) 
--- NOTE: The need for a Cond here is not obvious right now. Remove for now. 
-    
+--       introduces a Synchronize nested in anything.     
   | ProgramSeq (Program extra) 
                (Program extra) 
   
