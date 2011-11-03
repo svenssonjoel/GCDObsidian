@@ -7,9 +7,10 @@
 * News in GCDObsidian 
   + Push Arrays: Explanation to come
 
-  + Sync can be performed on groups of arrays. This leads 
-    to that a number of threads equal to the GCD of the lengths of
-    the arrays is used to compute and store them. 
+  + SyncAnalysis: Trying to automatically decide when to insert 
+    a CUDA __syncthreads(); call. Previously everytime the programmer 
+    did a sync it resulted in a CUDA __syncthreads() in the generated 
+    CUDA code. 
   
   + Kernel Building blocks: 
     There are pure functions, (Array a -> Array a), that can be composed
@@ -17,9 +18,6 @@
     
     
 * Work in progress
-  + Small Kernels seem to generate ok CUDA under the new Push array setting.
-    There are issues! 
-   
   + More library functions needed
   + Library of Pushy array functions needed too.
     Should provide a lot of room for experimentation.
