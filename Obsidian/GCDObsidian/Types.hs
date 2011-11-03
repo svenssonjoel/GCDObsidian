@@ -1,6 +1,8 @@
 module Obsidian.GCDObsidian.Types where 
 
 
+---------------------------------------------------------------------------
+-- The allowed scalar types
 data Type = Bool | Int | Word8 | Word16 | Word32 | Word64 
           | Float | Double                     
                     
