@@ -8,7 +8,7 @@ import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 ----------------------------------------------------------------------------
 -- DONE: This is too limited (Scalar a).
 --       Comes from the sync. Figure out how to generalize
--- TODO: The issue above again raises a questionmark about the "Tuples" 
+-- DONE: The issue above again raises a questionmark about the "Tuples" 
 --       in the Exp type
 --
 -- DONE: Shows an error in the code generation. 
