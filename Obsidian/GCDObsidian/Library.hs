@@ -25,14 +25,9 @@ rev arr = Array (\ix -> arr ! ((fromIntegral (n-1)) - ix)) n
     
 ------------------------------------------------------------------------------
 -- splitAt (name clashes with Prelude.splitAt 
--- splitAt :: Integral i => i -> Array a -> (Array a, Array a) 
--- splitAt n arr = (Array (\ix -> arr ! ix) (fromIntegral n) , 
---                 Array (\ix -> arr ! (ix + fromIntegral n)) (len arr - (fromIntegral n)))
-
-
-splitAt :: Word32 -> Array a -> (Array a, Array a) 
-splitAt n arr = (Array (\ix -> arr ! ix) n , 
-                 Array (\ix -> arr ! (ix + fromIntegral n)) (len arr - n))
+splitAt :: Integral i => i -> Array a -> (Array a, Array a) 
+splitAt n arr = (Array (\ix -> arr ! ix) (fromIntegral n) , 
+                 Array (\ix -> arr ! (ix + fromIntegral n)) (len arr - (fromIntegral n)))
 
 
 
@@ -144,25 +139,8 @@ ivt i j f arr = Array g nl
     ij = i+j
 
 
--- Split an array into two equal length parts.
--- How they are divided is controlled by i and j 
--- TODO: Ask Mary for info on the "how"
-{-
-ivDiv :: Int -> Int -> Array a -> (Array a, Array a)
-ivDiv i j arr = (Array (\ix -> arr ! newix0 i j ix) (n-n2),
-                 Array (\ix -> arr ! newix1 i j ix) n2)
-  where 
-    n1 = n-n2
-    n2 = div n 2
-    n = len arr
-    newix0 i j ix = ix + (ix .&. complement (fromIntegral (tij - 1)))
-    tij = 2^(i+j)
-    newix1 i j ix = (newix0 i j ix) `xor` (fromIntegral j')
-    j' = (((2^(j+1))-1) :: Word32) `shiftL` i
--}
-
--- Improved ivDiv
-
+------------------------------------------------------------------------------    
+-- Improved ivDiv    
 ivDiv :: Int -> Int -> Array a -> (Array a, Array a)
 ivDiv i j (Array ixf n) = (Array (ixf . left) (n-n2),
                            Array (ixf . right) n2   )
@@ -203,31 +181,17 @@ concP (arr1,arr2) =
   where 
      ArrayP f n1 = push arr1
      ArrayP g n2 = push arr2
+     
 unpairP :: Pushy arr => arr (a,a) -> ArrayP a 
 unpairP arr =  ArrayP (\k -> f (everyOther k))
          (2 * n)
   where 
     ArrayP f n = push arr 
---unpairP :: Pushy arr => arr (a,a) -> ArrayP a 
---unpairP arr =  ArrayP (\k -> pushApp parr (everyOther k))
---         (2* len arr)
---  where 
---    parr = push arr 
-    
-
+        
 everyOther :: ((Exp Word32, a) -> Program ()) 
               -> (Exp Word32, (a,a)) -> Program ()
 everyOther f  = \(ix,(a,b)) -> f (ix * 2,a) *>* f (ix * 2 + 1,b)  
     
-
---(&) :: Loc a -> Loc b -> Loc (a,b)
---loc1 & loc2 = \(x,y) -> loc1 x .>> loc2 y
-
---unpair :: Pushy p => Array p (a,a) -> Array Push a
---unpair arr =
---  Array{ size = size arr .* Num 2
---       , doit = Push $ \iloc -> push (doit (toPush arr)) (\i -> iloc (i .* Num 2) & iloc ((i .* Num 2) .+ Num 1))
---       }
 ----------------------------------------------------------------------------
 -- 
     
@@ -253,10 +217,9 @@ combine a1 a2 =
   ArrayP (\k -> pushApp a1 k *>* pushApp a2 k) (len a1 + len a2) 
     
   
+  
+----------------------------------------------------------------------------  
 -- The oposite to ivDiv    
-
--- combine a1 a2
-
 ivMerge :: Pushy arr => Int -> Int -> arr a -> arr a -> ArrayP a
 ivMerge i j arr1 arr2 = ArrayP (\k -> app a1 k *>* app a2 k) (len a1 + len a2) 
   where
@@ -267,22 +230,7 @@ ivMerge i j arr1 arr2 = ArrayP (\k -> app a1 k *>* app a2 k) (len a1 + len a2)
     a2 = ixMap right (push arr2)
     app (ArrayP f _) a = f a 
   
-{-  
-ivMerge :: Pushy arr => Int -> Int -> arr a -> arr a -> ArrayP a
-ivMerge i j arr1 arr2  = 
-  ArrayP (\func -> (f (\(ix,a) -> func (newix0 i j ix,a)))
-                   *>*
-                   (g (\(ix,a) -> func (newix1 i j ix,a))))
-          (n1+n2)
-  where
-    newix0 i j ix = ix + (ix .&. complement (fromIntegral (tij - 1)))
-    tij = 2^(i+j)
-    newix1 i j ix = (newix0 i j ix) `xor` (fromIntegral j')
-    j' = (((2^(j+1))-1) :: Word32) `shiftL` i
-    (ArrayP f n1) = push arr1
-    (ArrayP g n2) = push arr2   
--}
-    
+----------------------------------------------------------------------------
 -- iv  a sorter building block
 iv i j f g arr = ivMerge i j arr1' arr2'
   where
@@ -291,6 +239,129 @@ iv i j f g arr = ivMerge i j arr1' arr2'
     arr2' = push $ zipWith g arr1 arr2
 
 
+-- Stuff added or changed by Mary
+
+insertZero :: Int -> Exp Word32 -> Exp Word32
+insertZero 0 a = a `shiftL` 1
+insertZero i a = a + (a .&. fromIntegral (complement (oneBits i :: Word32)))
+
+
+
+flipBits :: Bits a => Int -> Int -> a -> a
+flipBits i j a = a `xor` (fromIntegral mask)
+  where
+    mask = (oneBits j :: Word32) `shiftL` i
+
+flipBit :: Bits a => Int -> a -> a
+flipBit = flip complementBit 
+
+oneBits :: Bits a => Int -> a
+oneBits i = bit i - 1
+    
+-- flip bits from position i to position i+j inclusive
+flipBitsFrom :: Bits a => Int -> Int -> a -> a
+flipBitsFrom i j a = a `xor` (fromIntegral mask)
+  where
+    mask = (oneBits (j + 1):: Word32) `shiftL` i
+     
+
+lowBit :: Int -> UWordE -> Exp Bool
+lowBit i ix = (ix .&. bit i) ==* 0
+
+flipLSBsTo :: Int -> UWordE -> UWordE
+flipLSBsTo i = (`xor` (oneBits (i+1)))
+
+
+
+  
+
+ilv1 :: Choice a => Int -> (b -> b-> a) -> (b -> b -> a) -> Array b -> Array a
+ilv1 i f g arr = Array ixf (len arr)
+  where
+    ixf ix = let l = arr ! ix
+                 r = arr ! newix
+                 newix = flipBit i ix
+             in (ifThenElse (lowBit i ix) (f l r) (g l r))
+
+vee1 :: Choice a => Int -> (b -> b-> a) -> (b -> b -> a) -> Array b -> Array a
+vee1 i f g arr = Array ixf (len arr)
+  where
+    ixf ix = let l = arr ! ix
+                 r = arr ! newix
+                 newix = flipLSBsTo i ix
+             in (ifThenElse (lowBit i ix) (f l r) (g l r))
+
+ilvVee1 :: Choice a => Int -> Int -> (b -> b-> a) -> (b -> b -> a) -> Array b -> Array a
+ilvVee1 i j f g arr = Array ixf (len arr)
+  where
+    ixf ix = let l = arr ! ix
+                 r = arr ! newix
+                 newix = flipBitsFrom i j ix
+             in (ifThenElse (lowBit (i+j) ix) (f l r) (g l r))
+
+
+    
+
+
+
+ilv2 :: Choice b => Int -> (a -> a -> b) -> (a -> a -> b) -> 
+                    Array a -> ArrayP b
+ilv2 i f g (Array ixf n) 
+   = ArrayP (\k -> app a5 k *>* app a6 k) n
+  where
+    n2 = n `div` 2
+    a1 = Array (ixf . left) (n-n2)
+    a2 = Array (ixf . right) n2
+    a3 = zipWith f a1 a2
+    a4 = zipWith g a1 a2
+    a5 = ixMap left (push a3)
+    a6 = ixMap right (push a4)
+    left = insertZero i
+    right = flipBit i  . left
+    app (ArrayP f _) a = f a
+
+
+
+
+
+
+vee2 :: Choice b => Int -> (a -> a -> b) -> (a -> a -> b) -> 
+                    Array a -> ArrayP b
+vee2 i f g (Array ixf n) 
+   = ArrayP (\k -> app a5 k *>* app a6 k) n
+  where
+    n2 = n `div` 2
+    a1 = Array (ixf . left) (n-n2)
+    a2 = Array (ixf . right) n2
+    a3 = zipWith f a1 a2
+    a4 = zipWith g a1 a2
+    a5 = ixMap left (push a3)
+    a6 = ixMap right (push a4)
+    left = insertZero i
+    right = flipLSBsTo i  . left
+    app (ArrayP f _) a = f a
+
+   
+
+ilvVee2 :: Choice b => Int -> Int -> (a -> a -> b) -> (a -> a -> b) -> 
+            Array a -> ArrayP b
+ilvVee2 i j f g (Array ixf n) 
+   = ArrayP (\k -> app a5 k *>* app a6 k) n
+  where
+    n2 = n `div` 2
+    a1 = Array (ixf . left) (n-n2)
+    a2 = Array (ixf . right) n2
+    a3 = zipWith f a1 a2
+    a4 = zipWith g a1 a2
+    a5 = ixMap left (push a3)
+    a6 = ixMap right (push a4)
+    left = insertZero (i+j)
+    right = flipBitsFrom i j . left
+    app (ArrayP f _) a = f a
+
+----------------------------------------------------------------------------
+-- Old
+{- 
 insertZero :: Int -> Exp Word32 -> Exp Word32
 insertZero i a = a + (a .&. fromIntegral (complement (oneBits i :: Word32)))
 
@@ -321,3 +392,4 @@ iv i j f g arr = part
 
 -} 
 
+-}
