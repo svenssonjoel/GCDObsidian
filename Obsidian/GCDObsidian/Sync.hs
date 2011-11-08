@@ -21,7 +21,14 @@ import Control.Monad.Writer
 import Data.Word
 
 ----------------------------------------------------------------------------
---  
+-- Library functions that use Sync  
+
+
+composeS [] = pure id
+composeS (f:fs) = f ->- sync ->- composeS fs
+
+
+
 
 ----------------------------------------------------------------------------
 -- Sync
@@ -145,9 +152,6 @@ instance (Scalar a, Scalar b) => Syncable ArrayP (Exp a, Exp b) where
 
               
     
-composeS [] = pure id
-composeS (f:fs) = f ->- sync ->- composeS fs
-
 
 {- 
 pSyncA :: (Scalar a, Pushy arr) 

@@ -11,10 +11,9 @@ import Data.Word
 import Prelude hiding (splitAt,zipWith)
 
 
+
 instance Functor Array where 
   fmap f arr = Array (\ix -> f (arr ! ix)) (len arr) 
-
-
 
 ------------------------------------------------------------------------------
 -- Reverse an array by indexing in it backwards
