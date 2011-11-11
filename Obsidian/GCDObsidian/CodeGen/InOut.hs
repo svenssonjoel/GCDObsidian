@@ -63,7 +63,7 @@ class InOut a where
             --      e -> 
                   State (Int,[(String,Type,Word32)]) (Program ())
   
-  -- is this a hack ?
+  -- is this a hack ? yes, and poorly named!
   gcdThreads :: a -> Word32
 
 newInOut name t s = do 

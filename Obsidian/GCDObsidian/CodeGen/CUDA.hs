@@ -1,5 +1,6 @@
 
-module Obsidian.GCDObsidian.CodeGen.CUDA (genKernel) where 
+module Obsidian.GCDObsidian.CodeGen.CUDA 
+       (genKernel,genKernel_) where 
 
 import Data.List
 import Data.Word 
@@ -56,40 +57,37 @@ kernelHead name ins outs =
   
 ------------------------------------------------------------------------------    
 -- CUDA Code from Kernel
-{-     
-genKernel_ :: (InOut b) => String -> Kernel b -> String     
-genKernel_ name kernel = cuda 
+  
+genKernel_ :: (InOut b) 
+              => String 
+              -> Kernel b 
+              -> Word32 -- Threads 
+              -> [(String,Type)] -- Inputs
+              -> [(String,Type)] -- Outputs
+              -> String     
+genKernel_ name kernel threads ins outs= cuda 
   where  
-    ((res,_),prg) = runKernel kernel (0,[]) -- generate the "Program"
+    ((res,_),prg) = runKernel kernel  -- generate the "Program"
     
     saPrg = syncAnalysis prg -- program that only syncs where needed
     
     lvPrg = liveness saPrg   -- program annotated with liveness information
     
-    threadBudget =   -- bit of a hack 
-      case prg of  
-        Skip -> inoutThreadsNeeded res 
-        a    -> threadsNeeded prg 
-    
-    
     -- Create a memory-map for the program 
     (m,mm) = mapMemory lvPrg sharedMem  (Map.empty)
     
-    (outCode,outs)   = 
-      runInOut (writeOutputs threadBudget res) (0,[])
-
-    finalPrg = saPrg *>* outCode 
+    finalPrg = saPrg 
    
     
-    cuda = getCUDA (config threadBudget mm (size m)) 
+    cuda = getCUDA (config threads mm (size m)) 
                    finalPrg 
                    name 
-                   (map fst2 ins)  
-                   (map fst2 outs)
+                   ins
+                   outs
 
         
       
--}        
+    
 genKernel :: (InOut a, InOut b) => String -> (a -> Kernel b) -> a -> String 
 genKernel name kernel a = cuda 
   where 

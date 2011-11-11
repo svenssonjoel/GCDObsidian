@@ -117,9 +117,14 @@ syncAnalysis prg = snd$ syncAnalysis' prg Map.empty
         pred (_,(x,_)) = not ("input" `isPrefixOf` x) 
     
 
+-- TODO: look at the special case below. (Make more beautiful) 
 getSourceIndices :: Program a -> [(Word32,(Name,Exp Word32))] 
 getSourceIndices (Assign nom (Literal ix) a) = map (\y -> (ix,y)) (collectArrayIndexPairs a)
-getSourceIndices (Assign _ ix _) = error$ "getSourceIndices: " ++ show ix ++ " is not Literal"
+-- Special case! 
+getSourceIndices (Assign nom ix _) = 
+  if isPrefixOf "output" nom || 
+     isPrefixOf "input" nom then [] 
+  else error$ "getSourceIndices: " ++ show ix ++ " is not Literal"
 getSourceIndices _ = error "getSourceIndices: Can only handle a very simple case so far"
 
 -- What array are we computing now, 

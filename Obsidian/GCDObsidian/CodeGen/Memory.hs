@@ -96,7 +96,7 @@ merge ((x,b):(y,b2):xs) = if (x+b == y) then merge ((x,b+b2):xs)
 ----------------------------------------------------------------------------
 -- Map a program onto a memory
 
-
+-- TODO: Make sure this does add any input or output arrays to the map
    
 mapMemory :: Program Liveness -> Memory -> MemMap -> (Memory,MemMap) 
 mapMemory = mapMemoryProgram 
@@ -114,7 +114,9 @@ mapMemoryProgram ((Allocate name size t alive) `ProgramSeq` prg2) m mm
     (m'',addr) = allocate m size
     aliveNext  = whatsAliveNext prg2
     diff       = alive Set.\\ aliveNext
-    diffAddr   = mapM (\x -> Map.lookup x mm') (filter (not . (List.isPrefixOf "input")) (Set.toList diff))
+    diffAddr   = mapM (\x -> Map.lookup x mm') (filter dontMap {-(not . (List.isPrefixOf "input")-} (Set.toList diff))
+    dontMap name = not ((List.isPrefixOf "input" name) || 
+                        (List.isPrefixOf "output" name))
     mNew       =  
       case diffAddr of 
         (Just addys) -> freeAll m'' (map fst addys)

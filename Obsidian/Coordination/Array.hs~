@@ -1,0 +1,10 @@
+module Obsidian.Coordination.Array where 
+
+
+import Obsidian.GCDObsidian.Exp
+
+
+data Array a = Array (Exp Word32 -> a)  
+
+bid = variable "blockIdx.x"
+bwd = variable "blockDim.x"
