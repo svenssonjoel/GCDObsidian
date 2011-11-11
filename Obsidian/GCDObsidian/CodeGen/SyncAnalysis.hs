@@ -1,4 +1,4 @@
-module Obsidian.GCDObsidian.CodeGen.SyncAnalysis where
+module Obsidian.GCDObsidian.CodeGen.SyncAnalysis (syncAnalysis) where
 
 
 
@@ -70,45 +70,51 @@ type SAMap = Map.Map Name TEMap
 --       This might change in the future. 
 warpSize = 32
 
+
+
 {- 
   input program should have unique names for all intermediate arrays
 -} 
-syncAnalysis :: Show a => Program a -> SAMap -> (SAMap,Program a) 
-syncAnalysis Skip sam = (sam,Skip) 
-syncAnalysis (Synchronize b) sam = (sam,Synchronize False) 
-syncAnalysis f@(ForAll _ _) sam = analyseForAll f sam 
-syncAnalysis a@(Allocate nom n t e) sam = (sam,a) 
-syncAnalysis (ProgramSeq prg1 prg2) sam = 
-  let (sam1,prg1') = syncAnalysis prg1 sam 
-      (sam2,prg2') = syncAnalysis prg2 sam1
-  in (sam2,prg1' `ProgramSeq` prg2')
+
+syncAnalysis :: Program a -> Program a
+syncAnalysis prg = snd$ syncAnalysis' prg Map.empty
+  where 
+    syncAnalysis' :: Program a -> SAMap -> (SAMap,Program a) 
+    syncAnalysis' Skip sam = (sam,Skip) 
+    syncAnalysis' (Synchronize b) sam = (sam,Synchronize False) 
+    syncAnalysis' f@(ForAll _ _) sam = analyseForAll f sam 
+    syncAnalysis' a@(Allocate nom n t e) sam = (sam,a) 
+    syncAnalysis' (ProgramSeq prg1 prg2) sam = 
+      let (sam1,prg1') = syncAnalysis' prg1 sam 
+          (sam2,prg2') = syncAnalysis' prg2 sam1
+      in (sam2,prg1' `ProgramSeq` prg2')
 
 
 -- The below case should just take place within a ForAll case.
-syncAnalysis (Assign nom ix a) sam = error "should not happen" 
+    syncAnalysis' (Assign nom ix a) sam = error "should not happen" 
+    
 
 
-
-analyseForAll (ForAll g n) sam = (sam'',if sNeeded
-                                        then Synchronize True *>* ForAll g n
-                                        else ForAll g n ) 
+    analyseForAll (ForAll g n) sam = (sam'',if sNeeded
+                                            then Synchronize True *>* ForAll g n
+                                            else ForAll g n ) 
                                  -- error$ show arrloc -- (sam',prg) 
-  where                                   
-    threads   = [0..(n-1)]
-    gPrgs     = [g (fromIntegral tid) | tid <- threads] 
+      where                                   
+        threads   = [0..(n-1)]
+        gPrgs     = [g (fromIntegral tid) | tid <- threads] 
     
-    arrloc''   = concatMap getSourceIndices gPrgs  
-    arrloc'    = filter pred arrloc''
-    arrloc     = map evalSource arrloc'
-    targetMaps = map getTargIndex (zip gPrgs threads)
+        arrloc''   = concatMap getSourceIndices gPrgs  
+        arrloc'    = filter pred arrloc''
+        arrloc     = map evalSource arrloc'
+        targetMaps = map getTargIndex (zip gPrgs threads)
     
-    (sam',sNeeded) = conflict arrloc sam
-    sam''          = addMappings targetMaps sam'
+        (sam',sNeeded) = conflict arrloc sam
+        sam''          = addMappings targetMaps sam'
     
     
-    eval (Literal a) = a 
-    evalSource (n,(a,ix)) = (n,(a,eval ix))
-    pred (_,(x,_)) = not ("input" `isPrefixOf` x) 
+        eval (Literal a) = a 
+        evalSource (n,(a,ix)) = (n,(a,eval ix))
+        pred (_,(x,_)) = not ("input" `isPrefixOf` x) 
     
 
 getSourceIndices :: Program a -> [(Word32,(Name,Exp Word32))] 

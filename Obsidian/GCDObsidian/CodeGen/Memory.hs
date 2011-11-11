@@ -1,6 +1,4 @@
-{-
-
-module Obsidian.GCDObsidian.Memory 
+module Obsidian.GCDObsidian.CodeGen.Memory 
        (MemMap,
         Memory,
         allocate,
@@ -14,12 +12,15 @@ module Obsidian.GCDObsidian.Memory
        where 
 
 import qualified Data.List as List
+import qualified Data.Set  as Set
 import Data.Word
 
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 
-
+import Obsidian.GCDObsidian.Exp 
+import Obsidian.GCDObsidian.Program
+import Obsidian.GCDObsidian.CodeGen.Liveness
 
 import qualified Data.Map as Map 
 
@@ -113,7 +114,7 @@ mapMemoryProgram ((Allocate name size t alive) `ProgramSeq` prg2) m mm
     (m'',addr) = allocate m size
     aliveNext  = whatsAliveNext prg2
     diff       = alive Set.\\ aliveNext
-    diffAddr   = mapM (\x -> Map.lookup x mm') (filter (not . (isPrefixOf "input")) (Set.toList diff))
+    diffAddr   = mapM (\x -> Map.lookup x mm') (filter (not . (List.isPrefixOf "input")) (Set.toList diff))
     mNew       =  
       case diffAddr of 
         (Just addys) -> freeAll m'' (map fst addys)
@@ -156,8 +157,5 @@ mapMemoryProgram (Allocate name size t program) m mm = mapMemoryProgram program 
 mapMemoryProgram (prg1 `ProgramSeq` prg2) m mm = mapMemoryProgram prg2 m' mm'
   where 
     (m',mm') = mapMemoryProgram prg1 m mm 
-
--}
-
 
 -}

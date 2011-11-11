@@ -6,10 +6,11 @@ import Data.Word
 import Data.Monoid
 import qualified Data.Map as Map
 
+
 import Obsidian.GCDObsidian.Kernel 
 import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Exp 
-import Obsidian.GCDObsidian.Memory
+
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 import Obsidian.GCDObsidian.Program
@@ -17,7 +18,8 @@ import Obsidian.GCDObsidian.CodeGen.Common
 import Obsidian.GCDObsidian.CodeGen.InOut 
 
 import Obsidian.GCDObsidian.CodeGen.SyncAnalysis
-
+import Obsidian.GCDObsidian.CodeGen.Memory
+import Obsidian.GCDObsidian.CodeGen.Liveness
 
 ----------------------------------------------------------------------------
 -- 
@@ -53,8 +55,41 @@ kernelHead name ins outs =
   
   
 ------------------------------------------------------------------------------    
--- CUDA Code from PKernel
+-- CUDA Code from Kernel
+{-     
+genKernel_ :: (InOut b) => String -> Kernel b -> String     
+genKernel_ name kernel = cuda 
+  where  
+    ((res,_),prg) = runKernel kernel (0,[]) -- generate the "Program"
     
+    saPrg = syncAnalysis prg -- program that only syncs where needed
+    
+    lvPrg = liveness saPrg   -- program annotated with liveness information
+    
+    threadBudget =   -- bit of a hack 
+      case prg of  
+        Skip -> inoutThreadsNeeded res 
+        a    -> threadsNeeded prg 
+    
+    
+    -- Create a memory-map for the program 
+    (m,mm) = mapMemory lvPrg sharedMem  (Map.empty)
+    
+    (outCode,outs)   = 
+      runInOut (writeOutputs threadBudget res) (0,[])
+
+    finalPrg = saPrg *>* outCode 
+   
+    
+    cuda = getCUDA (config threadBudget mm (size m)) 
+                   finalPrg 
+                   name 
+                   (map fst2 ins)  
+                   (map fst2 outs)
+
+        
+      
+-}        
 genKernel :: (InOut a, InOut b) => String -> (a -> Kernel b) -> a -> String 
 genKernel name kernel a = cuda 
   where 
@@ -62,7 +97,7 @@ genKernel name kernel a = cuda
   
     ((res,_),c_old)  = runKernel (kernel input)
     
-    c = snd$ syncAnalysis c_old (Map.empty) 
+    c = syncAnalysis c_old  
     lc  = liveness c
     
     
