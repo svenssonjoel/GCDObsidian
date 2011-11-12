@@ -23,7 +23,7 @@ import Control.Monad.Writer
 
 import Data.Word
 
---data Array a = Array (Exp Word32 -> Exp Word32 -> a)  
+
 
 bid :: Exp Word32
 bid = variable "blockIdx.x"
@@ -54,69 +54,36 @@ myKern = pure Lib.rev ->- sync  ->- sync ->- sync
 newtype GlobalArray a = GlobalArray Int -- Just an identifier
 
 data KC a where 
- --   Input :: InOut.InOut (Array a) => Array a -> KC (Array a) 
   Input :: GlobalArray a -> KC (GlobalArray a) 
   
   -- Map a single input array - single output array kernel over a global array  
-  LaunchUn :: (Scalar a, Scalar b, 
-               InOut.InOut (Array (Exp b)), 
-               InOut.InOut (Array (Exp a)) ) -- extra requirement
+  LaunchUn :: (Scalar a, Scalar b) 
               => Int                   -- number of blocks 
-              -> Int                   -- number of threads
+              -> Int                   -- number of Elements that this kernel process
               -> (Array (Exp a) -> Array (Exp a))  -- Transform array on input
               -> (Array (Exp a) -> Kernel (Array (Exp b))) -- kernel to apply
               -> (Array (Exp b) -> Array (Exp b))  -- Transform array on output 
               -> KC (GlobalArray (Exp a))  -- Input array 
               -> KC (GlobalArray (Exp b))  -- Result array 
              
-{- 
-input :: InOut.InOut (Array a) => Array a -> KC (Array a) 
-input = Input 
 
-mapK :: (InOut.InOut (Array a), 
-         InOut.InOut (Array b)) => (Array a -> Kernel (Array b)) -> KC (Array a) -> KC (Array b) 
-mapK k a = MapUn id k a 
-
-seqK :: (KC a -> KC b) -> (KC b -> KC c) -> KC a -> KC c 
-seqK k1 k2 i = k2 (k1 i)
--} 
              
 run k = putStrLn$ snd$ runKC k  
 
 runKC :: KC a -> (a,String) 
 runKC (Input arr) = (arr,"An input\n")
--- runKC (Nil) = ((),"Nil")
-{-
-runKC (MapUn f k i) = (res,prev ++ launch ++  kernel) 
+
+runKC (LaunchUn blocks elems inf k outf i) = (GlobalArray 100,prev ++ launch ++  kernel) 
    where                       
      launch = "Launching a Kernel: \n"
      (inp,prev) = runKC i
-     ((res,_),c) = runKernel ((pure f ->- k) inp)
-     (outCode,outs)   = 
-        InOut.runInOut (InOut.writeOutputs threadBudget res) (0,[])
-     kernel = CUDA.genKernel "generated" (pure f ->- k) inp 
-     threadBudget =  
-      case c of 
-        Skip -> InOut.gcdThreads res
-        a  -> threadsNeeded c 
--}  
-runKC (LaunchUn blocks threads inf k outf i) = (GlobalArray 100,prev ++ launch ++  kernel) 
-   where                       
-     launch = "Launching a Kernel: \n"
-     (inp,prev) = runKC i
-     --((res,_),c) = runKernel$ (pure inf ->- k ->- pure outf )(Array (\ix -> index "input" ix) (fromIntegral threads))
-     --(outCode,outs)   = 
-     --   InOut.runInOut (InOut.writeOutputs threadBudget res) (0,[])
      kernel = CUDA.genKernel_ "generated" 
-                              ((pure inf ->- k ->- pure outf ->- pOutput) (Array (\ix -> index "input0" ix) (fromIntegral threads)))
-                              (fromIntegral threads) -- assumes length == threads  
+                              ((pure inf ->- k ->- pure outf ->- pOutput) (Array (\ix -> index "input0" ix) (fromIntegral elems)))
+                              (fromIntegral elems) -- assumes length == threads  
                               [("input0",Word32)]
                               [("output0",Word32)] 
     
-     --threadBudget =  
-     -- case c of 
-     --   Skip -> InOut.gcdThreads res
-     --   a  -> threadsNeeded c 
+
 pOutput  :: Scalar a => Array (Exp a) -> Kernel (Array (Exp a))
 pOutput arr = 
   do 
