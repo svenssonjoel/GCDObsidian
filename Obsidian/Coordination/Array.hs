@@ -16,6 +16,9 @@
 
     - input is not fetched from the correct place if id is used as input transform
 
+    - Figure out what parameters the coordination function should take 
+        for good flexibility (The generated C function that calls kernels)
+
 -} 
 
 
@@ -96,6 +99,7 @@ data KC a where
              
 ----------------------------------------------------------------------------
 -- Run a KC 
+{-   
 run k = putStrLn$ snd$ runKC k  
 
 runKC :: KC a -> (a,String) 
@@ -111,8 +115,8 @@ runKC (LaunchUn blocks elems inf k outf i) = (GlobalArray 100,prev ++ launch ++ 
                               [("input0",Word32)]
                               [("output0",Word32)] 
      
-     
-type KernelMap = Map.Map String String -- Kernel code to Kernel code map ... awful right ?  
+ -}     
+type KernelMap = Map.Map String (String,Word32,Word32) -- Kernel code to Kernel code map ... awful right ?  
 
 ----------------------------------------------------------------------------     
 -- generate coordination code + kernels 
@@ -125,26 +129,27 @@ run' k =
 
     
       where 
-        kernels = Map.elems km -- 
+        kernels = map (\(x,_,_) -> x) (Map.elems km) -- 
         ((_,_,km),prg) = runKCM k (0,0) (Map.empty)                 
         
 -- will only work for integers right now...  (fix , how )                 
 runKCM :: KC a -> (Int,Int) -> KernelMap -> ((a,(Int,Int),KernelMap) ,String)
-runKCM (Input arr) (ai,ki) km = ((GlobalArray ai,(ai+1,ki),km) , allocInput arr) 
+runKCM (Input arr) (ai,ki) km = ((GlobalArray ai,(ai+1,ki),km) , allocInput (GlobalArray ai)) 
 runKCM (WriteResult arr) ids km = (((),ids',km'),prg ++ (writeResult res 256)) -- CHEATING
   where ((res,ids',km'),prg) = runKCM arr ids km 
 runKCM (LaunchUn blocks elems inf k outf i) ids km = result
   where 
 
-    threads = 256 -- find true number 
+    -- threads = 256 -- find true number 
     
     -- Generate kernel for lookup purposese
     kern = ((pure inf ->- k ->- pure outf ->- pOutput) (Array (\ix -> index "input0" ix) (fromIntegral elems)))
-    kernel = CUDA.genKernel_ "gen" 
+    ((outArr,_),_) = runKernel kern
+    (kernel,_,_) = CUDA.genKernel_ "gen" 
                              kern
-                             threads
                              [("input0",Int)]  -- type ??
                              [("output0",Int)] 
+    -- threads = threadsNeeded kernp
                              
     (newids,newkm,newprg) = 
       -- Has Kernel already been generated ? 
@@ -154,16 +159,18 @@ runKCM (LaunchUn blocks elems inf k outf i) ids km = result
               -- Generate kernel again. with different name, for insertion. 
               kernelIns =  CUDA.genKernel_ ("gen"  ++ show id)
                              kern
-                             threads
                              [("input0",Int)]  -- type ??
                              [("output0",Int)] 
+              (_,threads,sm) = kernelIns               
                               
-          in  ((fst ids',id+1),Map.insert kernel kernelIns km', call ("gen" ++ show id) blocks threads (idOf res) (idOf newImm) ) --add one kernel 
-        (Just id) -> (ids',km',call id blocks threads (idOf res) (idOf newImm)) --return excisting
+          in  ((fst ids',id+1),Map.insert kernel kernelIns km', call ("gen" ++ show id) blocks threads sm (idOf res) (idOf newImm) ) --add one kernel 
+        (Just (kernNom,threads,sm)) -> (ids',km',call kernNom blocks threads sm (idOf res) (idOf newImm)) --return excisting
      
+    -- (newprg,_,_) = kernelInfo  
+      
     ((res,ids', km'),prg) = runKCM i ids km
     newImm = GlobalArray (fst newids)
-    allocprg = allocImm newImm 256 -- What is this size really ?    CHEATING 
+    allocprg = allocImm newImm (fromIntegral (len outArr)*blocks) -- What is this size really ?    CHEATING 
     
     result = ((newImm ,(fst newids +1,snd newids),newkm),allocprg ++ "\n"++ prg ++ " \n" ++ newprg ++ "\n")
   
@@ -178,8 +185,8 @@ allocImm (GlobalArray id) s=
   
   
 -- Shared memory usage also needed
-call name blocks threads input output= 
-   "  " ++ name ++ "<<<"++ show blocks ++", " ++ show threads ++" ,0 >>>((int*)dinput" ++ show input ++ ",(int*)doutput" ++ show output ++ ");\n" 
+call name blocks threads sm input output = 
+   "  " ++ name ++ "<<<"++ show blocks ++", " ++ show threads ++" ," ++show sm++ " >>>((int*)dinput" ++ show input ++ ",(int*)doutput" ++ show output ++ ");\n" 
 
 writeResult (GlobalArray id) size = 
    "  cudaMemcpy(output0, dinput"++show id++", sizeof(int) * "++ show size ++" , cudaMemcpyDeviceToHost);\n"

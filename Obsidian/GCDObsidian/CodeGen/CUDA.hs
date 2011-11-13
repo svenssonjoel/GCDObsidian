@@ -61,11 +61,10 @@ kernelHead name ins outs =
 genKernel_ :: (InOut b) 
               => String 
               -> Kernel b 
-              -> Word32 -- Threads 
               -> [(String,Type)] -- Inputs
               -> [(String,Type)] -- Outputs
-              -> String     
-genKernel_ name kernel threads ins outs= cuda 
+              -> (String,Word32,Word32)     
+genKernel_ name kernel ins outs = (cuda,threads,size m) 
   where  
     ((res,_),prg) = runKernel kernel  -- generate the "Program"
     
@@ -73,12 +72,16 @@ genKernel_ name kernel threads ins outs= cuda
     
     lvPrg = liveness saPrg   -- program annotated with liveness information
     
+    threads =  
+      case saPrg of 
+        Skip -> gcdThreads res
+        a  -> threadsNeeded saPrg 
+   
     -- Create a memory-map for the program 
     (m,mm) = mapMemory lvPrg sharedMem  (Map.empty)
     
     finalPrg = saPrg 
    
-    
     cuda = getCUDA (config threads mm (size m)) 
                    finalPrg 
                    name 
