@@ -22,6 +22,7 @@ import Obsidian.GCDObsidian.Globs
 import Control.Monad.Writer
 
 import Data.Word
+import qualified Data.Map as Map
 
 
 
@@ -42,7 +43,6 @@ revblocks (Array ixf x) = Array (\tix -> ixf ((gwd - bid - 1) + tix)) x
 ----------------------------------------------------------------------------
 -- 
 
-  
 myKern :: Shared.Array (Exp Word32) -> Kernel (Shared.Array (Exp Word32))
 myKern = pure Lib.rev ->- sync  ->- sync ->- sync                                           
   
@@ -52,6 +52,8 @@ myKern = pure Lib.rev ->- sync  ->- sync ->- sync
 ----------------------------------------------------------------------------
 -- 
 newtype GlobalArray a = GlobalArray Int -- Just an identifier
+-- data GlobalArray a = GlobalArray Name Size Etc
+
 
 data KC a where 
   Input :: GlobalArray a -> KC (GlobalArray a) 
@@ -67,7 +69,10 @@ data KC a where
               -> KC (GlobalArray (Exp b))  -- Result array 
              
 
+
              
+----------------------------------------------------------------------------
+-- Run a KC 
 run k = putStrLn$ snd$ runKC k  
 
 runKC :: KC a -> (a,String) 
@@ -82,20 +87,30 @@ runKC (LaunchUn blocks elems inf k outf i) = (GlobalArray 100,prev ++ launch ++ 
                               (fromIntegral elems) -- assumes length == threads  
                               [("input0",Word32)]
                               [("output0",Word32)] 
-    
+     
+     
+type KernelMap = Map.Map String String -- Kernel code to function name, Awful right ? 
+                                       -- But there is no Eq on (a -> Kernel b) 
+     
+runKCM :: (GlobalArray a -> KC (GlobalArray b) -> KernelMap -> ((GlobalArray b) ,String)
+runKCM = undefined 
 
+
+-- TODO: Something like this ? (Ok ?) 
+{- 
+runKC :: (GlobalArray a -> KC (GlobalArray b)) -> SomeKindOfHaskellArray a -> SomeKindOfHaskellArray b
+
+    
+-} 
+----------------------------------------------------------------------------
+-- 
 pOutput  :: Scalar a => Array (Exp a) -> Kernel (Array (Exp a))
 pOutput arr = 
   do 
     let name = "output0"
     let p = pushApp parr (globalTarget name (fromIntegral (len arr)))
         
-    tell$ 
-        --(Allocate name (es * (len arr)) t ()) 
-        --`ProgramSeq`
-        p 
-       -- `ProgramSeq`
-       -- (Synchronize True)
+    tell p 
             
     return (Array (index name) (len arr))
       
@@ -108,7 +123,12 @@ pOutput arr =
     globalTarget n blockSize (i,a) = Assign n ((bid * blockSize) + i)  a 
   
   
+----------------------------------------------------------------------------
+-- tests.
+    
 test2 :: GlobalArray (Exp Word32) -> KC (GlobalArray (Exp (Word32))) 
 test2 arr = let arr' = Input arr 
                 imm  = (LaunchUn  10 256 id myKern id arr')
             in  (LaunchUn 10 256 revblocks myKern id imm) 
+                
+                
