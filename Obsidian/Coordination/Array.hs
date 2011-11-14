@@ -19,6 +19,17 @@
     - Figure out what parameters the coordination function should take 
         for good flexibility (The generated C function that calls kernels)
 
+    - What information are useful in the coordination layer. 
+         # number of elements a Kernel operates on is more useful than number of threads. 
+             - But a kernel might take many input arrays 
+               and those may be of different length. (for example a kernel taking a 256 elements 
+               array and an 128 element array)
+
+   
+   -- TODO: Something like this ? (Ok ?) 
+      runKC :: (GlobalArray a -> KC (GlobalArray b)) -> SomeKindOfHaskellArray a -> SomeKindOfHaskellArray 
+
+
 -} 
 
 
@@ -87,6 +98,7 @@ newtype GlobalArray a = GlobalArray Int -- Just an identifier
 idOf (GlobalArray i) =  i 
 
 
+
 data KC a where 
   Input :: GlobalArray a -> KC (GlobalArray a)
   
@@ -99,8 +111,17 @@ data KC a where
               -> (Exp Word32 -> Exp Word32) -- Transform array on output 
               -> KC (GlobalArray (Exp a))  -- Input array 
               -> KC (GlobalArray (Exp b))  -- Result array 
+                
   WriteResult :: Int -> Int -> KC (GlobalArray a) -> KC () 
-             
+{- TODO: This seems very hard to expand upon. 
+         Just adding a "LaunchBin" turns complicated. 
+  
+         Some other way of taking care of the in and out transformations are needed. 
+         Would be cool if the transformation could be "attached" to the GlobalArrays
+         in some way. The problem is that the code that implements the transformation 
+         must be internalized into the kernel (That is why they are now specified 
+         like this).          
+-} 
 
 
 ----------------------------------------------------------------------------             
@@ -210,13 +231,7 @@ call name blocks threads sm input output =
 writeResult (GlobalArray id) blocks elems = 
    "  cudaMemcpy(output0, dinput"++show id++", sizeof(int) * "++ show (elems * blocks) ++" , cudaMemcpyDeviceToHost);\n"
 
-    
--- TODO: Something like this ? (Ok ?) 
-{- 
-runKC :: (GlobalArray a -> KC (GlobalArray b)) -> SomeKindOfHaskellArray a -> SomeKindOfHaskellArray b
-
-    
--} 
+ 
 ----------------------------------------------------------------------------
 -- 
 pOutput  :: Scalar a => (Exp Word32 -> Exp Word32) -> Array (Exp a) -> Kernel (Array (Exp a))
