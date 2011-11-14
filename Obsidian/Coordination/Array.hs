@@ -65,9 +65,11 @@ standardInput = Array (\tix-> index "input" ((bid*bwd)+tix)) 256
 revblocks :: Array a -> Array a 
 revblocks (Array ixf n) = Array (\tix -> ixf (((gwd - bid - 1)*(fromIntegral n)) + tix)) n
 
-stdIn :: Array a -> Array a 
-stdIn (Array ixf n) = Array (\tix -> ixf ((bid*(fromIntegral n)) + tix)) n
+stdIn :: Word32 -> Exp Word32 -> Exp Word32 
+stdIn n tix  = (bid*(fromIntegral n)) + tix 
 
+stdOut :: Word32 -> Exp Word32 -> Exp Word32
+stdOut n tix = (bid *(fromIntegral n)) + tix
 
 ----------------------------------------------------------------------------
 -- 
@@ -92,9 +94,9 @@ data KC a where
   LaunchUn :: (Scalar a, Scalar b) 
               => Int                   -- number of blocks  (Could be a runtime value, perhaps)
               -> Int                   -- number of Elements that this kernel process
-              -> (Array (Exp a) -> Array (Exp a))  -- Transform array on input
+              -> (Exp Word32 -> Exp Word32)  -- Transform array on input
               -> (Array (Exp a) -> Kernel (Array (Exp b))) -- kernel to apply
-              -> (Array (Exp b) -> Array (Exp b))  -- Transform array on output 
+              -> (Exp Word32 -> Exp Word32) -- Transform array on output 
               -> KC (GlobalArray (Exp a))  -- Input array 
               -> KC (GlobalArray (Exp b))  -- Result array 
   WriteResult :: Int -> Int -> KC (GlobalArray a) -> KC () 
@@ -153,7 +155,8 @@ runKCM (LaunchUn blocks elems inf k outf i) ids km = result
   where 
     
     -- Generate kernel for lookup purposese
-    kern = ((pure inf ->- k ->- pure outf ->- pOutput) (Array (\ix -> index "input0" ix) (fromIntegral elems)))
+    kern = ((pure inputTransform ->- k ->- pOutput outf) (Array (\ix -> index "input0" ix) (fromIntegral elems)))
+    inputTransform = \arr -> Array (\ix -> arr ! (inf ix)) (len arr)
     ((outArr,_),_) = runKernel kern
     (kernel,_,_) = CUDA.genKernel_ "gen" 
                              kern
@@ -216,8 +219,8 @@ runKC :: (GlobalArray a -> KC (GlobalArray b)) -> SomeKindOfHaskellArray a -> So
 -} 
 ----------------------------------------------------------------------------
 -- 
-pOutput  :: Scalar a => Array (Exp a) -> Kernel (Array (Exp a))
-pOutput arr = 
+pOutput  :: Scalar a => (Exp Word32 -> Exp Word32) -> Array (Exp a) -> Kernel (Array (Exp a))
+pOutput outf arr = 
   do 
     let name = "output0"
     let p = pushApp parr (globalTarget name (fromIntegral (len arr)))
@@ -232,25 +235,25 @@ pOutput arr =
 
     parr = push arr 
     globalTarget :: Scalar a => Name -> Exp Word32 -> (Exp Word32, Exp a) -> Program ()
-    globalTarget n blockSize (i,a) = Assign n ((bid * blockSize) + i)  a 
+    globalTarget n blockSize (i,a) = Assign n (outf i)   a 
   
   
 ----------------------------------------------------------------------------
 -- tests.
 test :: GlobalArray (Exp Int) -> KC ()
 test arr = let arr' = Input arr 
-               imm  = LaunchUn 10 256 id myKern id arr'
-               imm2 = LaunchUn 10 256 revblocks myKern id imm
+               imm  = LaunchUn 10 256 (stdIn 256) myKern (stdOut 256) arr'
+               imm2 = LaunchUn 10 256 (stdIn 256) myKern (stdOut 256) imm
             in WriteResult 10 256 imm2
                 
                
-
+{-
 launchUn :: (Scalar a, Scalar b) 
             => Int                  
             -> Int                  
-            -> (Array (Exp a) -> Array (Exp a))  
+            -> (Exp Word32 -> Exp Word32)  -- Maybe should be something else ? (bid tid etc ?) 
             -> (Array (Exp a) -> Kernel (Array (Exp b))) 
-            -> (Array (Exp b) -> Array (Exp b))  
+            -> (Exp Word32 -> Exp Word32)  
             -> KC (GlobalArray (Exp a)) 
             -> KC (GlobalArray (Exp b)) 
 launchUn blocks threads inf kern outf input =                
@@ -261,7 +264,7 @@ test2 arr = let arr' = Input arr
                 imm  = launchUn 10 256 stdIn myKern id arr'
                 imm2 = launchUn 10 256 revblocks myKern id imm
              in WriteResult 10 256 imm2
-                        
+-}                        
                
                
                
@@ -285,11 +288,10 @@ reduceAddInt = reduce (+)
 -- Coordination code.
 reduceLarge :: GlobalArray (Exp Int) -> KC () 
 reduceLarge arr = let arr' = Input arr 
-                      imm  = launchUn 256 256 stdIn reduceAddInt id arr' 
-                      imm2 = launchUn 1   256 stdIn reduceAddInt id imm 
+                      imm  = LaunchUn 256 256 (stdIn 256) reduceAddInt (stdOut 1) arr' 
+                      imm2 = LaunchUn 1   256 (stdIn 256) reduceAddInt (stdOut 1) imm 
                   in  WriteResult 1 1 imm2
                       
 -- output cuda as a string 
 getReduceLarge = putStrLn$ run_ reduceLarge
-
 
