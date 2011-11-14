@@ -31,7 +31,6 @@ import Obsidian.Coordination.CoordC -- future im representation
 import Obsidian.GCDObsidian.Exp
 
 import Obsidian.GCDObsidian.Kernel
-import qualified Obsidian.GCDObsidian.Array as Shared
 import Obsidian.GCDObsidian.Array
 import qualified Obsidian.GCDObsidian.Library as Lib
 import Obsidian.GCDObsidian.Sync 
@@ -57,7 +56,7 @@ bwd = variable "blockDim.x"
 gwd :: Exp Word32
 gwd = variable "gridDim.x" 
 
-standardInput :: Array (Exp Word32)
+standardInput :: Array (Exp Int)
 standardInput = Array (\tix-> index "input" ((bid*bwd)+tix)) 256
 
 revblocks :: Array a -> Array a 
@@ -67,7 +66,7 @@ revblocks (Array ixf x) = Array (\tix -> ixf ((gwd - bid - 1) + tix)) x
 ----------------------------------------------------------------------------
 -- 
 
-myKern :: Shared.Array (Exp Word32) -> Kernel (Shared.Array (Exp Word32))
+myKern :: Array (Exp Int) -> Kernel (Array (Exp Int))
 myKern = pure Lib.rev ->- sync  ->- sync ->- sync                                           
   
 
@@ -85,7 +84,7 @@ data KC a where
   
   -- Map a single input array - single output array kernel over a global array  
   LaunchUn :: (Scalar a, Scalar b) 
-              => Int                   -- number of blocks 
+              => Int                   -- number of blocks  (Could be a runtime value, perhaps)
               -> Int                   -- number of Elements that this kernel process
               -> (Array (Exp a) -> Array (Exp a))  -- Transform array on input
               -> (Array (Exp a) -> Kernel (Array (Exp b))) -- kernel to apply
@@ -96,41 +95,43 @@ data KC a where
              
 
 
-             
-----------------------------------------------------------------------------
--- Run a KC 
-{-   
-run k = putStrLn$ snd$ runKC k  
+----------------------------------------------------------------------------             
 
-runKC :: KC a -> (a,String) 
-runKC (Input arr) = (arr,"An input\n")
-
-runKC (LaunchUn blocks elems inf k outf i) = (GlobalArray 100,prev ++ launch ++  kernel) 
-   where                       
-     launch = "Launching a Kernel: \n"
-     (inp,prev) = runKC i
-     kernel = CUDA.genKernel_ "generated" 
-                              ((pure inf ->- k ->- pure outf ->- pOutput) (Array (\ix -> index "input0" ix) (fromIntegral elems)))
-                              (fromIntegral elems) -- assumes length == threads  
-                              [("input0",Word32)]
-                              [("output0",Word32)] 
-     
- -}     
-type KernelMap = Map.Map String (String,Word32,Word32) -- Kernel code to Kernel code map ... awful right ?  
-
+-- Kernel code to Kernel code map ... awful right ?  
+type KernelMap = Map.Map String (String, Word32,  Word32) 
+--                               code    threads  shared
 ----------------------------------------------------------------------------     
 -- generate coordination code + kernels 
+
+
+run :: (GlobalArray (Exp Int) -> KC ()) -> (KernelMap,String)
+run coord = (km,head ++ body ++ end )
+  where 
+    ((_,_,km),body) = runKCM (coord (GlobalArray undefined)) (0,0) (Map.empty)
+    head = "void coord(int *input0, int input0size,int *output0, int output0size);\n{"
+    end  = "\n}"
+
+
+run_ k = 
+    "/* Kernels */\n" ++
+    concat  kernels ++
+    "/* Coordination */\n" ++
+    prg 
+      where 
+        kernels = map (\(x,_,_) -> x) (Map.elems km) -- 
+        (km,prg) = run k 
+        
+
 run' k = 
   do 
     putStrLn "/* Kernels */"  
     sequence_$ map putStrLn kernels
     putStrLn "/* Coordination */" 
-    putStrLn prg 
-
-    
+    putStrLn prg     
       where 
         kernels = map (\(x,_,_) -> x) (Map.elems km) -- 
         ((_,_,km),prg) = runKCM k (0,0) (Map.empty)                 
+        
         
 -- will only work for integers right now...  (fix , how )                 
 runKCM :: KC a -> (Int,Int) -> KernelMap -> ((a,(Int,Int),KernelMap) ,String)
@@ -139,8 +140,6 @@ runKCM (WriteResult arr) ids km = (((),ids',km'),prg ++ (writeResult res 256)) -
   where ((res,ids',km'),prg) = runKCM arr ids km 
 runKCM (LaunchUn blocks elems inf k outf i) ids km = result
   where 
-
-    -- threads = 256 -- find true number 
     
     -- Generate kernel for lookup purposese
     kern = ((pure inf ->- k ->- pure outf ->- pOutput) (Array (\ix -> index "input0" ix) (fromIntegral elems)))
@@ -149,7 +148,7 @@ runKCM (LaunchUn blocks elems inf k outf i) ids km = result
                              kern
                              [("input0",Int)]  -- type ??
                              [("output0",Int)] 
-    -- threads = threadsNeeded kernp
+    
                              
     (newids,newkm,newprg) = 
       -- Has Kernel already been generated ? 
@@ -157,20 +156,21 @@ runKCM (LaunchUn blocks elems inf k outf i) ids km = result
         Nothing -> 
           let id = snd ids'  
               -- Generate kernel again. with different name, for insertion. 
+              -- (This should be improved upon) 
               kernelIns =  CUDA.genKernel_ ("gen"  ++ show id)
                              kern
-                             [("input0",Int)]  -- type ??
-                             [("output0",Int)] 
+                             [("input0",Pointer Int)]  -- type ??
+                             [("output0",Pointer Int)] 
               (_,threads,sm) = kernelIns               
                               
           in  ((fst ids',id+1),Map.insert kernel kernelIns km', call ("gen" ++ show id) blocks threads sm (idOf res) (idOf newImm) ) --add one kernel 
         (Just (kernNom,threads,sm)) -> (ids',km',call kernNom blocks threads sm (idOf res) (idOf newImm)) --return excisting
      
-    -- (newprg,_,_) = kernelInfo  
-      
+ 
+     -- Generate the input to this stage  
     ((res,ids', km'),prg) = runKCM i ids km
     newImm = GlobalArray (fst newids)
-    allocprg = allocImm newImm (fromIntegral (len outArr)*blocks) -- What is this size really ?    CHEATING 
+    allocprg = allocImm newImm (fromIntegral (len outArr)*blocks) 
     
     result = ((newImm ,(fst newids +1,snd newids),newkm),allocprg ++ "\n"++ prg ++ " \n" ++ newprg ++ "\n")
   
@@ -221,10 +221,9 @@ pOutput arr =
   
 ----------------------------------------------------------------------------
 -- tests.
-    
-test2 :: GlobalArray (Exp Word32) -> KC () -- KC (GlobalArray (Exp (Word32))) 
-test2 arr = let arr' = Input arr 
-                imm  = LaunchUn 10 256 id myKern id arr'
-                imm2 = LaunchUn 10 256 revblocks myKern id imm
+test :: GlobalArray (Exp Int) -> KC ()
+test arr = let arr' = Input arr 
+               imm  = LaunchUn 10 256 id myKern id arr'
+               imm2 = LaunchUn 10 256 revblocks myKern id imm
             in WriteResult imm2
                 
