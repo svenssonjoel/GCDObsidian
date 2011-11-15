@@ -66,6 +66,7 @@ writegen k s f =
 
 runs1 k = writegen k "tsort1" tsort1
 
+printtsort1 k = putStrLn $ CUDA.genKernel "tsort1" (compose (tsort1 k)) (namedArray "inp" (2^k))
 
 
 
@@ -84,6 +85,7 @@ tsort2 n = concat [tmerge2 i | i <- [1..n]]
 
 -- Unfortunately, now I have to use composeP.
 writes2 k = writeFile "tsort2.cu" $ CUDA.genKernel "tsort2" (composeP (tsort2 k)) (namedArray "inp" (2^k))
+printtsort2 k = putStrLn $ CUDA.genKernel "tsort2" (composeP (tsort2 k)) (namedArray "inp" (2^k))
 
 
 
