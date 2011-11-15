@@ -20,8 +20,7 @@ import Prelude hiding (zipWith,sum )
 ---------------------------------------------------------------------------
 -- MapFusion example
 mapFusion :: Array IntE -> Kernel (Array IntE) 
-mapFusion = pure (f
-                  map (+1) . fmap (*2)) 
+mapFusion = pure (fmap (+1) . fmap (*2)) 
 
 input1 :: Array IntE 
 input1 = namedArray "apa" 32
