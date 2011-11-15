@@ -62,6 +62,8 @@ import qualified Data.Map as Map
 import Prelude hiding (zipWith)
 
 
+import Control.Monad.State
+import Control.Monad.Writer
 
 bid :: Exp Word32
 bid = variable "bid"
@@ -310,3 +312,138 @@ reduceLarge arr = let arr' = Input arr
 -- output cuda as a string 
 getReduceLarge = putStrLn$ run_ reduceLarge
 
+
+
+
+----------------------------------------------------------------------------
+-- Experiment2 
+
+
+
+    
+data CPUArray a = CPUArray {cpuArrayName :: String,
+                            cpuArrayType :: Type,
+                            cpuArraySize :: Exp Word32}
+                  
+data GPUArray a = GPUArray {gpuArrayName :: String,
+                            gpuArrayType :: Type,
+                            gpuArraySize :: Exp Word32,
+                            gpuArrayPerm :: (Exp Word32 -> Exp Word32)}
+    
+data M a = M a                 
+instance Monad M where 
+  return a = M a 
+  (>>=) (M a) f = f a 
+  
+  
+
+  
+data CoordState = CoordState {kernelMap :: KernelMap,   
+                              nextId    :: Integer}
+--Why do I always fall into doing things this way ? 
+type Coord a = StateT CoordState (Writer CoordC)  a
+
+newId :: Coord Integer
+newId = do 
+  s <- get 
+  let i = nextId s 
+  put (s {nextId = i+1})
+  return i
+  
+--    (String, String, Word32,  Word32) 
+--     code    name    threads  shared       
+  
+  
+--               code       code   name                           name 
+insertKernel :: String -> (String,String,Word32,Word32) -> Coord ()
+insertKernel prot cand = 
+  do 
+    s <- get 
+    let km = kernelMap s 
+        km' = Map.insert prot cand km 
+    put (s {kernelMap = km'})
+    
+lookupKernel :: String -> Coord (Maybe (String,String,Word32,Word32)) 
+lookupKernel prot = 
+  do 
+    s <- get 
+    let km = kernelMap s 
+    return (Map.lookup prot km) 
+    
+          
+                  
+copyIn :: GPUArray e -> CPUArray e -> Coord () 
+copyIn gpuArr cpuArr = 
+  do    
+    let gpuV = (CVar (gpuArrayName gpuArr) (gpuArrayType gpuArr))
+        cpuV = (CVar (cpuArrayName cpuArr) (cpuArrayType cpuArr)) 
+        code = MemCpy gpuV cpuV (gpuArraySize gpuArr)
+    tell code               
+  
+        
+
+copyOut :: CPUArray e -> GPUArray e -> Coord ()
+copyOut cpuArr gpuArr = 
+  do    
+    let gpuV = (CVar (gpuArrayName gpuArr) (gpuArrayType gpuArr))
+        cpuV = (CVar (cpuArrayName cpuArr) (cpuArrayType cpuArr)) 
+        code = MemCpy cpuV gpuV (cpuArraySize cpuArr)
+    tell code               
+  
+
+newArr :: Type -> Exp Word32 -> Coord (GPUArray e) 
+newArr t bytes = 
+  do 
+    ident <- newId 
+    let gpuV = (CVar ("imm"++show ident) t)
+    tell $ Malloc gpuV bytes
+    return (GPUArray ("imm"++show ident)
+                     t
+                     bytes 
+                     id)
+
+launch :: Word32 
+          -> Word32 
+          -> (Array (Exp a) -> Kernel (Array (Exp b)))
+          -> GPUArray a 
+          -> GPUArray b
+          -> Coord ()
+launch = undefined 
+          
+         
+permute :: (Exp Word32 -> Exp Word32) -> GPUArray e -> Coord (GPUArray e) 
+permute = undefined 
+         
+silly1 arr out =          
+  do 
+    arr' <- newArr (cpuArrayType arr) (10*256*4)
+    
+    copyIn arr' arr 
+    
+    imm  <- newArr Int (10*256*4)  -- Array with type of return type of kernel
+    imm2 <- newArr Int (10*256*4)  
+    
+    launch 10 256 (sync) arr' imm 
+    
+    imm' <- permute (\ix -> 10*256 - 1 - ix) imm 
+    launch 10 256 (sync) imm' imm2 
+    
+    copyOut out imm2
+    
+    
+
+         
+reduceLarge2 arr out =  
+  do
+    arr' <- newArr (cpuArrayType arr) (256*256*4)
+    
+    copyIn  arr' arr 
+    imm  <- newArr Int (256*4) 
+    imm2 <- newArr Int (1*4)    
+    
+    launch 256 256 reduceAddInt arr' imm 
+    
+    launch 1   256 reduceAddInt imm  imm2 
+    
+    copyOut out imm2 
+         

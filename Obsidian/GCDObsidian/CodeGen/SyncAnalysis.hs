@@ -55,6 +55,11 @@ import qualified Data.Map as Map
      
      * The implementation does not understand nested ForAll loops.
        If we ever use nested ForAlls this needs to change. 
+
+
+     ERROR!!! 
+       My assumptions about when it was safe not to sync are faulty! 
+       This needs more thought!
       
 -} 
 
@@ -70,12 +75,16 @@ type SAMap = Map.Map Name TEMap
 --       This might change in the future. 
 warpSize = 32
 
-
+--syncAnalysis :: Program a -> Program a
+--syncAnalysis prg = prg
 
 {- 
   input program should have unique names for all intermediate arrays
 -} 
+syncAnalysis :: Program a -> Program a
+syncAnalysis prg = prg 
 
+{-
 syncAnalysis :: Program a -> Program a
 syncAnalysis prg = snd$ syncAnalysis' prg Map.empty
   where 
@@ -96,54 +105,56 @@ syncAnalysis prg = snd$ syncAnalysis' prg Map.empty
 
 
     analyseForAll (ForAll g n) sam = (sam'',if sNeeded
-                                            then Synchronize True *>* ForAll g n
+                                            then Synchronize True *>* ForAll g n 
                                             else ForAll g n ) 
                                  -- error$ show arrloc -- (sam',prg) 
       where                                   
         threads   = [0..(n-1)]
-        gPrgs     = [g (fromIntegral tid) | tid <- threads] 
+        gPrgs     = [(g (fromIntegral tid),tid) | tid <- threads] 
     
         arrloc''   = concatMap getSourceIndices gPrgs  
         arrloc'    = filter pred arrloc''
         arrloc     = map evalSource arrloc'
-        targetMaps = map getTargIndex (zip gPrgs threads)
+        targetMaps = map getTargIndex gPrgs -- (zip gPrgs threads)
     
         (sam',sNeeded) = conflict arrloc sam
-        sam''          = addMappings targetMaps sam'
-    
+
+        sam''          =  addMappings targetMaps sam'
+         
     
         eval (Literal a) = a 
         evalSource (n,(a,ix)) = (n,(a,eval ix))
         pred (_,(x,_)) = not ("input" `isPrefixOf` x) 
     
-
+-}
 -- TODO: look at the special case below. (Make more beautiful) 
-getSourceIndices :: Program a -> [(Word32,(Name,Exp Word32))] 
-getSourceIndices (Assign nom (Literal ix) a) = map (\y -> (ix,y)) (collectArrayIndexPairs a)
+getSourceIndices :: (Program a,Word32) -> [(Word32,(Name,Exp Word32))] 
+getSourceIndices (Assign nom (Literal ix) a,tid) = map (\y -> (tid,y)) (collectArrayIndexPairs a)
 -- Special case! 
-getSourceIndices (Assign nom ix _) = 
-  if isPrefixOf "output" nom || 
+getSourceIndices (Assign nom ix _,tid) = 
+  if isPrefixOf "result" nom || 
      isPrefixOf "input" nom then [] 
   else error$ "getSourceIndices: " ++ show ix ++ " is not Literal"
 getSourceIndices _ = error "getSourceIndices: Can only handle a very simple case so far"
 
 -- What array are we computing now, 
 -- create the threadId -> Ix map for that array 
-getTargIndex ((Assign nom (Literal ix) a),tid) = (nom,(ix,tid)) 
+getTargIndex ((Assign nom (Literal ix) a),tid) = (nom,(ix,tid))--(nom,(ix,tid)) 
 
 -- What characterizes a conflict  
 conflict :: [(Word32,(Name,Word32))] -> SAMap -> (SAMap,Bool)
 conflict [] sam = (sam,False) 
 conflict ((thread,(arr,ix)):xs) sam = 
   case Map.lookup arr sam of 
-    Nothing  -> conflict xs sam 
+    Nothing  -> error$ "this should not be possible" ++ "\n" ++ show ix ++ "\n" ++ show sam  -- conflict xs sam 
     (Just m) -> case Map.lookup ix m of  
                   Nothing -> error$ "this should not be possible" ++ "\n" ++ show ix ++ "\n" ++ show m 
                   (Just j) -> 
-                    if (thread `div` warpSize /= j `div` warpSize)
+                              
+                    if (thread `div` 32 /= j `div` 32)
                     then (Map.empty,True) -- We have a conflict
                     else conflict xs sam  
-
+                         
                       
 -- What thread is computing what "now".
 -- Add that info to the SAMap

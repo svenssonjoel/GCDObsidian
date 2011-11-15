@@ -10,4 +10,4 @@ data Type = Bool | Int | Word8 | Word16 | Word32 | Word64
           | Pointer Type   -- C thing 
           | Global Type    -- OpenCL thing
           | Local Type     -- OpenCL thing
-          deriving Show
+          deriving (Eq, Show)

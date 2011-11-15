@@ -113,7 +113,7 @@ genKernel name kernel a = cuda
     (outCode,outs)   = 
       runInOut (writeOutputs threadBudget res {-nosync-}) (0,[])
 
-    c' = sc *>* outCode 
+    c' = sc {-*>* Synchronize True-} *>* outCode 
     sc = c -- remove
     
     cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
