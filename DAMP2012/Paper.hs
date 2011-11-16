@@ -77,7 +77,7 @@ printtsort1 k = putStrLn $ CUDA.genKernel "tsort1" (compose (tsort1 k)) (namedAr
 
 tmerge2 :: Int -> [Array IntE -> ArrayP IntE]
 tmerge2 n = vee2 (n-1) min max : [(ilv2 (n-i) min max)| i <- [2..n]]
-
+printtmerge2 k = putStrLn $ CUDA.genKernel "tmerge2" (composeP (tmerge2 k)) (namedArray "inp" (2^k))
 
 tsort2 :: Int -> [Array IntE -> ArrayP IntE]
 tsort2 n = concat [tmerge2 i | i <- [1..n]]

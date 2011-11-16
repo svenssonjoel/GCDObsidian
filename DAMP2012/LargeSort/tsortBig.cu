@@ -14,14 +14,156 @@
 #define SMALL_SIZE 512
 #define THREADS 256
 #define LOG_SMALL_SIZE 9
+#define LOG_LARGE_SIZE 20
 
 //* kernel for sorting small fixed size arrays all on the GPU
 
-__global__ void tsortSmall(
-    uint *d_input,
-    uint *d_output)
-{
+//__global__ void tsortSmall(int *d_input,int *d_output)
+//{
 
+//}
+__global__ void tsortSmall(int *input0,int *result0){
+  unsigned int tid = threadIdx.x;
+  unsigned int bid = blockIdx.x;
+  extern __shared__ __attribute__ ((aligned (16))) unsigned char sbase[];
+  (( int *)sbase)[(tid<<1)] = min(input0[((bid*512)+(tid<<1))],input0[((bid*512)+((tid<<1)^1))]);
+  (( int *)sbase)[((tid<<1)^1)] = max(input0[((bid*512)+(tid<<1))],input0[((bid*512)+((tid<<1)^1))]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967294))] = min((( int *)sbase)[(tid+(tid&4294967294))],(( int *)sbase)[((tid+(tid&4294967294))^3)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967294))^3)] = max((( int *)sbase)[(tid+(tid&4294967294))],(( int *)sbase)[((tid+(tid&4294967294))^3)]);
+  __syncthreads();
+  (( int *)sbase)[(tid<<1)] = min((( int *)(sbase+2048))[(tid<<1)],(( int *)(sbase+2048))[((tid<<1)^1)]);
+  (( int *)sbase)[((tid<<1)^1)] = max((( int *)(sbase+2048))[(tid<<1)],(( int *)(sbase+2048))[((tid<<1)^1)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967292))] = min((( int *)sbase)[(tid+(tid&4294967292))],(( int *)sbase)[((tid+(tid&4294967292))^7)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967292))^7)] = max((( int *)sbase)[(tid+(tid&4294967292))],(( int *)sbase)[((tid+(tid&4294967292))^7)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967294))] = min((( int *)(sbase+2048))[(tid+(tid&4294967294))],(( int *)(sbase+2048))[((tid+(tid&4294967294))^2)]);
+  (( int *)sbase)[((tid+(tid&4294967294))^2)] = max((( int *)(sbase+2048))[(tid+(tid&4294967294))],(( int *)(sbase+2048))[((tid+(tid&4294967294))^2)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid<<1)] = min((( int *)sbase)[(tid<<1)],(( int *)sbase)[((tid<<1)^1)]);
+  (( int *)(sbase + 2048))[((tid<<1)^1)] = max((( int *)sbase)[(tid<<1)],(( int *)sbase)[((tid<<1)^1)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967288))] = min((( int *)(sbase+2048))[(tid+(tid&4294967288))],(( int *)(sbase+2048))[((tid+(tid&4294967288))^15)]);
+  (( int *)sbase)[((tid+(tid&4294967288))^15)] = max((( int *)(sbase+2048))[(tid+(tid&4294967288))],(( int *)(sbase+2048))[((tid+(tid&4294967288))^15)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967292))] = min((( int *)sbase)[(tid+(tid&4294967292))],(( int *)sbase)[((tid+(tid&4294967292))^4)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967292))^4)] = max((( int *)sbase)[(tid+(tid&4294967292))],(( int *)sbase)[((tid+(tid&4294967292))^4)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967294))] = min((( int *)(sbase+2048))[(tid+(tid&4294967294))],(( int *)(sbase+2048))[((tid+(tid&4294967294))^2)]);
+  (( int *)sbase)[((tid+(tid&4294967294))^2)] = max((( int *)(sbase+2048))[(tid+(tid&4294967294))],(( int *)(sbase+2048))[((tid+(tid&4294967294))^2)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid<<1)] = min((( int *)sbase)[(tid<<1)],(( int *)sbase)[((tid<<1)^1)]);
+  (( int *)(sbase + 2048))[((tid<<1)^1)] = max((( int *)sbase)[(tid<<1)],(( int *)sbase)[((tid<<1)^1)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967280))] = min((( int *)(sbase+2048))[(tid+(tid&4294967280))],(( int *)(sbase+2048))[((tid+(tid&4294967280))^31)]);
+  (( int *)sbase)[((tid+(tid&4294967280))^31)] = max((( int *)(sbase+2048))[(tid+(tid&4294967280))],(( int *)(sbase+2048))[((tid+(tid&4294967280))^31)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967288))] = min((( int *)sbase)[(tid+(tid&4294967288))],(( int *)sbase)[((tid+(tid&4294967288))^8)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967288))^8)] = max((( int *)sbase)[(tid+(tid&4294967288))],(( int *)sbase)[((tid+(tid&4294967288))^8)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967292))] = min((( int *)(sbase+2048))[(tid+(tid&4294967292))],(( int *)(sbase+2048))[((tid+(tid&4294967292))^4)]);
+  (( int *)sbase)[((tid+(tid&4294967292))^4)] = max((( int *)(sbase+2048))[(tid+(tid&4294967292))],(( int *)(sbase+2048))[((tid+(tid&4294967292))^4)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967294))] = min((( int *)sbase)[(tid+(tid&4294967294))],(( int *)sbase)[((tid+(tid&4294967294))^2)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967294))^2)] = max((( int *)sbase)[(tid+(tid&4294967294))],(( int *)sbase)[((tid+(tid&4294967294))^2)]);
+  __syncthreads();
+  (( int *)sbase)[(tid<<1)] = min((( int *)(sbase+2048))[(tid<<1)],(( int *)(sbase+2048))[((tid<<1)^1)]);
+  (( int *)sbase)[((tid<<1)^1)] = max((( int *)(sbase+2048))[(tid<<1)],(( int *)(sbase+2048))[((tid<<1)^1)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967264))] = min((( int *)sbase)[(tid+(tid&4294967264))],(( int *)sbase)[((tid+(tid&4294967264))^63)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967264))^63)] = max((( int *)sbase)[(tid+(tid&4294967264))],(( int *)sbase)[((tid+(tid&4294967264))^63)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967280))] = min((( int *)(sbase+2048))[(tid+(tid&4294967280))],(( int *)(sbase+2048))[((tid+(tid&4294967280))^16)]);
+  (( int *)sbase)[((tid+(tid&4294967280))^16)] = max((( int *)(sbase+2048))[(tid+(tid&4294967280))],(( int *)(sbase+2048))[((tid+(tid&4294967280))^16)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967288))] = min((( int *)sbase)[(tid+(tid&4294967288))],(( int *)sbase)[((tid+(tid&4294967288))^8)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967288))^8)] = max((( int *)sbase)[(tid+(tid&4294967288))],(( int *)sbase)[((tid+(tid&4294967288))^8)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967292))] = min((( int *)(sbase+2048))[(tid+(tid&4294967292))],(( int *)(sbase+2048))[((tid+(tid&4294967292))^4)]);
+  (( int *)sbase)[((tid+(tid&4294967292))^4)] = max((( int *)(sbase+2048))[(tid+(tid&4294967292))],(( int *)(sbase+2048))[((tid+(tid&4294967292))^4)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967294))] = min((( int *)sbase)[(tid+(tid&4294967294))],(( int *)sbase)[((tid+(tid&4294967294))^2)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967294))^2)] = max((( int *)sbase)[(tid+(tid&4294967294))],(( int *)sbase)[((tid+(tid&4294967294))^2)]);
+  __syncthreads();
+  (( int *)sbase)[(tid<<1)] = min((( int *)(sbase+2048))[(tid<<1)],(( int *)(sbase+2048))[((tid<<1)^1)]);
+  (( int *)sbase)[((tid<<1)^1)] = max((( int *)(sbase+2048))[(tid<<1)],(( int *)(sbase+2048))[((tid<<1)^1)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967232))] = min((( int *)sbase)[(tid+(tid&4294967232))],(( int *)sbase)[((tid+(tid&4294967232))^127)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967232))^127)] = max((( int *)sbase)[(tid+(tid&4294967232))],(( int *)sbase)[((tid+(tid&4294967232))^127)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967264))] = min((( int *)(sbase+2048))[(tid+(tid&4294967264))],(( int *)(sbase+2048))[((tid+(tid&4294967264))^32)]);
+  (( int *)sbase)[((tid+(tid&4294967264))^32)] = max((( int *)(sbase+2048))[(tid+(tid&4294967264))],(( int *)(sbase+2048))[((tid+(tid&4294967264))^32)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967280))] = min((( int *)sbase)[(tid+(tid&4294967280))],(( int *)sbase)[((tid+(tid&4294967280))^16)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967280))^16)] = max((( int *)sbase)[(tid+(tid&4294967280))],(( int *)sbase)[((tid+(tid&4294967280))^16)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967288))] = min((( int *)(sbase+2048))[(tid+(tid&4294967288))],(( int *)(sbase+2048))[((tid+(tid&4294967288))^8)]);
+  (( int *)sbase)[((tid+(tid&4294967288))^8)] = max((( int *)(sbase+2048))[(tid+(tid&4294967288))],(( int *)(sbase+2048))[((tid+(tid&4294967288))^8)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967292))] = min((( int *)sbase)[(tid+(tid&4294967292))],(( int *)sbase)[((tid+(tid&4294967292))^4)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967292))^4)] = max((( int *)sbase)[(tid+(tid&4294967292))],(( int *)sbase)[((tid+(tid&4294967292))^4)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967294))] = min((( int *)(sbase+2048))[(tid+(tid&4294967294))],(( int *)(sbase+2048))[((tid+(tid&4294967294))^2)]);
+  (( int *)sbase)[((tid+(tid&4294967294))^2)] = max((( int *)(sbase+2048))[(tid+(tid&4294967294))],(( int *)(sbase+2048))[((tid+(tid&4294967294))^2)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid<<1)] = min((( int *)sbase)[(tid<<1)],(( int *)sbase)[((tid<<1)^1)]);
+  (( int *)(sbase + 2048))[((tid<<1)^1)] = max((( int *)sbase)[(tid<<1)],(( int *)sbase)[((tid<<1)^1)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967168))] = min((( int *)(sbase+2048))[(tid+(tid&4294967168))],(( int *)(sbase+2048))[((tid+(tid&4294967168))^255)]);
+  (( int *)sbase)[((tid+(tid&4294967168))^255)] = max((( int *)(sbase+2048))[(tid+(tid&4294967168))],(( int *)(sbase+2048))[((tid+(tid&4294967168))^255)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967232))] = min((( int *)sbase)[(tid+(tid&4294967232))],(( int *)sbase)[((tid+(tid&4294967232))^64)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967232))^64)] = max((( int *)sbase)[(tid+(tid&4294967232))],(( int *)sbase)[((tid+(tid&4294967232))^64)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967264))] = min((( int *)(sbase+2048))[(tid+(tid&4294967264))],(( int *)(sbase+2048))[((tid+(tid&4294967264))^32)]);
+  (( int *)sbase)[((tid+(tid&4294967264))^32)] = max((( int *)(sbase+2048))[(tid+(tid&4294967264))],(( int *)(sbase+2048))[((tid+(tid&4294967264))^32)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967280))] = min((( int *)sbase)[(tid+(tid&4294967280))],(( int *)sbase)[((tid+(tid&4294967280))^16)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967280))^16)] = max((( int *)sbase)[(tid+(tid&4294967280))],(( int *)sbase)[((tid+(tid&4294967280))^16)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967288))] = min((( int *)(sbase+2048))[(tid+(tid&4294967288))],(( int *)(sbase+2048))[((tid+(tid&4294967288))^8)]);
+  (( int *)sbase)[((tid+(tid&4294967288))^8)] = max((( int *)(sbase+2048))[(tid+(tid&4294967288))],(( int *)(sbase+2048))[((tid+(tid&4294967288))^8)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967292))] = min((( int *)sbase)[(tid+(tid&4294967292))],(( int *)sbase)[((tid+(tid&4294967292))^4)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967292))^4)] = max((( int *)sbase)[(tid+(tid&4294967292))],(( int *)sbase)[((tid+(tid&4294967292))^4)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967294))] = min((( int *)(sbase+2048))[(tid+(tid&4294967294))],(( int *)(sbase+2048))[((tid+(tid&4294967294))^2)]);
+  (( int *)sbase)[((tid+(tid&4294967294))^2)] = max((( int *)(sbase+2048))[(tid+(tid&4294967294))],(( int *)(sbase+2048))[((tid+(tid&4294967294))^2)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid<<1)] = min((( int *)sbase)[(tid<<1)],(( int *)sbase)[((tid<<1)^1)]);
+  (( int *)(sbase + 2048))[((tid<<1)^1)] = max((( int *)sbase)[(tid<<1)],(( int *)sbase)[((tid<<1)^1)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967040))] = min((( int *)(sbase+2048))[(tid+(tid&4294967040))],(( int *)(sbase+2048))[((tid+(tid&4294967040))^511)]);
+  (( int *)sbase)[((tid+(tid&4294967040))^511)] = max((( int *)(sbase+2048))[(tid+(tid&4294967040))],(( int *)(sbase+2048))[((tid+(tid&4294967040))^511)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967168))] = min((( int *)sbase)[(tid+(tid&4294967168))],(( int *)sbase)[((tid+(tid&4294967168))^128)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967168))^128)] = max((( int *)sbase)[(tid+(tid&4294967168))],(( int *)sbase)[((tid+(tid&4294967168))^128)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967232))] = min((( int *)(sbase+2048))[(tid+(tid&4294967232))],(( int *)(sbase+2048))[((tid+(tid&4294967232))^64)]);
+  (( int *)sbase)[((tid+(tid&4294967232))^64)] = max((( int *)(sbase+2048))[(tid+(tid&4294967232))],(( int *)(sbase+2048))[((tid+(tid&4294967232))^64)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967264))] = min((( int *)sbase)[(tid+(tid&4294967264))],(( int *)sbase)[((tid+(tid&4294967264))^32)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967264))^32)] = max((( int *)sbase)[(tid+(tid&4294967264))],(( int *)sbase)[((tid+(tid&4294967264))^32)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967280))] = min((( int *)(sbase+2048))[(tid+(tid&4294967280))],(( int *)(sbase+2048))[((tid+(tid&4294967280))^16)]);
+  (( int *)sbase)[((tid+(tid&4294967280))^16)] = max((( int *)(sbase+2048))[(tid+(tid&4294967280))],(( int *)(sbase+2048))[((tid+(tid&4294967280))^16)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967288))] = min((( int *)sbase)[(tid+(tid&4294967288))],(( int *)sbase)[((tid+(tid&4294967288))^8)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967288))^8)] = max((( int *)sbase)[(tid+(tid&4294967288))],(( int *)sbase)[((tid+(tid&4294967288))^8)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967292))] = min((( int *)(sbase+2048))[(tid+(tid&4294967292))],(( int *)(sbase+2048))[((tid+(tid&4294967292))^4)]);
+  (( int *)sbase)[((tid+(tid&4294967292))^4)] = max((( int *)(sbase+2048))[(tid+(tid&4294967292))],(( int *)(sbase+2048))[((tid+(tid&4294967292))^4)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967294))] = min((( int *)sbase)[(tid+(tid&4294967294))],(( int *)sbase)[((tid+(tid&4294967294))^2)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967294))^2)] = max((( int *)sbase)[(tid+(tid&4294967294))],(( int *)sbase)[((tid+(tid&4294967294))^2)]);
+  __syncthreads();
+  (( int *)sbase)[(tid<<1)] = min((( int *)(sbase+2048))[(tid<<1)],(( int *)(sbase+2048))[((tid<<1)^1)]);
+  (( int *)sbase)[((tid<<1)^1)] = max((( int *)(sbase+2048))[(tid<<1)],(( int *)(sbase+2048))[((tid<<1)^1)]);
+  __syncthreads();
+  result0[((bid*512)+tid)] = (( int *)sbase)[tid];
+  result0[((bid*512)+(tid+256))] = (( int *)sbase)[(tid+256)];
+  
 }
 
 //* Will be generated from Obsidian for SMALL_SIZE inputs
@@ -30,11 +172,44 @@ __global__ void tsortSmall(
 
 //* kernel for merging small fixed size arrays all on the GPU
 
-__global__ void tmergeSmall(
-    uint *d_input,
-    uint *d_output)
-{
+//__global__ void tmergeSmall(int *d_input,int *d_output)
+//{
 
+  //}
+__global__ void tmergeSmall(int *input0,int *result0){
+  unsigned int tid = threadIdx.x;
+  unsigned int bid = blockIdx.x;
+  extern __shared__ __attribute__ ((aligned (16))) unsigned char sbase[];
+  (( int *)sbase)[(tid+(tid&4294967040))] = min(input0[((bid*512)+(tid+(tid&4294967040)))],input0[((bid*512)+((tid+(tid&4294967040))^511))]);
+  (( int *)sbase)[((tid+(tid&4294967040))^511)] = max(input0[((bid*512)+(tid+(tid&4294967040)))],input0[((bid*512)+((tid+(tid&4294967040))^511))]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967168))] = min((( int *)sbase)[(tid+(tid&4294967168))],(( int *)sbase)[((tid+(tid&4294967168))^128)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967168))^128)] = max((( int *)sbase)[(tid+(tid&4294967168))],(( int *)sbase)[((tid+(tid&4294967168))^128)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967232))] = min((( int *)(sbase+2048))[(tid+(tid&4294967232))],(( int *)(sbase+2048))[((tid+(tid&4294967232))^64)]);
+  (( int *)sbase)[((tid+(tid&4294967232))^64)] = max((( int *)(sbase+2048))[(tid+(tid&4294967232))],(( int *)(sbase+2048))[((tid+(tid&4294967232))^64)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967264))] = min((( int *)sbase)[(tid+(tid&4294967264))],(( int *)sbase)[((tid+(tid&4294967264))^32)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967264))^32)] = max((( int *)sbase)[(tid+(tid&4294967264))],(( int *)sbase)[((tid+(tid&4294967264))^32)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967280))] = min((( int *)(sbase+2048))[(tid+(tid&4294967280))],(( int *)(sbase+2048))[((tid+(tid&4294967280))^16)]);
+  (( int *)sbase)[((tid+(tid&4294967280))^16)] = max((( int *)(sbase+2048))[(tid+(tid&4294967280))],(( int *)(sbase+2048))[((tid+(tid&4294967280))^16)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967288))] = min((( int *)sbase)[(tid+(tid&4294967288))],(( int *)sbase)[((tid+(tid&4294967288))^8)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967288))^8)] = max((( int *)sbase)[(tid+(tid&4294967288))],(( int *)sbase)[((tid+(tid&4294967288))^8)]);
+  __syncthreads();
+  (( int *)sbase)[(tid+(tid&4294967292))] = min((( int *)(sbase+2048))[(tid+(tid&4294967292))],(( int *)(sbase+2048))[((tid+(tid&4294967292))^4)]);
+  (( int *)sbase)[((tid+(tid&4294967292))^4)] = max((( int *)(sbase+2048))[(tid+(tid&4294967292))],(( int *)(sbase+2048))[((tid+(tid&4294967292))^4)]);
+  __syncthreads();
+  (( int *)(sbase + 2048))[(tid+(tid&4294967294))] = min((( int *)sbase)[(tid+(tid&4294967294))],(( int *)sbase)[((tid+(tid&4294967294))^2)]);
+  (( int *)(sbase + 2048))[((tid+(tid&4294967294))^2)] = max((( int *)sbase)[(tid+(tid&4294967294))],(( int *)sbase)[((tid+(tid&4294967294))^2)]);
+  __syncthreads();
+  (( int *)sbase)[(tid<<1)] = min((( int *)(sbase+2048))[(tid<<1)],(( int *)(sbase+2048))[((tid<<1)^1)]);
+  (( int *)sbase)[((tid<<1)^1)] = max((( int *)(sbase+2048))[(tid<<1)],(( int *)(sbase+2048))[((tid<<1)^1)]);
+  __syncthreads();
+  result0[((bid*512)+tid)] = (( int *)sbase)[tid];
+  result0[((bid*512)+(tid+256))] = (( int *)sbase)[(tid+256)];
+  
 }
 
 //* Will be generated from Obsidian for SMALL_SIZE inputs
@@ -59,13 +234,12 @@ __global__ void cSwap(
    
     uint ix = tid + (tid & ~(stride - 1));
 
-    //  int v1 = d_input[ix];
-    //int v2 = d_input[ix+ stride];
+    int v1 = d_input[ix];
+    int v2 = d_input[ix+ stride];
    
-    //d_output[ix] = min(v1,v2);
-    //d_output[ix + stride] = max(v1,v2);
-    d_output[tid] = d_input[tid];
-    
+    d_output[ix] = min(v1,v2);
+    d_output[ix + stride] = max(v1,v2);
+  
 }
 
 
@@ -73,30 +247,29 @@ __global__ void cSwap(
 
 //* Assume input and output arrays have length 2^lenLog 
 //* Small kernels work on SMALL_SIZE inputs. Assume lenLog >= ssLog > 0
-void bitonicSort(
-		 uint *d_input,
-		 uint *d_output,
-		 uint ssLog,
-		 uint lenLog)
+void sort(int *d_input,
+	  int *d_output)
+	  //	  uint ssLog,
+	  //  uint lenLog)
 {
    
-  uint arrayLength = 1 << lenLog;
-  uint diff = lenLog - LOG_SMALL_SIZE;
+  uint arrayLength = 1 << LOG_LARGE_SIZE;
+  uint diff = LOG_LARGE_SIZE - LOG_SMALL_SIZE;
   uint blocks = arrayLength / SMALL_SIZE;
   uint threads = SMALL_SIZE / 2;
     
 
     
-  tsortSmall<<<blocks, threads>>>(d_input, d_output);
+  tsortSmall<<<blocks, threads,4096>>>(d_input, d_output);
 
   for(int i = 0 ; i < diff ; i += 1){
   
     for(int j = i; j >= 0; j -= 1){ //Always true for uint
-      //cSwap<<<blocks,threads>>>(d_input, d_output,(1<<j)*SMALL_SIZE);
+      cSwap<<<blocks,threads/2,0>>>(d_input, d_output,(1<<j)*SMALL_SIZE);
       //* put correct synchronisation ? cudasynchronize();
     }
                 
-    tmergeSmall<<<blocks,threads>>>(d_input, d_output);
+    tmergeSmall<<<blocks,threads,4096>>>(d_input, d_output);
     
 
   }
@@ -115,7 +288,7 @@ int main(int argc, char *argv[]){
   result = (int*)malloc(LARGE_SIZE*sizeof(int));
   
   for (int i = 0; i < LARGE_SIZE; ++i) { 
-    values[i] = rand (); 
+    values[i] = rand () % 512; 
     // printf("%d ",values[i]);
   }
   
@@ -123,7 +296,8 @@ int main(int argc, char *argv[]){
   cudaMalloc((void**)&dvalues, sizeof(int) * LARGE_SIZE ); 
   cudaMalloc((void**)&dresult, sizeof(int) * LARGE_SIZE ); 
   cudaMemcpy(dvalues, values, sizeof(int) * LARGE_SIZE, cudaMemcpyHostToDevice);
-  cSwap<<<BLOCKS, SMALL_SIZE,0>>>((int*)dvalues,(int*)dresult,1);
+  //cSwap<<<BLOCKS/2, SMALL_SIZE,0>>>((int*)dvalues,(int*)dresult,1);
+  sort(dvalues,dresult);
   cudaMemcpy(result, dresult, sizeof(int) * LARGE_SIZE , cudaMemcpyDeviceToHost);
   cudaFree(dvalues);
   cudaFree(dresult);
@@ -133,15 +307,14 @@ int main(int argc, char *argv[]){
 
   int passed = 1;
   for (int i = 1; i < LARGE_SIZE; ++i) { 
-    if (i % 1000 == 0) {
-      printf("% d",result[i]);
-      printf("% d",result[i-1]);
-    } 
     if (result[i] < result[i-1]) 
       passed = 0; 
   }
   
-  printf("%s",passed ? "Passed!" : "Failed!");
+  for (int i = 0; i < 100; ++i) {
+    printf("%d ",result[i]);
+  }
+  printf("\n%s",passed ? "Passed!" : "Failed!");
 
   return 0;
 }
