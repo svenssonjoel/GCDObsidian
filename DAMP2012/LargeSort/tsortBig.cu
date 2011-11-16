@@ -297,8 +297,8 @@ int main(int argc, char *argv[]){
   cudaMalloc((void**)&dresult, sizeof(int) * LARGE_SIZE ); 
   cudaMemcpy(dvalues, values, sizeof(int) * LARGE_SIZE, cudaMemcpyHostToDevice);
   //cSwap<<<BLOCKS/2, SMALL_SIZE,0>>>((int*)dvalues,(int*)dresult,1);
-  sort(dvalues,dresult);
-  cudaMemcpy(result, dresult, sizeof(int) * LARGE_SIZE , cudaMemcpyDeviceToHost);
+  sort(dvalues,dvalues); // dresult);
+  cudaMemcpy(result, dvalues, sizeof(int) * LARGE_SIZE , cudaMemcpyDeviceToHost);
   cudaFree(dvalues);
   cudaFree(dresult);
  
@@ -307,8 +307,10 @@ int main(int argc, char *argv[]){
 
   int passed = 1;
   for (int i = 1; i < LARGE_SIZE; ++i) { 
-    if (result[i] < result[i-1]) 
+    if (result[i] < result[i-1]) {
+      printf("[%d](%d, %d) ",i, result[i], result[i-1]); 
       passed = 0; 
+    } 
   }
   
   for (int i = 0; i < 100; ++i) {
