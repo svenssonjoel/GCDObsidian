@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-typedef unsigned int word;
+
 
 // Code Generated with GCDObsidian
 __global__ void two(int *input0,int *result0){
@@ -15,10 +15,10 @@ __global__ void two(int *input0,int *result0){
 }
 
 int main(int argc, char **argv){
-  word values[32];
-  word result[32];
-  word * dvalues;
-  word * dresult;
+  int values[32];
+  int result[32];
+  int * dvalues;
+  int * dresult;
  
 
   //generate input data
@@ -26,11 +26,11 @@ int main(int argc, char **argv){
     values[i] = i; 
   }
 
-  cudaMalloc((void**)&dvalues, sizeof(word) * 32 ); 
-  cudaMalloc((void**)&dresult, sizeof(word) * 32 ); 
-  cudaMemcpy(dvalues, values, sizeof(word) * 32, cudaMemcpyHostToDevice);
-  two<<<1, 32,32* sizeof(unsigned int)>>>((int*)dvalues,(int*)dresult);
-  cudaMemcpy(result, dresult, sizeof(word) * 32 , cudaMemcpyDeviceToHost);
+  cudaMalloc((void**)&dvalues, sizeof(int) * 32 ); 
+  cudaMalloc((void**)&dresult, sizeof(int) * 32 ); 
+  cudaMemcpy(dvalues, values, sizeof(int) * 32, cudaMemcpyHostToDevice);
+  two<<<1, 32,32* sizeof(int)>>>((int*)dvalues,(int*)dresult);
+  cudaMemcpy(result, dresult, sizeof(int) * 32 , cudaMemcpyDeviceToHost);
   cudaFree(dvalues);
   cudaFree(dresult);
   
