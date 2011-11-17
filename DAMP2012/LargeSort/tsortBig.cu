@@ -232,7 +232,7 @@ __global__ void cSwap(
 
     int v1 = d_input[ix];
     int v2 = d_input[ix + stride];
-   
+    
     d_output[ix] = min(v1,v2);
     d_output[ix + stride] = max(v1,v2);
   
@@ -249,17 +249,18 @@ void sort(int *d_data)
   uint threads = SMALL_SIZE / 2;
    
   tsortSmall<<<blocks, threads,4096>>>(d_data, d_data);
-
-  for(int i = 0 ; i < diff ; i += 1){
+  //cudaThreadSynchronize();
   
-    for(int j = i; j >= 0; j -= 1){ //Always true for uint
+  for(int i = 0 ; i <= diff ; i += 1){ /*I made it <= and now it sorts? */
+  
+    for(int j = i; j >= 0; j -= 1){ 
       cSwap<<<blocks/2,threads*2,0>>>(d_data, d_data,(1<<j)*SMALL_SIZE);
       
-      // cudaThreadSynchronize();
+      //  cudaThreadSynchronize();
     }
                 
     tmergeSmall<<<blocks,threads,4096>>>(d_data, d_data);
-    
+    //cudaThreadSynchronize();
   }
 }
 
@@ -285,7 +286,6 @@ int main(int argc, char *argv[]){
   cudaMemcpy(result, dvalues, sizeof(int) * LARGE_SIZE , cudaMemcpyDeviceToHost);
   cudaFree(dvalues);
  
-
   /* Results ?*/
   int passed = 1;
   for (int i = 1; i < LARGE_SIZE; ++i) { 
@@ -294,10 +294,7 @@ int main(int argc, char *argv[]){
       passed = 0; 
     } 
   }
-  
-  for (int i = 0; i < 100; ++i) {
-    printf("%d ",result[i]);
-  }
+
   printf("\n%s",passed ? "Passed!" : "Failed!");
 
   return 0;
