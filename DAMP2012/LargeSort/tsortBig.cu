@@ -4,10 +4,6 @@
 
 
 #include <assert.h>
-// #include <cutil_inline.h>
-// #include "sortingNetworks_common.h"
-// #include "sortingNetworks_common.cuh"
-
 
 #define BLOCKS 2048 
 #define LARGE_SIZE BLOCKS*SMALL_SIZE
@@ -247,10 +243,7 @@ __global__ void cSwap(
 
 //* Assume input and output arrays have length 2^lenLog 
 //* Small kernels work on SMALL_SIZE inputs. Assume lenLog >= ssLog > 0
-void sort(int *d_input,
-	  int *d_output)
-	  //	  uint ssLog,
-	  //  uint lenLog)
+void sort(int *d_data)
 {
    
   uint arrayLength = 1 << LOG_LARGE_SIZE;
@@ -260,16 +253,17 @@ void sort(int *d_input,
     
 
     
-  tsortSmall<<<blocks, threads,4096>>>(d_input, d_output);
+  tsortSmall<<<blocks, threads,4096>>>(d_data, d_data);
 
   for(int i = 0 ; i < diff ; i += 1){
   
     for(int j = i; j >= 0; j -= 1){ //Always true for uint
-      cSwap<<<blocks,threads/2,0>>>(d_input, d_output,(1<<j)*SMALL_SIZE);
-      //* put correct synchronisation ? cudasynchronize();
+      cSwap<<<blocks/2,threads,0>>>(d_data, d_data,(1<<j)*SMALL_SIZE);
+      
+      // cudaThreadSynchronize();
     }
                 
-    tmergeSmall<<<blocks,threads,4096>>>(d_input, d_output);
+    tmergeSmall<<<blocks,threads,4096>>>(d_data, d_data);
     
 
   }
@@ -282,7 +276,6 @@ int main(int argc, char *argv[]){
   int *result; 
 
   int *dvalues;
-  int *dresult;
 
   values = (int*)malloc(LARGE_SIZE*sizeof(int));
   result = (int*)malloc(LARGE_SIZE*sizeof(int));
@@ -294,13 +287,12 @@ int main(int argc, char *argv[]){
   
   /* Allocate GPU arrays */   
   cudaMalloc((void**)&dvalues, sizeof(int) * LARGE_SIZE ); 
-  cudaMalloc((void**)&dresult, sizeof(int) * LARGE_SIZE ); 
   cudaMemcpy(dvalues, values, sizeof(int) * LARGE_SIZE, cudaMemcpyHostToDevice);
   //cSwap<<<BLOCKS/2, SMALL_SIZE,0>>>((int*)dvalues,(int*)dresult,1);
-  sort(dvalues,dvalues); // dresult);
+  sort(dvalues); 
   cudaMemcpy(result, dvalues, sizeof(int) * LARGE_SIZE , cudaMemcpyDeviceToHost);
   cudaFree(dvalues);
-  cudaFree(dresult);
+ 
  
 
 
