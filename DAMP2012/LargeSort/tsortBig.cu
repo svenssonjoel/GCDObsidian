@@ -231,7 +231,7 @@ __global__ void cSwap(
     uint ix = tid + (tid & ~(stride - 1));
 
     int v1 = d_input[ix];
-    int v2 = d_input[ix+ stride];
+    int v2 = d_input[ix + stride];
    
     d_output[ix] = min(v1,v2);
     d_output[ix + stride] = max(v1,v2);
@@ -250,15 +250,13 @@ void sort(int *d_data)
   uint diff = LOG_LARGE_SIZE - LOG_SMALL_SIZE;
   uint blocks = arrayLength / SMALL_SIZE;
   uint threads = SMALL_SIZE / 2;
-    
-
-    
+   
   tsortSmall<<<blocks, threads,4096>>>(d_data, d_data);
 
   for(int i = 0 ; i < diff ; i += 1){
   
     for(int j = i; j >= 0; j -= 1){ //Always true for uint
-      cSwap<<<blocks/2,threads,0>>>(d_data, d_data,(1<<j)*SMALL_SIZE);
+      cSwap<<<blocks/2,threads*2,0>>>(d_data, d_data,(1<<j)*SMALL_SIZE);
       
       // cudaThreadSynchronize();
     }
@@ -282,13 +280,11 @@ int main(int argc, char *argv[]){
   
   for (int i = 0; i < LARGE_SIZE; ++i) { 
     values[i] = rand () % 512; 
-    // printf("%d ",values[i]);
   }
   
   /* Allocate GPU arrays */   
   cudaMalloc((void**)&dvalues, sizeof(int) * LARGE_SIZE ); 
   cudaMemcpy(dvalues, values, sizeof(int) * LARGE_SIZE, cudaMemcpyHostToDevice);
-  //cSwap<<<BLOCKS/2, SMALL_SIZE,0>>>((int*)dvalues,(int*)dresult,1);
   sort(dvalues); 
   cudaMemcpy(result, dvalues, sizeof(int) * LARGE_SIZE , cudaMemcpyDeviceToHost);
   cudaFree(dvalues);
