@@ -16,5 +16,8 @@ $(TARGET): $(TARGET).cu
 emulation: $(TARGET).cu
 	$(NVCC) -deviceemu -o $(TARGET) $(TARGET).cu $(INCPATHS) $(LIBPATHS) $(LIBRARIESEMU)
 
+cpusort: cpusort.c 
+	gcc -std=c99 cpusort.c -o cpusort -O2
+
 clean:
 	rm $(TARGET)
