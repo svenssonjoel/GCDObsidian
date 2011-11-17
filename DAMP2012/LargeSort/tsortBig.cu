@@ -238,9 +238,6 @@ __global__ void cSwap(
   
 }
 
-
-
-
 //* Assume input and output arrays have length 2^lenLog 
 //* Small kernels work on SMALL_SIZE inputs. Assume lenLog >= ssLog > 0
 void sort(int *d_data)
@@ -263,7 +260,6 @@ void sort(int *d_data)
                 
     tmergeSmall<<<blocks,threads,4096>>>(d_data, d_data);
     
-
   }
 }
 
@@ -289,8 +285,6 @@ int main(int argc, char *argv[]){
   cudaMemcpy(result, dvalues, sizeof(int) * LARGE_SIZE , cudaMemcpyDeviceToHost);
   cudaFree(dvalues);
  
- 
-
 
   /* Results ?*/
   int passed = 1;
