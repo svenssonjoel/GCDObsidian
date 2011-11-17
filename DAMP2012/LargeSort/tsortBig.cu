@@ -243,6 +243,24 @@ __global__ void cSwap(
     d_output[ix + stride] = max(v1,v2);
   
 }
+__global__ void cSwaps(int *d_input,
+                       int *d_output,
+		       uint stride) 
+{
+    uint global_comparatorI = blockIdx.x * blockDim.x + threadIdx.x;
+   
+    uint pos = 2 * global_comparatorI - (global_comparatorI & (stride - 1));
+
+    int keyA = d_input[pos +      0];
+    int keyB = d_input[pos + stride];
+
+    int newA = min(keyA,keyB);
+    int newB = max(keyA,keyB);
+
+    d_input[pos +      0] = newA;   
+    d_input[pos + stride] = newB;
+
+}
 
 //* Assume input and output arrays have length 2^lenLog 
 //* Small kernels work on SMALL_SIZE inputs. Assume lenLog >= ssLog > 0
@@ -257,10 +275,10 @@ void sort(int *d_data)
   tsortSmall<<<blocks, threads,4096>>>(d_data, d_data);
   // cudaThreadSynchronize();
   
-  for(int i = 0 ; i <= diff ; i += 1){ /* I made it <= and now it sorts? */
+  for(int i = 0 ; i < diff ; i += 1){ 
   
     for(int j = i; j >= 0; j -= 1){ 
-      cSwap<<<blocks/2,threads*2,0>>>(d_data, d_data,(1<<j)*SMALL_SIZE);
+      cSwaps<<<blocks,threads/2,0>>>(d_data, d_data,(1<<j)*SMALL_SIZE);
       
       //  cudaThreadSynchronize();
     }
@@ -301,6 +319,11 @@ int main(int argc, char *argv[]){
     } 
   }
 
+
+  //for (int i = 0; i < LARGE_SIZE; ++i){
+  //  printf("%d ", result[i]);
+  //}
+  
   printf("\n%s",passed ? "Passed!" : "Failed!");
 
   return 0;
