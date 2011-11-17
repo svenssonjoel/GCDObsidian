@@ -6,12 +6,17 @@
 #include <assert.h>
 
 
-#define BLOCKS 2048    
+#define BLOCKS 32768
+//32768 24
+//16384 23
+//8196  22
+//4096  21
+//2048  20  
 #define LARGE_SIZE BLOCKS*SMALL_SIZE
 #define SMALL_SIZE 512
 #define THREADS 256
 #define LOG_SMALL_SIZE 9
-#define LOG_LARGE_SIZE 20
+#define LOG_LARGE_SIZE 24
 
 //* kernel for sorting small fixed size arrays all on the GPU
 
