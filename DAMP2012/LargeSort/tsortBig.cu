@@ -5,7 +5,8 @@
 
 #include <assert.h>
 
-#define BLOCKS 2048 
+
+#define BLOCKS 2048    
 #define LARGE_SIZE BLOCKS*SMALL_SIZE
 #define SMALL_SIZE 512
 #define THREADS 256
@@ -249,9 +250,9 @@ void sort(int *d_data)
   uint threads = SMALL_SIZE / 2;
    
   tsortSmall<<<blocks, threads,4096>>>(d_data, d_data);
-  //cudaThreadSynchronize();
+  // cudaThreadSynchronize();
   
-  for(int i = 0 ; i <= diff ; i += 1){ /*I made it <= and now it sorts? */
+  for(int i = 0 ; i <= diff ; i += 1){ /* I made it <= and now it sorts? */
   
     for(int j = i; j >= 0; j -= 1){ 
       cSwap<<<blocks/2,threads*2,0>>>(d_data, d_data,(1<<j)*SMALL_SIZE);
@@ -260,7 +261,7 @@ void sort(int *d_data)
     }
                 
     tmergeSmall<<<blocks,threads,4096>>>(d_data, d_data);
-    //cudaThreadSynchronize();
+    // cudaThreadSynchronize();
   }
 }
 
@@ -276,7 +277,7 @@ int main(int argc, char *argv[]){
   result = (int*)malloc(LARGE_SIZE*sizeof(int));
   
   for (int i = 0; i < LARGE_SIZE; ++i) { 
-    values[i] = rand () % 512; 
+    values[i] = rand ();//  % 512; 
   }
   
   /* Allocate GPU arrays */   
