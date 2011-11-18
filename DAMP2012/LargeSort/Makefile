@@ -1,4 +1,4 @@
-TARGET := tsortBig
+TARGET := msortBig
 COMMON_PATH := $(CUDA_SDK_PATH)/common
 
 LIBPATHS := -L$(CUDA_INSTALL_PATH)/lib -L$(COMMON_PATH)/lib -L$(CUDA_SDK_PATH)/lib
