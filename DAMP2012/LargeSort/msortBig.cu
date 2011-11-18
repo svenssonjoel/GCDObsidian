@@ -242,11 +242,13 @@ __global__ void vSwap(
    
     uint ix = tid + (tid & ~(stride - 1));
 
+    uint ix2 = ix^((stride<<1)-1);
+    
     int v1 = d_input[ix];
-    int v2 = d_input[ix^((stride<<1)-1)];
+    int v2 = d_input[ix2];
 
     d_output[ix] = min(v1,v2);
-    d_output[ix + stride] = max(v1,v2);
+    d_output[ix2/*ix + stride*/] = max(v1,v2);
     
 }
 
