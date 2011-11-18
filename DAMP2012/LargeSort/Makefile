@@ -11,7 +11,7 @@ NVCC := nvcc
 
 all: $(TARGET)
 $(TARGET): $(TARGET).cu
-	$(NVCC) -o $(TARGET) $(TARGET).cu $(INCPATHS) $(LIBPATHS) $(LIBRARIES)
+	$(NVCC) -o $(TARGET) $(TARGET).cu $(INCPATHS) $(LIBPATHS) $(LIBRARIES) -O2
 
 emulation: $(TARGET).cu
 	$(NVCC) -deviceemu -o $(TARGET) $(TARGET).cu $(INCPATHS) $(LIBPATHS) $(LIBRARIESEMU)

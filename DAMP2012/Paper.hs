@@ -13,10 +13,12 @@ import Data.List hiding (zipWith,splitAt)
 -- for Library?  (or wherever composeS is defined ?)
 
 
-compose :: (Scalar a) => [Array (Exp a) -> Array (Exp a)] -> Array (Exp a) -> Kernel (Array (Exp a))
+--compose :: (Scalar a) => [Array (Exp a) -> Array (Exp a)] -> Array (Exp a) -> Kernel (Array (Exp a))
 compose = composeS . map pure
 
-composeP :: (Scalar a) => [Array (Exp a) -> ArrayP (Exp a)] -> Array (Exp a) -> Kernel (Array (Exp a))
+--composeP :: (Scalar a) => [Array (Exp a) -> ArrayP (Exp a)] -> Array (Exp a) -> Kernel (Array (Exp a))
+
+composeP :: Syncable a b => [Array b -> (a b)] -> Array b -> Kernel (Array b)
 composeP = composeS . map pure
 
 
@@ -125,3 +127,25 @@ printvsort k = putStrLn$ CUDA.genKernel "vsort" (vsort k) (namedArray "inp" (2^k
 
 
 halve' arr = splitAt ((len arr) `div` 2) arr
+
+
+
+----------------------------------------------------------------------------
+-- Key/value pair versions 
+
+
+tmerge2p :: Int -> [Array (IntE,IntE) -> ArrayP (IntE,IntE)]
+tmerge2p n = vee2 (n-1) min2 max2 : [(ilv2 (n-i) min2 max2)| i <- [2..n]]
+  where 
+    min2 (k1,v1) (k2,v2) = ifThenElse (k1 <* k2) (k1,v1) (k2,v2)
+    max2 (k1,v1) (k2,v2) = ifThenElse (k1 >* k2) (k1,v1) (k2,v2)
+             
+printtmerge2p k = putStrLn $ CUDA.genKernel "tmerge2" (composeP (tmerge2p k)) (zipp (namedArray "keys" (2^k), namedArray "values" (2^k)))
+
+tsort2p :: Int -> [Array (IntE,IntE) -> ArrayP (IntE,IntE)]
+tsort2p n = concat [tmerge2p i | i <- [1..n]]
+
+
+-- Unfortunately, now I have to use composeP.
+--writetsort2p k = writeFile "tsort2.cu" $ CUDA.genKernel "tsort2" (composeP (tsort2 k)) (namedArray "inp" (2^k))
+--printtsort2p k = putStrLn $ CUDA.genKernel "tsort2" (composeP (tsort2 k)) (namedArray "inp" (2^k))

@@ -91,6 +91,8 @@ pSyncArrayP2 arr@(ArrayP f n) =
     tell$ (Allocate name1 (es1 * n) t1 ()) *>* 
           (Allocate name2 (es2 * n) t2 ()) *>* 
           p
+          *>* 
+          (Synchronize True)
     return (zipp (result1,result2))
 
 -- TODO: is this an approach to more general syncs ? (see limitations on Syncable class) 

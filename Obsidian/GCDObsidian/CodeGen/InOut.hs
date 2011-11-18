@@ -20,7 +20,7 @@ import Obsidian.GCDObsidian.Globs
 import Obsidian.GCDObsidian.Program
 
 import Prelude hiding (splitAt)
-import Obsidian.GCDObsidian.Library (splitAt,concP)
+import Obsidian.GCDObsidian.Library (splitAt,concP,unzipp,zipp)
 
 
 import Control.Monad.State
@@ -159,4 +159,20 @@ instance (InOut a, InOut b) => InOut (a, b) where
    
   gcdThreads (a0,a1) = gcd (gcdThreads a0) (gcdThreads a1)
   
-  
+instance (InOut (Array a), InOut (Array b)) => InOut (Array (a,b)) where
+  createInputs arr = 
+    do 
+      let (a0,a1) = unzipp arr 
+      a0' <- createInputs a0
+      a1' <- createInputs a1
+      return (zipp (a0',a1'))
+  writeOutputs threads arr = 
+    do 
+      let (a0,a1) = unzipp arr
+      prg1 <- writeOutputs threads a0
+      prg2 <- writeOutputs threads a1 
+      return$ prg1 *>* prg2
+      
+  gcdThreads arr = 
+    let (a0,a1) = unzipp arr
+    in  gcd (gcdThreads a0) (gcdThreads a1)
