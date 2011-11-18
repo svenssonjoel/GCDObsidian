@@ -49,9 +49,10 @@
   + Obsidian Int are "64"bit on 64bit architectures. Is it also true that 
     a CUDA int is 64bit on 64bit architectures?
 
-* TODO Fix SyncAnalysis
-* TODO Perform CSE
-* TODO Kernel Coordination layer
-* TODO Generate the vSwap/iSwap kind of kernels. That is Kernels that operate 
+* TODO:
+  + Fix SyncAnalysis
+  + Perform CSE
+  + Kernel Coordination layer
+  + Generate the vSwap/iSwap kind of kernels. That is Kernels that operate 
        on an array based on its global tid instead of local tid.
-* TODO Generate Kernels that take scalar parameters
+  +  Generate Kernels that take scalar parameters
