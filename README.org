@@ -56,3 +56,6 @@
   + Generate the vSwap/iSwap kind of kernels. That is Kernels that operate 
        on an array based on its global tid instead of local tid.
   +  Generate Kernels that take scalar parameters
+  + Syncing needs to be improved. (work on more kinds of arrays, needs type class magic)
+  + Push arrays and parallelism 
+  + Filters and unsafe operations that lead to nondeterminism
