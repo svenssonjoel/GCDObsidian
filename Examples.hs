@@ -109,7 +109,8 @@ catArrayPs :: (Array (Exp Int), Array (Exp Int))
            -> Kernel (ArrayP (Exp Int))
 catArrayPs = pure concP -- (arr1,arr2) = return$ concP (arr1, arr2)
 
-getCatArrayPs = putStrLn$ CUDA.genKernel "catArrayPs" (catArrayPs) (input32,input32)
+
+getCatArrayPs = putStrLn$ CUDA.genKernel "catArrayPs" (catArrayPs) (input16,input16)
 
 
 

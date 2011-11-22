@@ -53,9 +53,8 @@ tmerge n = vstage (n-1) : [ istage (n-i) | i <- [2..n]]
     vstage i = vee1 i min max
     istage i = ilv1 i min max
 
-runt k = rungen k "tMerge" tmerge
-  
-
+-- runt k = rungen k "tMerge" (tmerge k)
+printtmerge k  = putStrLn $ CUDA.genKernel "tmerge1" (composeP (tmerge k)) (namedArray "inp" (2^k))  
 
 
 -- Because tmerge sorts two half-length sorted lists, it is easy to compose a tree of them to make a sorter (tsort1)
