@@ -28,10 +28,14 @@ import Data.List
 import Data.Word
 
 ------------------------------------------------------------------------------
+
+data Push a = Push {pushFun :: P (Exp Word32,a)} 
+data Pull a = Pull {pullFun :: (Exp Word32 -> a)} 
+
+
 -- Arrays!
 --data Array a = Array (Exp Word32 -> a) Word32 
-data Array a = Array (Exp Word32 -> a) Word32 
-
+data Array a = Array (Exp Word32 -> a)  Word32 
 -- PUSHY ARRAYS! 
 
 type P a = (a -> Program ()) -> Program () 
@@ -58,7 +62,8 @@ pushApp (ArrayP func n) a =  func a
 
 
 -- TODO: Do you need (Exp e) where there is only e ? 
--- TODO: Will this again influence the Exp Tuples or not issue?
+-- DONE: Will this again influence the Exp Tuples or not issue?
+--    THE TUPLES ARE GONE NOW. 
 class Len a => PushyInternal a where 
   push' :: Word32 -> a e -> ArrayP e  
   push'' :: Word32 -> a e -> ArrayP e 
@@ -129,3 +134,40 @@ instance Show  a => Show (Array a) where
                               "...]"
 
          
+
+--------------------------------------------------------------------------
+-- Global array related stuff
+data GlobalArray p a = GlobalArray (p a) 
+
+
+block :: Word32 -> GlobalArray Pull a -> Array a   
+block blockSize glob = Array newFun blockSize 
+  where 
+    newFun ix = (pullFun pull) ((bid * (fromIntegral blockSize)) + ix)  
+    (GlobalArray pull) = glob 
+    bid = variable "bid"
+
+
+unblock :: ArrayP a -> GlobalArray Push a 
+unblock array = GlobalArray newFun
+  where 
+    (ArrayP fun n) = array
+    newFun  = Push (\func -> fun (\(i,a) -> func (fromIntegral n+i,a)))
+    
+
+
+
+
+
+----------------------------------------------------------------------------
+-- A kernel should now be something like
+-- GlobalArray Pull a -> Kernel (GlobalArray Push a) 
+
+
+{- 
+
+apa arr = pure (blocks 512) ->- vsort 9 ->- pure unblocks
+
+
+-} 
+
