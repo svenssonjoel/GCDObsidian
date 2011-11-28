@@ -13,6 +13,14 @@ test1 = pure (block 512) ->- pure rev ->- sync ->-
 
 getTest1 = putStrLn$ CUDA.genKernelGlob "test1" test1 (GlobalArray undefined :: GlobalArray Pull (Exp Int)) 
 
+
+testParam1 :: (GlobalArray Pull (Exp Int), Exp Int) -> Kernel (GlobalArray Push (Exp Int)) 
+testParam1 (garr, param) = res
+  where 
+    res = test1$ fmap (+param) garr 
+
+getTestParam1 = putStrLn$ CUDA.genKernelGlob "testParam1" testParam1 (GlobalArray undefined :: GlobalArray Pull (Exp Int),variable "v") 
+
 {- 
    A kernel Takes a global Pull array as input 
    and Pushes a global array as output. 

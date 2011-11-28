@@ -219,6 +219,17 @@ instance Scalar a => GlobalInput (GlobalArray Pull (Exp a)) where
     let fun ix = index name ix 
     return$ GlobalArray (Pull fun)
       
+instance Scalar a => GlobalInput (Exp a) where   
+  createGlobalInput a = do 
+    name <- newInOut "v" (typeOf a) undefined {- again no size -} 
+    return (variable name)
+      
+instance (GlobalInput a, GlobalInput b) 
+         => GlobalInput (a,b) where 
+  createGlobalInput (a,b) = do 
+    a' <- createGlobalInput a
+    b' <- createGlobalInput b
+    return (a',b')
       
 instance (BasePush a, Scalar a) => GlobalOutput (GlobalArray Push (Exp a)) where       
   writeGlobalOutput threadBugdet parr@(GlobalArray (Push pfun)) = do  

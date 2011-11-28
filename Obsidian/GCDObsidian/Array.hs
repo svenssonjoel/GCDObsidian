@@ -147,6 +147,9 @@ instance Show  a => Show (Array a) where
 
 data GlobalArray p a = GlobalArray (p a) 
 
+instance Functor (GlobalArray Pull) where 
+  fmap f (GlobalArray (Pull g)) = GlobalArray (Pull (f . g)) 
+
 
 block :: Word32 -> GlobalArray Pull a -> Array a   
 block blockSize glob = Array newFun blockSize 
