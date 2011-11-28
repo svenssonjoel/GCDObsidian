@@ -24,6 +24,9 @@ data Program extra
   | forall a. Scalar a => Assign Name (Data Word32) (Data a) 
 -- Note: Writing of a scalar value into an array location.     
   | ForAll (Data Word32 -> (Program extra)) Word32   
+    -- Could this be improved ? 
+  | ForAllGlobal (Data Word32 -> (Program extra)) (Exp Word32)
+    
 -- DONE: I Think Allocate should not introduce nesting
   | Allocate Name Word32 Type extra
 -- potentially a synch is needed. 

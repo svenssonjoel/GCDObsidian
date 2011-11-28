@@ -201,6 +201,10 @@ genProg mm nt (Assign name ix a) =
         
 genProg mm nt (ForAll f n) = potentialCond gc mm n nt $ 
                                genProg mm nt (f (variable "tid"))
+genProg mm nt (ForAllGlobal f n) =                                
+  genProg mm nt (f (variable "gtid"))
+  
+  
   -- TODO: Many details missing here, think about nested ForAlls 
   -- TODO: Sync only if needed here                              
   --      ++ Might help to add information to Program type that a "sync is requested"                              

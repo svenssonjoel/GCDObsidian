@@ -36,7 +36,7 @@ cTypeOfArray :: Scalar a =>  Array (Exp a) -> Type
 cTypeOfArray arr = Pointer (typeOf (arr ! variable "X"))
 
 cTypeOfGlobalArray :: Scalar a =>  GlobalArray Pull (Exp a) -> Type 
-cTypeOfGlobalArray (GlobalArray arr) = Pointer (typeOf (pullFun arr (variable "X")))
+cTypeOfGlobalArray (GlobalArray arr _) = Pointer (typeOf (pullFun arr (variable "X")))
 
 globalTarget :: Scalar a => Name -> Exp Word32 -> (Exp Word32, Exp a) -> Program ()
 globalTarget nom blockSize (i,a) = Assign nom ((bid * blockSize) + i)  a 
@@ -214,10 +214,10 @@ class GlobalOutput a where
 --------------------------------------------------------------------------                       
 -- Base
 instance Scalar a => GlobalInput (GlobalArray Pull (Exp a)) where 
-  createGlobalInput arr = do 
+  createGlobalInput arr@(GlobalArray _ n) = do 
     name <- newInOut "input" (cTypeOfGlobalArray arr) undefined{- there is no length on global arrays -}
     let fun ix = index name ix 
-    return$ GlobalArray (Pull fun)
+    return$ GlobalArray (Pull fun) n
       
 instance Scalar a => GlobalInput (Exp a) where   
   createGlobalInput a = do 
@@ -232,7 +232,7 @@ instance (GlobalInput a, GlobalInput b)
     return (a',b')
       
 instance (BasePush a, Scalar a) => GlobalOutput (GlobalArray Push (Exp a)) where       
-  writeGlobalOutput threadBugdet parr@(GlobalArray (Push pfun)) = do  
+  writeGlobalOutput threadBugdet parr@(GlobalArray (Push pfun) n) = do  
     name <- newInOut "result" (cTypeGlob parr) undefined 
     return$ pfun (globalTargetAgain name)
     

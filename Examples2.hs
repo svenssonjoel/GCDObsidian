@@ -8,10 +8,10 @@ import qualified Obsidian.GCDObsidian.CodeGen.C as C
 import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
 test1 :: GlobalArray Pull (Exp Int) -> Kernel (GlobalArray Push (Exp Int)) 
-test1 = pure (block 512) ->- pure rev ->- sync ->-
+test1 = pure (block 256) ->- pure (fst . halve) ->- 
         pure (unblock . push) 
 
-getTest1 = putStrLn$ CUDA.genKernelGlob "test1" test1 (GlobalArray undefined :: GlobalArray Pull (Exp Int)) 
+getTest1 = putStrLn$ CUDA.genKernelGlob "test1" test1 (GlobalArray undefined (variable "n"):: GlobalArray Pull (Exp Int)) 
 
 
 testParam1 :: (GlobalArray Pull (Exp Int), Exp Int) -> Kernel (GlobalArray Push (Exp Int)) 
@@ -19,7 +19,7 @@ testParam1 (garr, param) = res
   where 
     res = test1$ fmap (+param) garr 
 
-getTestParam1 = putStrLn$ CUDA.genKernelGlob "testParam1" testParam1 (GlobalArray undefined :: GlobalArray Pull (Exp Int),variable "v") 
+getTestParam1 = putStrLn$ CUDA.genKernelGlob "testParam1" testParam1 (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int),variable "v") 
 
 {- 
    A kernel Takes a global Pull array as input 

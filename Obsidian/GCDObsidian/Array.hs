@@ -21,6 +21,7 @@ module Obsidian.GCDObsidian.Array ((!)
                                   , GlobalArray(..)
                                   , Pull(..)
                                   , Push(..)
+                                  , pushGlobal
                                   )where 
 
 import Obsidian.GCDObsidian.Exp 
@@ -145,27 +146,28 @@ instance Show  a => Show (Array a) where
 -- This is also quite directly influencing "coordination" 
 -- of kernels. 
 
-data GlobalArray p a = GlobalArray (p a) 
+data GlobalArray p a = GlobalArray (p a) (Exp Word32)
 
 instance Functor (GlobalArray Pull) where 
-  fmap f (GlobalArray (Pull g)) = GlobalArray (Pull (f . g)) 
+  fmap f (GlobalArray (Pull g) n) = GlobalArray (Pull (f . g)) n 
 
 
 block :: Word32 -> GlobalArray Pull a -> Array a   
 block blockSize glob = Array newFun blockSize 
   where 
     newFun ix = (pullFun pull) ((bid * (fromIntegral blockSize)) + ix)  
-    (GlobalArray pull) = glob 
+    (GlobalArray pull n) = glob 
 
-bid = variable "bid"
+bid   = variable "bid"
+nblks = variable "gridDim.x"
 
 unblock :: ArrayP a -> GlobalArray Push a 
-unblock array = GlobalArray newFun
+unblock array = GlobalArray newFun (nblks * (fromIntegral n)) 
   where 
     (ArrayP fun n) = array
     newFun  = Push (\func -> fun (\(i,a) -> func (bid * (fromIntegral n)+i,a)))
     
-
+pushGlobal (GlobalArray (Pull ixf) n) = GlobalArray (Push (\func -> ForAllGlobal (\i -> func (i,(ixf i))) n)) n
 
 ----------------------------------------------------------------------------
 -- A kernel should now be something like
