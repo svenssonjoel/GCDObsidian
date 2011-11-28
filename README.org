@@ -18,6 +18,7 @@
     
     
 * Work in progress
+  + Experimenting with global arrays and indexing into those
   + More library functions needed
   + Library of Pushy array functions needed too.
     Should provide a lot of room for experimentation.
