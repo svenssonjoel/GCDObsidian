@@ -1,3 +1,5 @@
+* DAMP2012 Branch. 
+  The state of this source as it was at the writing of the DAMP2012 article.
 
 * GCDObsidian
   + Embedded DSL for implementation of GPU Kernels
