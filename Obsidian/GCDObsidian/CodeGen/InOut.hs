@@ -35,20 +35,30 @@ bid = variable "bid"
 cTypeOfArray :: Scalar a =>  Array (Exp a) -> Type 
 cTypeOfArray arr = Pointer (typeOf (arr ! variable "X"))
 
+cTypeOfGlobalArray :: Scalar a =>  GlobalArray Pull (Exp a) -> Type 
+cTypeOfGlobalArray (GlobalArray arr) = Pointer (typeOf (pullFun arr (variable "X")))
+
 globalTarget :: Scalar a => Name -> Exp Word32 -> (Exp Word32, Exp a) -> Program ()
-globalTarget n blockSize (i,a) = Assign n ((bid * blockSize) + i)  a 
+globalTarget nom blockSize (i,a) = Assign nom ((bid * blockSize) + i)  a 
+
+globalTargetAgain :: Scalar a => Name -> (Exp Word32, Exp a) -> Program () 
+globalTargetAgain nom (i,a) = Assign nom i a 
 
 class BasePush a where 
   cType :: ArrayP (Exp a) -> Type 
+  cTypeGlob :: GlobalArray Push (Exp a) -> Type
   
 instance BasePush (Int) where 
   cType arr = Pointer Int 
+  cTypeGlob arr = Pointer Int
   
 instance BasePush (Float) where 
   cType arr = Pointer Float
+  cTypeGlob arr = Pointer Float
 
 instance BasePush (Word32) where 
   cType arr = Pointer Word32
+  cTypeGlob arr = Pointer Word32
 
 
 -----------------------------------------------------------------------------
@@ -78,6 +88,13 @@ runInOut :: State (Int,[(String,Type,Word32)]) a
 runInOut f s = (a,reverse xs)
   where 
     (a,(_,xs)) = runState f s
+
+runInOut_ :: State (Int,[(String,Type,Word32)]) a 
+            -> (a,[(String,Type,Word32)]) 
+runInOut_ f = (a,reverse xs)
+  where 
+    (a,(_,xs)) = runState f (0,[])
+
 
 instance Scalar a => InOut (Array (Exp a)) where
   createInputs arr  = do 
@@ -176,3 +193,40 @@ instance (InOut (Array a), InOut (Array b)) => InOut (Array (a,b)) where
   gcdThreads arr = 
     let (a0,a1) = unzipp arr
     in  gcd (gcdThreads a0) (gcdThreads a1)
+        
+        
+        
+        
+--------------------------------------------------------------------------        
+-- New approach to input output
+  
+        
+class GlobalInput a where
+  createGlobalInput :: a -> State (Int,[(String,Type,Word32)]) a   
+  
+class GlobalOutput a where 
+  writeGlobalOutput :: NumThreads -> 
+                       a -> 
+                       State (Int,[(String,Type,Word32)]) (Program ())
+   
+                       
+                       
+--------------------------------------------------------------------------                       
+-- Base
+instance Scalar a => GlobalInput (GlobalArray Pull (Exp a)) where 
+  createGlobalInput arr = do 
+    name <- newInOut "input" (cTypeOfGlobalArray arr) undefined{- there is no length on global arrays -}
+    let fun ix = index name ix 
+    return$ GlobalArray (Pull fun)
+      
+      
+instance (BasePush a, Scalar a) => GlobalOutput (GlobalArray Push (Exp a)) where       
+  writeGlobalOutput threadBugdet parr@(GlobalArray (Push pfun)) = do  
+    name <- newInOut "result" (cTypeGlob parr) undefined 
+    return$ pfun (globalTargetAgain name)
+    
+
+--------------------------------------------------------------------------
+-- complex inputs 
+
+-- TODO!

@@ -1,6 +1,8 @@
 
 module Obsidian.GCDObsidian.CodeGen.CUDA 
-       (genKernel,genKernel_) where 
+       (genKernel
+       ,genKernel_
+       ,genKernelGlob) where 
 
 import Data.List
 import Data.Word 
@@ -102,7 +104,7 @@ genKernel name kernel a = cuda
     lc  = liveness c
     
     
-    
+
    
     threadBudget =  
       case c of 
@@ -117,6 +119,35 @@ genKernel name kernel a = cuda
     sc = c -- remove
     
     cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
+
+
+genKernelGlob :: (GlobalInput a, GlobalOutput b)
+                 => String 
+                 -> (a -> Kernel b) 
+                 -> a 
+                 -> String
+genKernelGlob name kernel a = cuda 
+  where 
+    (input,ins) = runInOut_ (createGlobalInput a)                             
+    ((res,_),c_old) = runKernel (kernel input) 
+    
+    -- TODO: *ERROR* will only work if there 
+    --       is atleast one sync in the kernel. 
+    threadBudget = threadsNeeded c 
+    
+    lc = liveness c_old 
+    
+    (m,mm) = mapMemory lc sharedMem Map.empty
+    (outcode,outs) = 
+      runInOut_ (writeGlobalOutput threadBudget res) 
+      
+    c = c_old *>* outcode
+    cuda = getCUDA (config threadBudget mm (size m)) 
+                   c  
+                   name
+                   (map fst2 ins) 
+                   (map fst2 outs)
+    
 
 
 ------------------------------------------------------------------------------

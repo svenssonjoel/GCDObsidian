@@ -7,13 +7,11 @@ import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 import qualified Obsidian.GCDObsidian.CodeGen.C as C
 import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
-
-
-
 test1 :: GlobalArray Pull (Exp Int) -> Kernel (GlobalArray Push (Exp Int)) 
 test1 = pure (block 512) ->- pure rev ->- sync ->-
         pure (unblock . push) 
 
+getTest1 = putStrLn$ CUDA.genKernelGlob "test1" test1 (GlobalArray undefined :: GlobalArray Pull (Exp Int)) 
 
 {- 
    A kernel Takes a global Pull array as input 
@@ -29,10 +27,6 @@ test1 = pure (block 512) ->- pure rev ->- sync ->-
    TODO: Parameters to kernels that are not Arrays! 
          (should not be too tricky to add) 
 
-
-  
    (Is a third kind of array needed ? a Mutable 
     storage location kind of array ?) 
-
-
 -} 

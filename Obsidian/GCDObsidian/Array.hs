@@ -153,14 +153,14 @@ block blockSize glob = Array newFun blockSize
   where 
     newFun ix = (pullFun pull) ((bid * (fromIntegral blockSize)) + ix)  
     (GlobalArray pull) = glob 
-    bid = variable "bid"
 
+bid = variable "bid"
 
 unblock :: ArrayP a -> GlobalArray Push a 
 unblock array = GlobalArray newFun
   where 
     (ArrayP fun n) = array
-    newFun  = Push (\func -> fun (\(i,a) -> func (fromIntegral n+i,a)))
+    newFun  = Push (\func -> fun (\(i,a) -> func (bid * (fromIntegral n)+i,a)))
     
 
 
