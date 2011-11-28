@@ -16,6 +16,11 @@ module Obsidian.GCDObsidian.Array ((!)
                                   , push'' -- this is for "internal" use
                                   , ArrayP(..)
                                   , P(..)
+                                  , block
+                                  , unblock
+                                  , GlobalArray(..)
+                                  , Pull(..)
+                                  , Push(..)
                                   )where 
 
 import Obsidian.GCDObsidian.Exp 
@@ -137,6 +142,9 @@ instance Show  a => Show (Array a) where
 
 --------------------------------------------------------------------------
 -- Global array related stuff
+-- This is also quite directly influencing "coordination" 
+-- of kernels. 
+
 data GlobalArray p a = GlobalArray (p a) 
 
 
@@ -154,9 +162,6 @@ unblock array = GlobalArray newFun
     (ArrayP fun n) = array
     newFun  = Push (\func -> fun (\(i,a) -> func (fromIntegral n+i,a)))
     
-
-
-
 
 
 ----------------------------------------------------------------------------
