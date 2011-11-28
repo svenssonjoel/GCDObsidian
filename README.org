@@ -6,36 +6,22 @@
     
 * News in GCDObsidian 
   + Push Arrays: Explanation to come
-
-  + (BROKEN!!!) SyncAnalysis: Trying to automatically decide when to insert 
-    a CUDA __syncthreads(); call. Previously everytime the programmer 
-    did a sync it resulted in a CUDA __syncthreads() in the generated 
-    CUDA code. 
-  
-  + Kernel Building blocks: 
-    There are pure functions, (Array a -> Array a), that can be composed
-    using Haskell functional composition. These are turned into "kernels" using the function pure.
-    
-    
-* Work in progress
-  + Experimenting with global arrays and indexing into those
-  + More library functions needed
-  + Library of Pushy array functions needed too.
-    Should provide a lot of room for experimentation.
-    
-* Latest changes
-  + Trying to add the idea of Push arrays to Obsidian. 
-  + What used to be (Array Int) is now (Array (Exp Int) or 
-    (Array (Data Int)), whichever is preferable. 
-    This means the Array datatype changed from 
-    data Array a = Array (Exp Word32 -> Exp a) Word32 
-    to 
-    data Array a = Array (Exp Word32 -> a) Word32 
-    
-  + LLArrays have been removed along with many hundreds 
-    of lines of code that needs to be completely rewritten. 
-    The push array takes the role of the old LLArray in this version. 
-
+       
+* Latest changes/Changes in progress
+  + Added the ability to pass scalar parameters to Kernels.  
+  + Going to move away from Array/ArrayP and towards
+    having the type (Array Pull) for Pull arrays and (Array Push) for Push arrays.  
+  + Added GlobalArray 
+    Experimenting with a new kind of Kernel. These kernels 
+    have types like: GlobalArray Pull (Exp a) -> Kernel (GlobalArray Push (Exp a))
+    This also lets the Obsidian programmer express some aspects of what we 
+    usually refer to as Kernel coordination. 
+    Two functions (block and unblock) chop global arrays up into small arrays suitable 
+    for processing by what we have so far called a Kernel.
+    There are some restrictions (maybe totally necessary): There is no way to, 
+    within a kernel, go from (GlobalArray Push a) to (GlobalArray Pull a).  
+       
+  + Added Push arrays 
 
 * Notes
   + (Solved, it works, see below)
@@ -50,7 +36,7 @@
   + Obsidian Int are "64"bit on 64bit architectures. Is it also true that 
     a CUDA int is 64bit on 64bit architectures?
 
-* TODO:
+* TODO and to look into:
   + Fix SyncAnalysis
   + Perform CSE
   + Kernel Coordination layer
