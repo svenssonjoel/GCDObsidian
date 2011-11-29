@@ -31,8 +31,8 @@ import Data.Word
 bid :: Exp Word32
 bid = variable "bid" 
 
-
-cTypeOfArray :: Scalar a =>  Array (Exp a) -> Type 
+-- should work for any indexible
+cTypeOfArray :: Scalar a =>  Array Pull (Exp a) -> Type 
 cTypeOfArray arr = Pointer (typeOf (arr ! variable "X"))
 
 cTypeOfGlobalArray :: Scalar a =>  GlobalArray Pull (Exp a) -> Type 
@@ -45,7 +45,7 @@ globalTargetAgain :: Scalar a => Name -> (Exp Word32, Exp a) -> Program ()
 globalTargetAgain nom (i,a) = Assign nom i a 
 
 class BasePush a where 
-  cType :: ArrayP (Exp a) -> Type 
+  cType :: Array Push (Exp a) -> Type 
   cTypeGlob :: GlobalArray Push (Exp a) -> Type
   
 instance BasePush (Int) where 
@@ -105,11 +105,11 @@ runInOut_ f = (a,reverse xs)
     (a,(_,xs)) = runState f (0,[])
 
 
-instance Scalar a => InOut (Array (Exp a)) where
+instance Scalar a => InOut (Array Pull (Exp a)) where
   createInputs arr  = do 
     name <- newInOut "input" (cTypeOfArray arr) (len arr)
     let n = fromIntegral (len arr) 
-    return$ Array (\ix -> index name (bid * n + ix))  (len arr)
+    return$ Array (Pull (\ix -> index name (bid * n + ix)))  (len arr)
     
   writeOutputs threadBudget arr {-e-} = do   
     
@@ -117,10 +117,10 @@ instance Scalar a => InOut (Array (Exp a)) where
     
     if ( len arr <= threadBudget ) 
       then do 
-         let parr = push arr
+         let (Array (Push parr) n) = push arr
          --return$ SyncUnit (len arr) {-threadBudget-}  
          --  (pushApp parr (targetArray  name)) e
-         return$ pushApp parr (globalTarget name (fromIntegral (len arr))) 
+         return$ parr (globalTarget name (fromIntegral (len arr))) 
       else do 
          let n  = len arr
              tb = threadBudget 
@@ -134,34 +134,34 @@ instance Scalar a => InOut (Array (Exp a)) where
              pa1     = push'' tbInN a1
              pa2     = push a2
              
-             parr = if (rest == 0) 
+             (Array (Push parr) _) = if (rest == 0) 
                then pa1 
                else concP (pa1,pa2)
          
          --return$ SyncUnit threadBudget (pushApp parr (targetArray  name)) e
-         return$ pushApp parr (globalTarget name (fromIntegral (len arr))) -- (targetArray  name)
+         return$ parr (globalTarget name (fromIntegral (len arr))) -- (targetArray  name)
          
          
                      
   gcdThreads arr = len arr
     
 
-instance (BasePush a, Scalar a) => InOut (ArrayP (Exp a)) where
+instance (BasePush a, Scalar a) => InOut (Array Push (Exp a)) where
   createInputs arr  = do 
     name <- newInOut "input" (cType arr) (len arr)
     let n = fromIntegral (len arr) 
-    return$ push$ Array (\ix -> index name (bid * n + ix))  (len arr)
+    return$ push$ Array (Pull (\ix -> index name (bid * n + ix)))  (len arr)
     
-  writeOutputs threadBudget parr {-e-} = do   
+  writeOutputs threadBudget parr@(Array (Push pfun) _) = do   
     
     name <- newInOut "result" (cType parr) (len parr)
    
-    return$ pushApp parr (globalTarget name (fromIntegral (len parr))) 
+    return$ pfun (globalTarget name (fromIntegral (len parr))) 
   
          
    -- HACK HACK HACK    
-  gcdThreads parr = programThreads prg
-    where prg = pushApp parr (globalTarget "dummy" (fromIntegral (len parr))) 
+  gcdThreads (Array (Push parr) n) = programThreads prg
+    where prg = parr (globalTarget "dummy" (fromIntegral n)) 
 
 
 instance (InOut a, InOut b) => InOut (a, b) where 
@@ -185,7 +185,7 @@ instance (InOut a, InOut b) => InOut (a, b) where
    
   gcdThreads (a0,a1) = gcd (gcdThreads a0) (gcdThreads a1)
   
-instance (InOut (Array a), InOut (Array b)) => InOut (Array (a,b)) where
+instance (InOut (Array Pull a), InOut (Array Pull b)) => InOut (Array Pull (a,b)) where
   createInputs arr = 
     do 
       let (a0,a1) = unzipp arr 

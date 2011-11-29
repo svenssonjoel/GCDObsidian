@@ -16,19 +16,26 @@ import Prelude hiding (splitAt,zipWith)
 instance Functor (Array Pull) where 
   fmap f arr = Array (Pull (\ix -> f (arr ! ix))) (len arr) 
 
+
 ------------------------------------------------------------------------------
 -- Reverse an array by indexing in it backwards
 rev :: Array Pull a -> Array Pull a 
-rev arr = Array (Pull (\ix -> arr ! ((fromIntegral (n-1)) - ix))) n 
-  where 
-    n = len arr
-    
+rev arr = mkPullArray (\ix -> arr ! (m - ix)) n 
+   where m = fromIntegral (n-1)
+         n = len arr
+         
+revTest :: Array Pull a -> Array Pull a 
+revTest arr = ixMapPull (\ix -> (m-ix)) arr
+   where 
+     m = fromIntegral (n-1)
+     n = len arr
 ------------------------------------------------------------------------------
--- splitAt (name clashes with Prelude.splitAt 
+-- splitAt (name clashes with Prelude.splitAt)
 splitAt :: Integral i => i -> Array Pull a -> (Array Pull a, Array Pull a) 
-splitAt n arr = (Array (Pull (\ix -> arr ! ix)) (fromIntegral n) , 
-                 Array (Pull (\ix -> arr ! (ix + fromIntegral n))) (len arr - (fromIntegral n)))
-
+splitAt n arr = (mkPullArray (\ix -> arr ! ix) m , 
+                 mkPullArray (\ix -> arr ! (ix + pos)) (len arr - m))
+  where pos = fromIntegral n
+        m   = fromIntegral n
 
 
 halve arr = splitAt n2 arr
@@ -160,6 +167,12 @@ revP  arr = ixMap (\ix -> (fromIntegral (n-1)) - ix) parr -- ArrayP (ixMap (\ix 
   where
     parr@(Array (Push h) n) = push arr
 
+-- Does this do the same as in the push array case?
+-- if so then make a class of it 
+ixMapPull :: (Exp Word32 -> Exp Word32)
+             -> Array Pull a 
+             -> Array Pull a 
+ixMapPull f (Array (Pull ixf) n) = Array (Pull (ixf . f)) n 
 
 ixMap :: (Exp Word32 -> Exp Word32) 
          -> Array Push a 

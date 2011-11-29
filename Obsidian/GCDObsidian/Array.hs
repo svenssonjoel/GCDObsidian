@@ -3,7 +3,10 @@
              FlexibleContexts, 
              UndecidableInstances  #-} 
 
-module Obsidian.GCDObsidian.Array ((!)
+module Obsidian.GCDObsidian.Array ((!) -- pull array apply (index into)
+                                  ,(!*) -- push array apply 
+                                  , mkPullArray
+                                  , mkPushArray
                                   , namedArray
                                   , indexArray
                                   , len 
@@ -46,11 +49,16 @@ data Pull a = Pull {pullFun :: Exp Word32 -> a}
 
 type P a = (a -> Program ()) -> Program () 
 
-
 data Array p a = Array (p a) Word32
 
 type PushArray a = Array Push a 
 type PullArray a = Array Pull a 
+
+mkPushArray p n = Array (Push p) n 
+mkPullArray p n = Array (Pull p) n 
+
+
+
 
 {- 
 To look at later !!!! (needs to be a newtype though!
@@ -110,8 +118,8 @@ instance Pushy (Array Pull)  where
 ----------------------------------------------------------------------------
 --
 
-namedArray name n = Array (\ix -> index name ix) n 
-indexArray n      = Array (\ix -> ix) n 
+namedArray name n = mkPullArray (\ix -> index name ix) n 
+indexArray n      = mkPullArray (\ix -> ix) n 
 
 class Indexible a e where 
   access :: a e -> Exp Word32 -> e 
@@ -129,6 +137,8 @@ instance Len (Array p) where
 (!) :: Indexible a e => a e -> Exp Word32 -> e 
 (!) = access
 
+(!*) :: Array Push t -> ((Exp Word32,t) -> Program ()) -> Program () 
+(!*) (Array (Push f) n) a = f a 
 
 ------------------------------------------------------------------------------
 -- Show 
