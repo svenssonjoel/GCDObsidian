@@ -144,6 +144,8 @@ genKernelGlob name kernel a = cuda
     c = c_old *>* outcode
     
     -- Perform CSE here 
+    -- Maybe output a new form of intermediate code 
+    -- from this stage ?? 
     -- c' = performCSE c 
     
     cuda = getCUDA (config threadBudget mm (size m)) 
