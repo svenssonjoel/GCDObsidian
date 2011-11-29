@@ -7,6 +7,7 @@ module Obsidian.GCDObsidian.Array ((!) -- pull array apply (index into)
                                   ,(!*) -- push array apply 
                                   , mkPullArray
                                   , mkPushArray
+                                  , resize
                                   , namedArray
                                   , indexArray
                                   , len 
@@ -57,7 +58,7 @@ type PullArray a = Array Pull a
 mkPushArray p n = Array (Push p) n 
 mkPullArray p n = Array (Pull p) n 
 
-
+resize (Array p n) m = Array p m 
 
 
 {- 
@@ -133,10 +134,11 @@ class Len a where
 instance Len (Array p) where 
   len (Array _ n) = n 
   
-
+infixl 9 ! 
 (!) :: Indexible a e => a e -> Exp Word32 -> e 
 (!) = access
 
+infixl 9 !* 
 (!*) :: Array Push t -> ((Exp Word32,t) -> Program ()) -> Program () 
 (!*) (Array (Push f) n) a = f a 
 

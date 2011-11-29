@@ -46,8 +46,8 @@ halve arr = splitAt n2 arr
 ----------------------------------------------------------------------------
 -- elements at even indices to fst output, odd to snd.
 evenOdds :: Array Pull a -> (Array Pull a, Array Pull a)
-evenOdds arr = (Array (Pull (\ix -> arr ! (2*ix))) (n-n2),
-                Array (Pull (\ix -> arr ! (2*ix + 1))) n2)
+evenOdds arr = (mkPullArray (\ix -> arr ! (2*ix)) (n-n2),
+                mkPullArray (\ix -> arr ! (2*ix + 1)) n2)
   where
     n = fromIntegral (len arr)
     n2 = div n 2
@@ -56,9 +56,9 @@ evenOdds arr = (Array (Pull (\ix -> arr ! (2*ix))) (n-n2),
 ------------------------------------------------------------------------------
 --
 conc :: Choice a => (Array Pull a, Array Pull a) -> Array Pull a 
-conc (a1,a2) = Array (Pull (\ix -> ifThenElse (ix <* (fromIntegral n1)) 
+conc (a1,a2) = mkPullArray (\ix -> ifThenElse (ix <* (fromIntegral n1)) 
                              (a1 ! ix) 
-                             (a2 ! (ix - (fromIntegral n1))))) (n1+n2)
+                             (a2 ! (ix - (fromIntegral n1)))) (n1+n2)
   where 
     n1 = len a1
     n2 = len a2 
@@ -68,8 +68,8 @@ conc (a1,a2) = Array (Pull (\ix -> ifThenElse (ix <* (fromIntegral n1))
 -- zipp unzipp
 
 unzipp :: Array Pull (a,b) -> (Array Pull a, Array Pull b)       
-unzipp arr = (Array (Pull (\ix -> fst (arr ! ix))) (len arr),
-              Array (Pull (\ix -> snd (arr ! ix))) (len arr))
+unzipp arr = (mkPullArray (\ix -> fst (arr ! ix)) (len arr),
+              mkPullArray (\ix -> snd (arr ! ix)) (len arr))
               
 zipp :: (Array Pull a, Array Pull b) -> Array Pull (a, b)             
 zipp (arr1,arr2) = Array (Pull (\ix -> (arr1 ! ix, arr2 ! ix))) (min (len arr1) (len arr2))
@@ -77,9 +77,9 @@ zipp (arr1,arr2) = Array (Pull (\ix -> (arr1 ! ix, arr2 ! ix))) (min (len arr1) 
 
 unzipp3 :: Array Pull (a,b,c) 
            -> (Array Pull a, Array Pull b, Array Pull c)       
-unzipp3 arr = (Array (Pull (\ix -> fst3 (arr ! ix))) (len arr),
-               Array (Pull (\ix -> snd3 (arr ! ix))) (len arr),
-               Array (Pull (\ix -> trd3 (arr ! ix))) (len arr))
+unzipp3 arr = (mkPullArray (\ix -> fst3 (arr ! ix)) (len arr),
+               mkPullArray (\ix -> snd3 (arr ! ix)) (len arr),
+               mkPullArray (\ix -> trd3 (arr ! ix)) (len arr))
   where
     fst3 (x,_,_) = x
     snd3 (_,y,_) = y
@@ -88,12 +88,13 @@ unzipp3 arr = (Array (Pull (\ix -> fst3 (arr ! ix))) (len arr),
 zipp3 :: (Array Pull a, Array Pull b, Array Pull c) 
          -> Array Pull (a,b,c)             
 zipp3 (arr1,arr2,arr3) = 
-  Array (Pull (\ix -> (arr1 ! ix, arr2 ! ix, arr3 ! ix)))
+  mkPullArray (\ix -> (arr1 ! ix, arr2 ! ix, arr3 ! ix))
     (minimum [len arr1, len arr2, len arr3])
 
 
 zipWith :: (a -> b -> c) -> Array Pull a -> Array Pull b -> Array Pull c
-zipWith op a1 a2 = Array (Pull (\ix -> (a1 ! ix) `op` (a2 ! ix))) 
+zipWith op a1 a2 =  
+  mkPullArray (\ix -> (a1 ! ix) `op` (a2 ! ix))
                    (min (len a1) (len a2))
 
                    
@@ -101,7 +102,8 @@ zipWith op a1 a2 = Array (Pull (\ix -> (a1 ! ix) `op` (a2 ! ix)))
 -- pair 
 
 pair :: Array Pull a -> Array Pull (a,a)
-pair (Array (Pull ixf) n) = Array (Pull (\ix -> (ixf (ix*2),ixf (ix*2+1)))) n'
+pair (Array (Pull ixf) n) = 
+  mkPullArray (\ix -> (ixf (ix*2),ixf (ix*2+1))) n'
   where 
     n' = n `div` 2 
 
@@ -110,9 +112,9 @@ pair (Array (Pull ixf) n) = Array (Pull (\ix -> (ixf (ix*2),ixf (ix*2+1)))) n'
 unpair :: Choice a => Array Pull (a,a) -> Array Pull a
 unpair arr = 
     let n = len arr
-    in  Array (Pull (\ix -> ifThenElse ((mod ix 2) ==* 0) 
-                      (fst (arr ! (ix `shiftR` 1)))
-                      (snd (arr ! (ix `shiftR` 1))))) (2*n)
+    in  mkPullArray (\ix -> ifThenElse ((mod ix 2) ==* 0) 
+                            (fst (arr ! (ix `shiftR` 1)))
+                            (snd (arr ! (ix `shiftR` 1)))) (2*n)
 
 
 ------------------------------------------------------------------------------    
@@ -121,12 +123,12 @@ unpair arr =
 twoK ::Int -> (Array Pull a -> Array Pull b) -> Array Pull a -> Array Pull b 
 twoK 0 f = f  -- divide 0 times and apply f
 twoK n f =  (\arr -> 
-              let arr' = Array (Pull (\i -> (f (Array (Pull (\j -> (arr ! (g i j)))) m) ! (h i)))) lt
+              let arr' = mkPullArray (\i -> (f (mkPullArray (\j -> (arr ! (g i j))) m) ! (h i))) lt
                   m    = (len arr `shiftR` n)   --pow of two           
                   g i j = i .&. (fromIntegral (complement (m-1))) .|. j  
                   h i   = i .&. (fromIntegral (nl2-1))   -- optimize 
 
-                  nl2   = (len (f (Array (Pull (\j -> arr ! variable "X")) m)))
+                  nl2   = (len (f (mkPullArray (\j -> arr ! variable "X") m)))
                   lt    = nl2 `shiftL` n 
               in arr')  
 
@@ -138,7 +140,7 @@ twoK n f =  (\arr ->
 ivt :: Int -> Int -> (Array Pull a -> Array Pull b) -> Array Pull a -> Array Pull b
 ivt i j f arr = Array (Pull g) nl
   where
-    g i1 = f (Array (Pull (\j2 -> arr ! (i1 `xor` (mask (j2 `xor` bb))))) 2) ! bb
+    g i1 = f (mkPullArray (\j2 -> arr ! (i1 `xor` (mask (j2 `xor` bb)))) 2) ! bb
         where bb = (i1 .&. bit) `shiftR` ij
     nl = len arr
     mask k = k  `shiftL` (ij+1) - k `shiftL` i
@@ -148,6 +150,19 @@ ivt i j f arr = Array (Pull g) nl
 
 ------------------------------------------------------------------------------    
 -- Improved ivDiv    
+    
+-- TODO: is a "select" operation useful. 
+    --  with meaning same as resize + ixMapPull
+ivDiv :: Int -> Int -> Array Pull a -> (Array Pull a, Array Pull a)
+ivDiv i j arr = (resize (ixMapPull left arr) (n-n2),
+                 resize (ixMapPull right arr) n2)
+  where 
+    n  = len arr
+    n2 = n `div` 2
+    left = insertZero (i+j) 
+    right ix = (left ix) `xor` (fromIntegral mask)
+    mask = (oneBits (j+1) :: Word32) `shiftL` i
+{-
 ivDiv :: Int -> Int -> Array Pull a -> (Array Pull a, Array Pull a)
 ivDiv i j (Array (Pull ixf) n) = (Array (Pull (ixf . left)) (n-n2),
                                   Array (Pull (ixf . right)) n2   )
@@ -156,6 +171,7 @@ ivDiv i j (Array (Pull ixf) n) = (Array (Pull (ixf . left)) (n-n2),
     left = insertZero (i+j) 
     right ix = (left ix) `xor` (fromIntegral mask)
     mask = (oneBits (j+1) :: Word32) `shiftL` i
+-}
 
 
 ----------------------------------------------------------------------------
@@ -163,9 +179,10 @@ ivDiv i j (Array (Pull ixf) n) = (Array (Pull (ixf . left)) (n-n2),
 ----------------------------------------------------------------------------
 
 revP :: Pushy arr => arr a -> Array Push a 
-revP  arr = ixMap (\ix -> (fromIntegral (n-1)) - ix) parr -- ArrayP (ixMap (\ix -> (fromIntegral (n-1)) - ix) h) n 
+revP  arr = ixMap (\ix -> (fromIntegral (n-1)) - ix) parr 
   where
-    parr@(Array (Push h) n) = push arr
+    parr = push arr
+    n =  len parr
 
 -- Does this do the same as in the push array case?
 -- if so then make a class of it 
@@ -184,22 +201,29 @@ ixMap' :: (Exp Word32 -> Exp Word32)
          -> P (Exp Word32, a) 
 ixMap' f p = \g -> ( p) (\(i,a) -> g (f i,a))
 
+----------------------------------------------------------------------------
+-- Concatenate on Push arrays
 concP :: (Pushy arr1,
           Pushy arr2) => (arr1 a, arr2 a) -> Array Push a     
 concP (arr1,arr2) = 
-  Array (Push (\func -> f func
-                   *>* 
-                   g (\(i,a) -> func (fromIntegral n1 + i,a))))
-                         (n1+n2)
+  mkPushArray  (\func -> parr1 !* func
+                         *>*  
+                         parr2 !* (\(i,a) -> func (fromIntegral n1 + i,a)))
+  (n1+n2)
   where 
-     Array (Push f) n1 = push arr1
-     Array (Push g) n2 = push arr2
+     parr1 = push arr1
+     parr2 = push arr2
+     n1    = len parr1
+     n2    = len parr2
      
+----------------------------------------------------------------------------
+--
 unpairP :: Pushy arr => arr (a,a) -> Array Push a 
-unpairP arr =  Array (Push (\k -> f (everyOther k)))
+unpairP arr =  mkPushArray (\k -> parr !* (everyOther k))
          (2 * n)
   where 
-    Array (Push f) n = push arr 
+    parr = push arr 
+    n    = len parr
         
 everyOther :: ((Exp Word32, a) -> Program ()) 
               -> (Exp Word32, (a,a)) -> Program ()

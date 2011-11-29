@@ -41,6 +41,8 @@ data Program extra
   | ProgramSeq (Program extra) 
                (Program extra) 
   
+infixr 5 *>* 
+
 (*>*) :: Program extra 
          -> Program extra 
          -> Program extra    
