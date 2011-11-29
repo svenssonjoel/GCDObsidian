@@ -10,11 +10,11 @@ module Obsidian.GCDObsidian.Array ((!)
                                   , Array(..)  
                                   , Pushy
                                   , PushyInternal
-                                  , pushApp
+                                 -- , pushApp
                                   , push
                                   , push' -- this is for "internal" use
                                   , push'' -- this is for "internal" use
-                                  , ArrayP(..)
+                                 -- , ArrayP(..)
                                   , P(..)
                                   , block
                                   , unblock
@@ -41,10 +41,16 @@ data Pull a = Pull {pullFun :: (Exp Word32 -> a)}
 
 -- Arrays!
 --data Array a = Array (Exp Word32 -> a) Word32 
-data Array a = Array (Exp Word32 -> a)  Word32 
+--data Array a = Array (Exp Word32 -> a)  Word32 
 -- PUSHY ARRAYS! 
 
 type P a = (a -> Program ()) -> Program () 
+
+
+data Array p a = Array (p a) Word32
+
+type PushArray a = Array Push a 
+type PullArray a = Array Pull a 
 
 {- 
 To look at later !!!! (needs to be a newtype though!
@@ -60,46 +66,46 @@ instance Applicative P where
 
 -} 
 
-data ArrayP a = ArrayP (P (Exp Word32, a)) Word32
+-- data ArrayP a = ArrayP (P (Exp Word32, a)) Word32
 
---data ArrayP a = ArrayP ((Exp Word32 -> a -> Program ()) -> Program ()) Word32
+-- data ArrayP a = ArrayP ((Exp Word32 -> a -> Program ()) -> Program ()) Word32
 
-pushApp (ArrayP func n) a =  func a 
+-- pushApp (ArrayP func n) a =  func a 
 
 
 -- TODO: Do you need (Exp e) where there is only e ? 
 -- DONE: Will this again influence the Exp Tuples or not issue?
 --    THE TUPLES ARE GONE NOW. 
 class Len a => PushyInternal a where 
-  push' :: Word32 -> a e -> ArrayP e  
-  push'' :: Word32 -> a e -> ArrayP e 
+  push' :: Word32 -> a e -> Array Push e  
+  push'' :: Word32 -> a e -> Array Push e 
 
-instance PushyInternal Array  where   
-  push' m (Array ixf n) = 
-    ArrayP (\func -> ForAll (\i -> foldr1 (*>*) 
+instance PushyInternal (Array Pull)  where   
+  push' m (Array (Pull ixf) n) = 
+    Array (Push (\func -> ForAll (\i -> foldr1 (*>*) 
                                    [func (ix,a)
                                    | j <-  [0..m-1],
                                      let ix = (i*(fromIntegral m) + (fromIntegral j)),
                                      let a  = ixf ix
-                                   ]) (n `div` m)) n
-  push'' m (Array ixf n) = 
-    ArrayP (\func -> ForAll (\i -> foldr1 (*>*) 
+                                   ]) (n `div` m))) n
+  push'' m (Array (Pull ixf) n) = 
+    Array (Push (\func -> ForAll (\i -> foldr1 (*>*) 
                                    [func (ix,a)
                                    | j <-  [0..m-1],
                                      let ix = (i+((fromIntegral ((n `div` m) * j)))),
                                      let a  = ixf ix
-                                   ]) (n `div` m)) n
+                                   ]) (n `div` m))) n
     
 
          
 class Len a => Pushy a where 
-  push :: a e -> ArrayP e 
+  push :: a e -> Array Push e 
 
-instance Pushy ArrayP where 
+instance Pushy (Array Push) where 
   push = id 
   
-instance Pushy Array  where   
-  push (Array ixf n) = ArrayP (\func -> ForAll (\i -> func (i,(ixf i))) n) n 
+instance Pushy (Array Pull)  where   
+  push (Array (Pull ixf) n) = Array (Push (\func -> ForAll (\i -> func (i,(ixf i))) n)) n 
 
 ----------------------------------------------------------------------------
 --
@@ -110,16 +116,14 @@ indexArray n      = Array (\ix -> ix) n
 class Indexible a e where 
   access :: a e -> Exp Word32 -> e 
   
-instance Indexible Array a where
-  access (Array ixf _) ix = ixf ix
+instance Indexible (Array Pull) a where
+  access (Array ixf _) ix = pullFun ixf ix
 
 class Len a where 
   len :: a e -> Word32
 
-instance Len Array where 
+instance Len (Array p) where 
   len (Array _ n) = n 
-instance Len ArrayP where   
-  len (ArrayP _ n) = n
   
 
 (!) :: Indexible a e => a e -> Exp Word32 -> e 
@@ -129,7 +133,7 @@ instance Len ArrayP where
 ------------------------------------------------------------------------------
 -- Show 
 
-instance Show  a => Show (Array a) where
+instance Show  a => Show (Array Pull a) where
   show arr | len arr <= 10 =  "[" ++ 
                               (concat . intersperse ",") 
                               [show (arr ! (fromIntegral i)) | i <- [0..len arr-1]] ++ 
@@ -152,8 +156,8 @@ instance Functor (GlobalArray Pull) where
   fmap f (GlobalArray (Pull g) n) = GlobalArray (Pull (f . g)) n 
 
 
-block :: Word32 -> GlobalArray Pull a -> Array a   
-block blockSize glob = Array newFun blockSize 
+block :: Word32 -> GlobalArray Pull a -> Array Pull a   
+block blockSize glob = Array (Pull newFun) blockSize 
   where 
     newFun ix = (pullFun pull) ((bid * (fromIntegral blockSize)) + ix)  
     (GlobalArray pull n) = glob 
@@ -161,10 +165,10 @@ block blockSize glob = Array newFun blockSize
 bid   = variable "bid"
 nblks = variable "gridDim.x"
 
-unblock :: ArrayP a -> GlobalArray Push a 
+unblock :: Array Push a -> GlobalArray Push a 
 unblock array = GlobalArray newFun (nblks * (fromIntegral n)) 
   where 
-    (ArrayP fun n) = array
+    (Array (Push fun) n) = array
     newFun  = Push (\func -> fun (\(i,a) -> func (bid * (fromIntegral n)+i,a)))
     
 pushGlobal (GlobalArray (Pull ixf) n) = GlobalArray (Push (\func -> ForAllGlobal (\i -> func (i,(ixf i))) n)) n
@@ -175,9 +179,6 @@ pushGlobal (GlobalArray (Pull ixf) n) = GlobalArray (Push (\func -> ForAllGlobal
 
 
 {- 
-
 apa arr = pure (blocks 512) ->- vsort 9 ->- pure unblocks
-
-
 -} 
 

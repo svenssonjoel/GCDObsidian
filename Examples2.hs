@@ -21,6 +21,13 @@ testParam1 (garr, param) = res
 
 getTestParam1 = putStrLn$ CUDA.genKernelGlob "testParam1" testParam1 (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int),variable "v") 
 
+
+globRev (GlobalArray (Pull ixf) n) = GlobalArray (Pull (\ix -> ixf (n - 1 - ix))) n
+
+testGlobRev = pure globRev ->- pure (block 256) ->- pure (unblock . push) 
+
+getTestGlobRev = putStrLn$ CUDA.genKernelGlob "testGlobRev" testGlobRev (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int)) 
+
 {- 
    A kernel Takes a global Pull array as input 
    and Pushes a global array as output. 

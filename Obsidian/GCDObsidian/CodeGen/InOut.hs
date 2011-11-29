@@ -81,6 +81,15 @@ newInOut name t s = do
   let newname = name ++ show i
   put (i+1,(newname,t,s):ins) 
   return newname
+  
+newGlobalInputArray t = do 
+  (i,ins) <- get 
+  let newArrayName = "input" ++ show i
+      newArrayLen  = "n" ++ show i 
+  put (i+1,(newArrayLen,Word32,undefined):
+           (newArrayName,t,undefined):
+           ins)
+  return (newArrayName,newArrayLen)
 
 runInOut :: State (Int,[(String,Type,Word32)]) a 
             -> (Int,[(String,Type,Word32)]) 
@@ -214,10 +223,10 @@ class GlobalOutput a where
 --------------------------------------------------------------------------                       
 -- Base
 instance Scalar a => GlobalInput (GlobalArray Pull (Exp a)) where 
-  createGlobalInput arr@(GlobalArray _ n) = do 
-    name <- newInOut "input" (cTypeOfGlobalArray arr) undefined{- there is no length on global arrays -}
+  createGlobalInput arr@(GlobalArray _ _) = do 
+    (name,n) <- newGlobalInputArray (cTypeOfGlobalArray arr)
     let fun ix = index name ix 
-    return$ GlobalArray (Pull fun) n
+    return$ GlobalArray (Pull fun) (variable n)
       
 instance Scalar a => GlobalInput (Exp a) where   
   createGlobalInput a = do 
