@@ -196,6 +196,12 @@ ixMap :: (Exp Word32 -> Exp Word32)
          -> Array Push a 
 ixMap f (Array (Push p) n) = Array (Push (ixMap' f p)) n
 
+ixMapGlobal :: (Exp Word32 -> Exp Word32) 
+               -> GlobalArray Push a 
+               -> GlobalArray Push a
+ixMapGlobal f (GlobalArray (Push p) n) = 
+  GlobalArray (Push (ixMap' f p)) n
+
 ixMap' :: (Exp Word32 -> Exp Word32) 
          -> P (Exp Word32, a)
          -> P (Exp Word32, a) 

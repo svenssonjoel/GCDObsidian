@@ -11,6 +11,7 @@ module Obsidian.GCDObsidian.Array ((!) -- pull array apply (index into)
                                   , namedArray
                                   , indexArray
                                   , len 
+                                  , globLen
                                   , Array(..)  
                                   , Pushy
                                   , PushyInternal
@@ -25,7 +26,7 @@ module Obsidian.GCDObsidian.Array ((!) -- pull array apply (index into)
                                   , GlobalArray(..)
                                   , Pull(..)
                                   , Push(..)
-                                  , pushGlobal
+                                  -- , pushGlobal
                                   )where 
 
 import Obsidian.GCDObsidian.Exp 
@@ -168,6 +169,11 @@ instance Functor (GlobalArray Pull) where
   fmap f (GlobalArray (Pull g) n) = GlobalArray (Pull (f . g)) n 
 
 
+instance Indexible (GlobalArray Pull) a where  
+  access (GlobalArray ixf _) ix = pullFun ixf ix
+  
+globLen (GlobalArray _ n) = n
+
 block :: Word32 -> GlobalArray Pull a -> Array Pull a   
 block blockSize glob = Array (Pull newFun) blockSize 
   where 
@@ -183,7 +189,7 @@ unblock array = GlobalArray newFun (nblks * (fromIntegral n))
     (Array (Push fun) n) = array
     newFun  = Push (\func -> fun (\(i,a) -> func (bid * (fromIntegral n)+i,a)))
     
-pushGlobal (GlobalArray (Pull ixf) n) = GlobalArray (Push (\func -> ForAllGlobal (\i -> func (i,(ixf i))) n)) n
+-- pushGlobal (GlobalArray (Pull ixf) n) = GlobalArray (Push (\func -> ForAllGlobal (\i -> func (i,(ixf i))) n)) n
 
 ----------------------------------------------------------------------------
 -- A kernel should now be something like

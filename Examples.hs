@@ -19,10 +19,10 @@ import Prelude hiding (zipWith,sum )
 
 ---------------------------------------------------------------------------
 -- MapFusion example
-mapFusion :: Array IntE -> Kernel (Array IntE) 
+mapFusion :: Array Pull IntE -> Kernel (Array Pull IntE) 
 mapFusion = pure (fmap (+1) . fmap (*2)) 
 
-input1 :: Array IntE 
+input1 :: Array Pull IntE 
 input1 = namedArray "apa" 32
 
 getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
@@ -32,7 +32,7 @@ getMapFusionCL = putStrLn$ CL.genKernel "mapFusion" mapFusion input1
 
 ---------------------------------------------------------------------------
 -- mapUnfused example
-mapUnFused :: Array IntE -> Kernel (Array IntE) 
+mapUnFused :: Array Pull IntE -> Kernel (Array Pull IntE) 
 mapUnFused = pure (fmap (*2)) ->- sync ->- pure (fmap (+1))
 
 getMapUnFused = putStrLn$ CUDA.genKernel "mapUnFused" mapUnFused input1
@@ -40,7 +40,7 @@ getMapUnFused = putStrLn$ CUDA.genKernel "mapUnFused" mapUnFused input1
 
 ---------------------------------------------------------------------------
 -- reduction of array of length a power of two
-reduce :: Syncable Array a => (a -> a -> a) -> Array a -> Kernel (Array a)
+reduce :: Syncable (Array Pull) a => (a -> a -> a) -> Array Pull a -> Kernel (Array Pull a)
 reduce op arr | len arr == 1 = return arr
               | otherwise    = 
                 (pure ((uncurry (zipWith op)) . halve)
@@ -48,17 +48,17 @@ reduce op arr | len arr == 1 = return arr
                  ->- reduce op) arr
 
 
-reduceS :: (a -> a -> a) -> Array a -> Kernel (Array a) 
+reduceS :: (a -> a -> a) -> Array Pull a -> Kernel (Array Pull a) 
 reduceS op arr | len arr == 1 = return arr
                | otherwise    = 
                  (pure ((uncurry (zipWith op)) . halve)
                   ->- reduceS op) arr
 
 
-input8 :: Array IntE 
+input8 :: Array Pull IntE 
 input8 = namedArray "input" 8
 
-input16 :: Array IntE 
+input16 :: Array Pull IntE 
 input16 = namedArray "input" 16
 
 
@@ -71,27 +71,27 @@ getReduceAddC = putStrLn$ C.genKernel "reduceAdd" (reduce (+)) input8
 getReduceSAdd = putStrLn$ CUDA.genKernel "reduceSAdd" (reduceS (+)) input8
 
 
-catArrays :: (Array (Exp Int), Array (Exp Int)) 
-           -> Kernel (Array (Exp Int))
+catArrays :: (Array Pull (Exp Int), Array Pull (Exp Int)) 
+           -> Kernel (Array Pull (Exp Int))
 catArrays  = pure conc
 
 getCatArrays = putStrLn$ CUDA.genKernel "catArrays" (catArrays) (input16,input16)
 
 
-zippUnpair :: (Array IntE, Array IntE) -> Kernel (Array IntE) 
+zippUnpair :: (Array Pull IntE, Array Pull IntE) -> Kernel (Array Pull IntE) 
 zippUnpair = pure (unpair . zipp)
 
-input32 :: Array IntE 
+input32 :: Array Pull IntE 
 input32 = namedArray "apa" 32
 
-input64 :: Array IntE 
+input64 :: Array Pull IntE 
 input64 = namedArray "apa" 64
 
-input128 :: Array IntE
+input128 :: Array Pull IntE
 input128 = namedArray "apa" 128
 
 
-input256 :: Array IntE
+input256 :: Array Pull IntE
 input256 = namedArray "apa" 256
 
 
@@ -99,14 +99,14 @@ getZippUnpair = putStrLn$ CUDA.genKernel "zippUnpair" zippUnpair (input32,input3
 
 
 
-zippUnpairP :: (Array IntE, Array IntE) -> Kernel (ArrayP IntE) 
+zippUnpairP :: (Array Pull IntE, Array Pull IntE) -> Kernel (Array Push IntE) 
 zippUnpairP = pure (unpairP . zipp)
 
 getZippUnpairP = putStrLn$ CUDA.genKernel "zippUnpairP" zippUnpairP (input32,input32)
 
 
-catArrayPs :: (Array (Exp Int), Array (Exp Int)) 
-           -> Kernel (ArrayP (Exp Int))
+catArrayPs :: (Array Pull (Exp Int), Array Pull (Exp Int)) 
+           -> Kernel (Array Push (Exp Int))
 catArrayPs = pure concP -- (arr1,arr2) = return$ concP (arr1, arr2)
 
 
@@ -116,7 +116,7 @@ getCatArrayPs = putStrLn$ CUDA.genKernel "catArrayPs" (catArrayPs) (input16,inpu
 
 
 
-sum :: Array IntE -> Kernel (Array IntE) 
+sum :: Array Pull IntE -> Kernel (Array Pull IntE) 
 sum arr | len arr == 1 = return arr
         | otherwise    = (pure (fmap (uncurry (+)) . pair) 
                           ->- sync 
