@@ -33,13 +33,13 @@ composeS (f:fs) = f ->- sync ->- composeS fs
 ----------------------------------------------------------------------------
 -- Sync
 
-pSyncArray  :: Scalar a => Array (Exp a) -> Kernel (Array (Exp a))
+pSyncArray  :: Scalar a => Array Pull (Exp a) -> Kernel (Array Pull (Exp a))
 pSyncArray arr = 
   do 
     name <- newArray
     
-    let p = pushApp parr (targetArray name)
-        
+    let p = parr !* (targetArray name)
+         
     tell$ 
         (Allocate name (es * (len arr)) t ()) 
         `ProgramSeq`
@@ -47,7 +47,7 @@ pSyncArray arr =
         `ProgramSeq`
         (Synchronize True)
             
-    return (Array (index name) (len arr))
+    return$ mkPullArray (index name) (len arr)
       
   where 
     es = fromIntegral$ sizeOf (arr ! 0) 
@@ -56,15 +56,16 @@ pSyncArray arr =
     parr = push arr 
         
 
-pSyncArrayP :: Scalar a => ArrayP (Exp a) -> Kernel (Array (Exp a)) 
-pSyncArrayP arr@(ArrayP func n)  = 
+pSyncArrayP :: Scalar a => Array Push (Exp a) -> Kernel (Array Pull (Exp a)) 
+pSyncArrayP arr  = 
   do 
     name <- newArray
     
-    let result = Array (index name) n         
+    let n = len arr
+        result = mkPullArray (index name) n         
         es = fromIntegral$ sizeOf (result ! 0) 
         t  = Pointer$ Local$ typeOf (result ! 0)
-        p  = pushApp arr (targetArray name)
+        p  = arr !* (targetArray name)
 
     tell$ (Allocate name (es * n) t () )
           `ProgramSeq`
@@ -74,19 +75,20 @@ pSyncArrayP arr@(ArrayP func n)  =
           
     return result
 
-pSyncArrayP2 :: (Scalar a, Scalar b ) => ArrayP (Exp a,Exp b) -> Kernel (Array (Exp a,Exp b))
-pSyncArrayP2 arr@(ArrayP f n) =  
+pSyncArrayP2 :: (Scalar a, Scalar b ) => Array Push (Exp a,Exp b) -> Kernel (Array Pull (Exp a,Exp b))
+pSyncArrayP2 arr =  
   do 
     name1 <- newArray
     name2 <- newArray
                       
-    let result1 = Array (index name1) n
-        result2 = Array (index name2) n
+    let n = len arr
+        result1 = mkPullArray (index name1) n
+        result2 = mkPullArray (index name2) n
         t1 = Pointer$ Local$ typeOf (result1 ! 0) 
         t2 = Pointer$ Local$ typeOf (result2 ! 0)
         es1 = fromIntegral$ sizeOf (result1 ! 0)
         es2 = fromIntegral$ sizeOf (result2 ! 0)
-        p = pushApp arr (targetPair name1 name2)
+        p  = arr !* (targetPair name1 name2)
         
     tell$ (Allocate name1 (es1 * n) t1 ()) *>* 
           (Allocate name2 (es2 * n) t2 ()) *>* 
@@ -100,12 +102,12 @@ class Syncable' a where
   type Synced a  
   sync' :: a -> Kernel (Synced a) 
   
-instance Syncable Array (Exp a) => Syncable' (Array (Exp a)) where 
-  type Synced (Array (Exp a)) = Array (Exp a) 
+instance Syncable (Array Pull) (Exp a) => Syncable' (Array Pull (Exp a)) where 
+  type Synced (Array Pull (Exp a)) = Array Pull (Exp a) 
   sync' = sync 
   
-instance Syncable ArrayP (Exp a)  => Syncable' (ArrayP (Exp a)) where 
-  type Synced (ArrayP (Exp a)) = Array (Exp a) 
+instance Syncable (Array Push)  (Exp a)  => Syncable' (Array Push (Exp a)) where 
+  type Synced (Array Push (Exp a)) = Array Pull (Exp a) 
   sync' = sync 
 
 
@@ -122,12 +124,12 @@ instance (Syncable' a, Syncable' b) => Syncable' (a,b) where
   
 -- TODO: Here only possible to sync on arrays ? 
 class Syncable a b where 
-  sync :: a b -> Kernel (Array b)
+  sync :: a b -> Kernel (Array Pull b)
  
-instance (Scalar a) => Syncable Array (Exp a) where 
+instance (Scalar a) => Syncable (Array Pull) (Exp a) where 
   sync = pSyncArray
 
-instance (Syncable Array a, Syncable Array b) => Syncable Array (a,b) where
+instance (Syncable (Array Pull) a, Syncable (Array Pull) b) => Syncable (Array Pull) (a,b) where
   sync arr = do
     a1' <- sync a1
     a2' <- sync a2
@@ -135,8 +137,8 @@ instance (Syncable Array a, Syncable Array b) => Syncable Array (a,b) where
     where 
       (a1,a2) = unzipp arr
 
-instance (Syncable Array a, Syncable Array b, Syncable Array c) 
-         => Syncable Array (a,b,c) where
+instance (Syncable (Array Pull) a, Syncable (Array Pull) b, Syncable (Array Pull) c) 
+         => Syncable (Array Pull) (a,b,c) where
   sync arr = do 
     a1' <- sync a1 
     a2' <- sync a2 
@@ -145,11 +147,11 @@ instance (Syncable Array a, Syncable Array b, Syncable Array c)
     where 
       (a1,a2,a3) = unzipp3 arr
  
-instance Scalar a => Syncable ArrayP (Exp a) where  
+instance Scalar a => Syncable (Array Push) (Exp a) where  
   sync arr =  pSyncArrayP arr
   
 -- GAH! not good !! 
-instance (Scalar a, Scalar b) => Syncable ArrayP (Exp a, Exp b) where 
+instance (Scalar a, Scalar b) => Syncable (Array Push) (Exp a, Exp b) where 
   sync =  pSyncArrayP2 
 
               

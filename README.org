@@ -37,6 +37,7 @@
     a CUDA int is 64bit on 64bit architectures?
 
 * TODO and to look into:
+  + Improve upon the things in Sync.hs 
   + Fix SyncAnalysis
   + Perform CSE
   + Kernel Coordination layer
