@@ -34,7 +34,10 @@ getTestParam1 = putStrLn$ CUDA.genKernelGlob "testParam1" testParam1 (GlobalArra
 
 globRev (GlobalArray (Pull ixf) n) = GlobalArray (Pull (\ix -> ixf (n - 1 - ix))) n
 
-testGlobRev = pure globRev ->- pure (block 256) ->- pure (unblock . push) 
+testGlobRev = pure globRev ->- 
+              pure (block 256) ->- 
+              pure rev ->- -- also reverse each block 
+              pure (unblock . push) 
 
 getTestGlobRev = putStrLn$ CUDA.genKernelGlob "testGlobRev" testGlobRev (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int)) 
 
