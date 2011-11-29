@@ -24,6 +24,8 @@ module Obsidian.GCDObsidian.Array ((!) -- pull array apply (index into)
                                   , block
                                   , unblock
                                   , GlobalArray(..)
+                                  , mkGlobalPushArray  
+                                  , mkGlobalPullArray
                                   , Pull(..)
                                   , Push(..)
                                   -- , pushGlobal
@@ -165,9 +167,11 @@ instance Show  a => Show (Array Pull a) where
 
 data GlobalArray p a = GlobalArray (p a) (Exp Word32)
 
+mkGlobalPushArray p n = GlobalArray (Push p) n 
+mkGlobalPullArray f n = GlobalArray (Pull f) n 
+
 instance Functor (GlobalArray Pull) where 
   fmap f (GlobalArray (Pull g) n) = GlobalArray (Pull (f . g)) n 
-
 
 instance Indexible (GlobalArray Pull) a where  
   access (GlobalArray ixf _) ix = pullFun ixf ix

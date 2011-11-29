@@ -63,6 +63,8 @@ zipWithG op a1 a2 =
   GlobalArray (Pull  (\ix -> (a1 ! ix) `op` (a2 ! ix)))
                    (min (globLen a1) (globLen a2))
 
+-- a global array is "pushed" by dividing 
+-- it up into short pieces that are pushed blockwise. 
 pushGlobal blocksize = 
    unblock . push . block blocksize   
   

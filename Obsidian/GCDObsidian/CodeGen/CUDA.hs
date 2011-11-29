@@ -142,6 +142,10 @@ genKernelGlob name kernel a = cuda
       runInOut_ (writeGlobalOutput threadBudget res) 
       
     c = c_old *>* outcode
+    
+    -- Perform CSE here 
+    -- c' = performCSE c 
+    
     cuda = getCUDA (config threadBudget mm (size m)) 
                    c  
                    name
