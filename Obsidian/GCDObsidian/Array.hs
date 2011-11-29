@@ -35,8 +35,8 @@ import Data.Word
 
 ------------------------------------------------------------------------------
 
-data Push a = Push {pushFun :: P (Exp Word32,a)} 
-data Pull a = Pull {pullFun :: (Exp Word32 -> a)} 
+data Push a = Push {pushFun :: P (Exp Word32,a)}
+data Pull a = Pull {pullFun :: Exp Word32 -> a}
 
 
 -- Arrays!
