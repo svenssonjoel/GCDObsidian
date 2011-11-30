@@ -2,7 +2,8 @@
 module Obsidian.GCDObsidian.CodeGen.CUDA 
        (genKernel
        ,genKernel_
-       ,genKernelGlob) where 
+       ,genKernelGlob
+       ,genKernelGlob_) where 
 
 import Data.List
 import Data.Word 
@@ -120,8 +121,8 @@ genKernel name kernel a = cuda
     c' = sc {-*>* Synchronize True-} *>* outCode 
     sc = c -- remove
     
-    cuda = error$ printBody (mmSPMDC mm (progToSPMDC threadBudget c))
---    cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
+--    cuda = error$ printBody (mmSPMDC mm (progToSPMDC threadBudget c))
+    cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
 
 
 genKernelGlob :: (GlobalInput a, GlobalOutput b)
@@ -151,7 +152,50 @@ genKernelGlob name kernel a = cuda
     -- from this stage ?? 
     -- c' = performCSE c 
     
-    cuda = error$ printBody (mmSPMDC mm (progToSPMDC threadBudget c) )
+ --    cuda = error$ printBody (mmSPMDC mm (progToSPMDC threadBudget c) )
+ 
+    cuda = getCUDA (config threadBudget mm (size m)) 
+                   c  
+                   name
+                   (map fst2 ins) 
+                   (map fst2 outs)
+ 
+
+
+genKernelGlob_ :: (GlobalInput a, GlobalOutput b)
+                 => String 
+                 -> (a -> Kernel b) 
+                 -> a 
+                 -> String
+genKernelGlob_ name kernel a = cuda 
+  where 
+    (input,ins) = runInOut_ (createGlobalInput a)                             
+    ((res,_),c_old) = runKernel (kernel input) 
+    
+    -- TODO: *ERROR* will only work if there 
+    --       is atleast one sync in the kernel. 
+    threadBudget = threadsNeeded c 
+    
+    lc = liveness c_old 
+    
+    (m,mm) = mapMemory lc sharedMem Map.empty
+    (outcode,outs) = 
+      runInOut_ (writeGlobalOutput threadBudget res) 
+      
+    c = c_old *>* outcode
+    
+    -- Perform CSE here 
+    -- Maybe output a new form of intermediate code 
+    -- from this stage ?? 
+    -- c' = performCSE c 
+    swap (x,y) = (y,x)
+    inputs = map ((\(t,n) -> (typeToCType t,n)) . swap . fst2) ins
+    outputs = map ((\(t,n) -> (typeToCType t,n)) . swap . fst2) outs 
+    tidDecl = CDeclAssign CWord32 "tid" (CVar "threadIdx.x") 
+    bidDecl = CDeclAssign CWord32 "bid" (CVar "blockIdx.x") 
+    
+    body = tidDecl:bidDecl:(mmSPMDC mm (progToSPMDC threadBudget c) )
+    cuda = printCKernel$ CKernel CQualifyerKernel CVoid name (inputs++outputs) body
       {- 
     cuda = getCUDA (config threadBudget mm (size m)) 
                    c  
@@ -159,6 +203,7 @@ genKernelGlob name kernel a = cuda
                    (map fst2 ins) 
                    (map fst2 outs)
      -} 
+
 
 
 ------------------------------------------------------------------------------

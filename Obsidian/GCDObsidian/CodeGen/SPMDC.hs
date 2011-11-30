@@ -57,6 +57,7 @@ data CUnOp = CBitwiseNeg
 -} 
 --                   targ   ifarr  source
 data SPMDC = CAssign CExpr [CExpr] CExpr -- array or scalar assign 
+           | CDeclAssign CType Name CExpr -- declare variable and assign a value 
            | CFunc   Name  [CExpr]       
            | CSync                  -- CUDA and OpenCL
            | CIf     CExpr [SPMDC] [SPMDC]
@@ -113,6 +114,7 @@ printBody (x:xs) = printSPMDC x ++ printBody xs
 
 printSPMDC (CAssign e [] expr) = printCExpr e  ++ " = " ++ printCExpr expr  ++ ";\n" 
 printSPMDC (CAssign e exprs expr) = printCExpr e  ++ commaSepList printCExpr "[" "]" exprs ++ " = " ++ printCExpr expr ++ ";\n" 
+printSPMDC (CDeclAssign t n e) = printCType t ++ " " ++ n ++ " = " ++ printCExpr e ++ ";\n" 
 printSPMDC (CFunc nom args) = nom ++ commaSepList printCExpr "(" ")" args ++ ";\n"
 printSPMDC CSync = "__syncthreads();\n"
 printSPMDC (CIf e [] [] ) = "" -- 

@@ -29,6 +29,7 @@ testParam1 (garr, param) = res
   where 
     res = test1$ fmap (+param) garr 
 
+getTestParam1_ = putStrLn$ CUDA.genKernelGlob_ "testParam1" testParam1 (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int),variable "v") 
 getTestParam1 = putStrLn$ CUDA.genKernelGlob "testParam1" testParam1 (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int),variable "v") 
 
 
