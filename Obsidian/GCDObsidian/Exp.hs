@@ -7,6 +7,8 @@
 
 module Obsidian.GCDObsidian.Exp where 
 
+
+
 import Data.List
 import Data.Word 
 import Data.Bits
@@ -17,6 +19,8 @@ import qualified Foreign.Storable as Storable
 -- Obsidian imports
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
+
+import Obsidian.GCDObsidian.CodeGen.SPMDC
 
 ------------------------------------------------------------------------------
 -- some synonyms
@@ -30,10 +34,9 @@ type UByteE  = Exp Word8
 type UShortE = Exp Word16 
 type UWordE  = Exp Word32 
 type ULongE  = Exp Word64 
-
 ------------------------------------------------------------------------------
--- Class Scalar. (Things that are not tuples) 
-class Show a => Scalar a where 
+-- Class Scalar. All the things we can handle code generation for 
+class (ExpToCExp a, Show a) => Scalar a where 
   sizeOf :: Exp a -> Int   --  
   typeOf :: Exp a -> Type  --   Good enough for me ... 
 
@@ -76,6 +79,7 @@ instance Scalar Word32 where
 instance Scalar Word64 where 
   sizeOf _ = 8 
   typeOf _ = Word64
+
 
 ----------------------------------------------------------------------------
 -- Expressions 
@@ -361,3 +365,72 @@ printOp BitwiseOr  = " | "
 printOp BitwiseXor = " ^ " 
 printOp BitwiseNeg = " ~ "  
 
+
+
+---------------------------------------------------------------------------- 
+-- Experimenting 
+
+class ExpToCExp a where 
+  expToCExp :: Exp a -> CExpr 
+
+
+instance  ExpToCExp Bool where 
+  expToCExp (Literal True) = CLiteral (IntVal 1) 
+  expToCExp (Literal False) = CLiteral (IntVal 0) 
+  expToCExp a = expToCExpGeneral a 
+
+instance ExpToCExp Int where 
+  expToCExp (Literal a) = CLiteral (IntVal a) 
+  expToCExp a = expToCExpGeneral a   
+
+instance ExpToCExp Float where 
+  expToCExp (Literal a) = CLiteral (FloatVal a) 
+  expToCExp a = expToCExpGeneral a 
+
+instance ExpToCExp Double where 
+  expToCExp (Literal a) = CLiteral (DoubleVal a) 
+  expToCExp a = expToCExpGeneral a 
+
+instance ExpToCExp Word8 where 
+  expToCExp (Literal a) = CLiteral (Word8Val a) 
+  expToCExp a = expToCExpGeneral a 
+
+instance ExpToCExp Word16 where 
+  expToCExp (Literal a) = CLiteral (Word16Val a) 
+  expToCExp a = expToCExpGeneral a 
+
+instance ExpToCExp Word32 where 
+  expToCExp (Literal a) = CLiteral (Word32Val a) 
+  expToCExp a = expToCExpGeneral a 
+
+instance ExpToCExp Word64 where 
+  expToCExp (Literal a) = CLiteral (Word64Val a) 
+  expToCExp a = expToCExpGeneral a 
+
+  
+expToCExpGeneral :: ExpToCExp a  => Exp a -> CExpr 
+expToCExpGeneral (Index (name,[])) = CIndex (CVar name,[]) 
+expToCExpGeneral (Index (name,xs)) = CIndex (CVar name,map expToCExp xs)  
+expToCExpGeneral (If b e1 e2)      = CCond  (expToCExp b) (expToCExp e1) (expToCExp e2)
+expToCExpGeneral (BinOp op e1 e2)  = CBinOp (binOpToCBinOp op) (expToCExp e1) (expToCExp e2)
+expToCExpGeneral (UnOp  op e1)     = CUnOp  (unOpToCUnOp op) (expToCExp e1) 
+
+-- maybe unnecessary
+binOpToCBinOp Add = CAdd
+binOpToCBinOp Sub = CSub
+binOpToCBinOp Mul = CMul
+binOpToCBinOp Div = CDiv 
+binOpToCBinOp Mod = CMod
+binOpToCBinOp Eq  = CEq 
+binOpToCBinOp Lt  = CLt 
+binOpToCBinOp LEq = CLEq
+binOpToCBinOp Gt  = CGt 
+binOpToCBinOp GEq = CGEq 
+binOpToCBinOp BitwiseAnd = CBitwiseAnd
+binOpToCBinOp BitwiseOr  = CBitwiseOr
+binOpToCBinOp BitwiseXor = CBitwiseXor
+binOpToCBinOp ShiftL     = CShiftL 
+binOpToCBinOp ShiftR     = CShiftR
+-- notice min and max is not here ! 
+
+unOpToCUnOp   BitwiseNeg = CBitwiseNeg

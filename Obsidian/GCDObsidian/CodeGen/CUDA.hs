@@ -24,6 +24,8 @@ import Obsidian.GCDObsidian.CodeGen.SyncAnalysis
 import Obsidian.GCDObsidian.CodeGen.Memory
 import Obsidian.GCDObsidian.CodeGen.Liveness
 
+import Obsidian.GCDObsidian.CodeGen.SPMDC
+
 ----------------------------------------------------------------------------
 -- 
 gc = genConfig "" ""
@@ -118,7 +120,8 @@ genKernel name kernel a = cuda
     c' = sc {-*>* Synchronize True-} *>* outCode 
     sc = c -- remove
     
-    cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
+    cuda = error$ printBody (mmSPMDC mm (progToSPMDC threadBudget c))
+--    cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
 
 
 genKernelGlob :: (GlobalInput a, GlobalOutput b)
@@ -148,12 +151,14 @@ genKernelGlob name kernel a = cuda
     -- from this stage ?? 
     -- c' = performCSE c 
     
+    cuda = error$ printBody (mmSPMDC mm (progToSPMDC threadBudget c) )
+      {- 
     cuda = getCUDA (config threadBudget mm (size m)) 
                    c  
                    name
                    (map fst2 ins) 
                    (map fst2 outs)
-    
+     -} 
 
 
 ------------------------------------------------------------------------------
@@ -207,8 +212,9 @@ genProg mm nt (Assign name ix a) =
         
 genProg mm nt (ForAll f n) = potentialCond gc mm n nt $ 
                                genProg mm nt (f (variable "tid"))
-genProg mm nt (ForAllGlobal f n) =                                
-  genProg mm nt (f (variable "gtid"))
+-- Investigate why this line is not used. 
+genProg mm nt (ForAllGlobal f n) = error "hello world"                                
+--genProg mm nt (f (variable "gtid"))
   
   
   -- TODO: Many details missing here, think about nested ForAlls 
@@ -223,4 +229,72 @@ genProg mm nt (ProgramSeq p1 p2) =
   do 
     genProg mm nt p1
     genProg mm nt p2
+
+
+
+---------------------------------------------------------------------------- 
+-- genProgSPMDC 
+    
+
+  
+progToSPMDC :: Word32 -> Program a -> [SPMDC] 
+progToSPMDC nt (Assign name ix a) = 
+  [CAssign (CVar name) [expToCExp ix] (expToCExp a)] 
+progToSPMDC nt (ForAll f n) =         
+  if (n < nt) 
+  then 
+    [CIf (CBinOp CLt (CVar "tid") (CLiteral (Word32Val n)))
+        code []]
+  else 
+    code 
+  where 
+    code = progToSPMDC nt (f (variable "tid"))
+    
+progToSPMDC nt (Allocate name size t _) = []
+progToSPMDC nt (Synchronize True) = [CFunc "__synchthreads" []] -- syncLine >> newline 
+progToSPMDC nt (Synchronize False) = [] -- return () -- line "\\\\__synchthreads();" >> newline 
+progToSPMDC nt Skip = []
+progToSPMDC nt (ProgramSeq p1 p2) = progToSPMDC nt p1 ++ progToSPMDC nt p2
+
+
+
+mmSPMDC :: MemMap -> [SPMDC] -> [SPMDC] 
+mmSPMDC mm [] = [] 
+mmSPMDC mm (x:xs) = mmSPMDC' mm x : mmSPMDC mm xs
+
+mmSPMDC' :: MemMap -> SPMDC -> SPMDC
+mmSPMDC' mm (CAssign e1 es e2) = 
+  CAssign (mmCExpr mm e1) 
+          (map (mmCExpr mm) es)    
+          (mmCExpr mm e2)
+mmSPMDC' mm (CFunc name es) = CFunc name (map (mmCExpr mm) es) 
+mmSPMDC' mm (CIf   e s1 s2) = CIf (mmCExpr mm e) (mmSPMDC mm s1) (mmSPMDC mm s2)
+
+mmCExpr mm (CVar nom) =  
+  case Map.lookup nom mm of 
+    Just (addr,t) -> 
+      let core = CBinOp CAdd (CVar "sbase") (CLiteral (Word32Val addr))
+          cast c = CCast (typeToCType t) c
+      in cast core
+    
+    Nothing -> CVar nom
+mmCExpr mm (CIndex (e1,es)) = CIndex (mmCExpr mm e1, map (mmCExpr mm) es)
+mmCExpr mm (CBinOp op e1 e2) = CBinOp op (mmCExpr mm e1) (mmCExpr mm e2)
+mmCExpr mm (CUnOp op e) = CUnOp op (mmCExpr mm e) 
+mmCExpr mm (CFuncExpr nom exprs) = CFuncExpr nom (map (mmCExpr mm) exprs)
+mmCExpr mm (CCast t e) = CCast t (mmCExpr mm e) 
+mmCExpr mm a = a 
+          
+  
+
+typeToCType Int   = CInt
+typeToCType Float = CFloat
+typeToCType Double = CDouble
+typeToCType Word8 = CWord8
+typeToCType Word16 = CWord16
+typeToCType Word32 = CWord32
+typeToCType Word64 = CWord64
+typeToCType (Pointer t) = CPointer (typeToCType t)
+typeToCType (Global t)  = CQualified CQualifyerGlobal (typeToCType t) 
+typeToCType (Local t)  = CQualified CQualifyerLocal (typeToCType t) 
 

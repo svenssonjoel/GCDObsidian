@@ -1,4 +1,4 @@
-{-# LANGUAGE RankNTypes, GADTs #-}
+{-# LANGUAGE RankNTypes, GADTs  #-}
 
 module Obsidian.GCDObsidian.CodeGen.Common where 
 
@@ -11,7 +11,9 @@ import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 
+
 import Obsidian.GCDObsidian.CodeGen.Memory
+import Obsidian.GCDObsidian.CodeGen.SPMDC
 
 import Control.Monad.State
 
@@ -80,13 +82,15 @@ genExp gc mm (If b e1 e2) =
           genExp gc mm e1 ++ 
           genExp gc mm e2 )] 
 
-
+----------------------------------------------------------------------------
+--
 genIndices gc mm es = concatMap (pIndex mm) es  
   where 
     pIndex mm e = "[" ++ concat (genExp gc mm e) ++ "]"
 
 
 genIf         [b,e1,e2] = b ++ " ? " ++ e1 ++ " : " ++ e2
+
 ------------------------------------------------------------------------------
 -- genOp
 genOp :: Op a -> [String] -> String
