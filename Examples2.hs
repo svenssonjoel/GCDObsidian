@@ -74,6 +74,7 @@ pushGlobal blocksize =
   
     
 getvSwap = putStrLn$ CUDA.genKernelGlob "vSwap" vSwap (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int),variable "stride")     
+getvSwap_ = putStrLn$ CUDA.genKernelGlob_ "vSwap" vSwap (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int),variable "stride")     
     
 --pushGlobal (GlobalArray (Pull ixf) n) = 
 --   GlobalArray (Push (\func -> ForAllGlobal (\i -> func (i,(ixf i))) n)) n

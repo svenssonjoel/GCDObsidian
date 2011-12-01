@@ -6,6 +6,10 @@ import Obsidian.GCDObsidian.Globs
 import Data.Word
 import qualified Data.List as List
 
+
+
+----------------------------------------------------------------------------
+-- 
 data Value = IntVal Int
            | FloatVal Float 
            | DoubleVal Double
@@ -27,17 +31,16 @@ data CQualifyer = CQualifyerGlobal
                 deriving (Eq,Show)
 
 
-data CExpr = CVar Name
-           | CLiteral Value 
-           | CIndex (CExpr,[CExpr]) 
-           | CCond CExpr CExpr CExpr
-           | CBinOp CBinOp CExpr CExpr
-           | CUnOp  CUnOp  CExpr 
-           | CFuncExpr Name [CExpr]   -- min, max, sin, cos 
-           | CCast CType CExpr        -- cast expr to type 
-           deriving (Eq,Show)
-
-
+data CExprP e  = CVar Name
+               | CLiteral Value 
+               | CIndex (e,[e]) 
+               | CCond e e e
+               | CBinOp CBinOp e e
+               | CUnOp  CUnOp  e 
+               | CFuncExpr Name [e]   -- min, max, sin, cos 
+               | CCast CType e        -- cast expr to type 
+               deriving (Eq,Show)
+                        
 data CBinOp = CAdd | CSub | CMul | CDiv | CMod  
             | CEq | CLt | CLEq | CGt | CGEq 
             | CBitwiseAnd | CBitwiseOr | CBitwiseXor 
@@ -56,25 +59,49 @@ data CUnOp = CBitwiseNeg
        
 -} 
 --                   targ   ifarr  source
-data SPMDC = CAssign CExpr [CExpr] CExpr -- array or scalar assign 
-           | CDeclAssign CType Name CExpr -- declare variable and assign a value 
-           | CFunc   Name  [CExpr]       
+data SPMDCP e a = CAssign e [e] e -- array or scalar assign 
+           | CDeclAssign CType Name e -- declare variable and assign a value 
+           | CFunc   Name  [e]       
            | CSync                  -- CUDA and OpenCL
-           | CIf     CExpr [SPMDC] [SPMDC]
+           | CIf     e [a] [a]
            deriving (Eq,Show)
-
-
 
 --                                ret_t          inputs       body
 data CKernel = CKernel CQualifyer CType Name [(CType,Name)] [SPMDC] 
              deriving (Eq,Show)
            
+----------------------------------------------------------------------------
+-- CExpr 
+newtype CExpr = CExpr (CExprP CExpr)
+             deriving (Eq,Show)
+                      
+newtype SPMDC = S (SPMDCP CExpr SPMDC) 
+              deriving (Eq,Show)
 
+----------------------------------------------------------------------------                      
+-- DAGs
+type NodeID = Integer                
+newtype CENode = CENode (CExprP NodeID) 
+newtype SNode = SNode (SPMDCP NodeID SNode) 
+
+----------------------------------------------------------------------------
+-- 
+cVar n            = CExpr $ CVar n
+cLiteral l        = CExpr $ CLiteral l
+cIndex a          = CExpr $ CIndex a
+cCond b e1 e2     = CExpr $ CCond b e1 e2
+cFuncExpr n es    = CExpr $ CFuncExpr n es
+cBinOp op e1 e2   = CExpr $ CBinOp op e1 e2
+cUnOp op e        = CExpr $ CUnOp op e 
+cCast t e         = CExpr $ CCast t e  
+
+cAssign e1 es e2 = S $ CAssign e1 es e2
+cFunc   n args = S $ CFunc n args 
+cDeclAssign t n e = S $ CDeclAssign t n e 
+cIf b s1 s2 = S $ CIf b s1 s2 
 
 --------------------------------------------------------------------------
 -- Printing 
-
-
 
 -- TODO: Rewrite the printing to have indentation etc. 
 
@@ -112,27 +139,27 @@ printCType (CQualified q t) = printCQual q ++ " " ++ printCType t
 printBody [] = "" 
 printBody (x:xs) = printSPMDC x ++ printBody xs
 
-printSPMDC (CAssign e [] expr) = printCExpr e  ++ " = " ++ printCExpr expr  ++ ";\n" 
-printSPMDC (CAssign e exprs expr) = printCExpr e  ++ commaSepList printCExpr "[" "]" exprs ++ " = " ++ printCExpr expr ++ ";\n" 
-printSPMDC (CDeclAssign t n e) = printCType t ++ " " ++ n ++ " = " ++ printCExpr e ++ ";\n" 
-printSPMDC (CFunc nom args) = nom ++ commaSepList printCExpr "(" ")" args ++ ";\n"
-printSPMDC CSync = "__syncthreads();\n"
-printSPMDC (CIf e [] [] ) = "" -- 
-printSPMDC (CIf e xs [] ) =  "if " ++ printCExpr e ++ "{\n" ++ concatMap printSPMDC xs ++ "}\n"
-printSPMDC (CIf e xs ys ) =  "if " ++ printCExpr e ++ "{\n" ++ concatMap printSPMDC xs ++ "}\n" ++ 
-                             "else {\n" ++ concatMap printSPMDC ys ++ "}\n"
+printSPMDC (S (CAssign e [] expr)) = printCExpr e  ++ " = " ++ printCExpr expr  ++ ";\n" 
+printSPMDC (S (CAssign e exprs expr)) = printCExpr e  ++ commaSepList printCExpr "[" "]" exprs ++ " = " ++ printCExpr expr ++ ";\n" 
+printSPMDC (S (CDeclAssign t n e)) = printCType t ++ " " ++ n ++ " = " ++ printCExpr e ++ ";\n" 
+printSPMDC (S (CFunc nom args)) = nom ++ commaSepList printCExpr "(" ")" args ++ ";\n"
+printSPMDC (S CSync)  = "__syncthreads();\n"
+printSPMDC (S (CIf e [] [] )) = "" -- 
+printSPMDC (S (CIf e xs [] )) =  "if " ++ printCExpr e ++ "{\n" ++ concatMap printSPMDC xs ++ "}\n"
+printSPMDC (S (CIf e xs ys )) =  "if " ++ printCExpr e ++ "{\n" ++ concatMap printSPMDC xs ++ "}\n" ++ 
+                                 "else {\n" ++ concatMap printSPMDC ys ++ "}\n"
 
 
-
-printCExpr (CVar nom) = nom
-printCExpr (CLiteral v) = printValue v 
-printCExpr (CIndex (e,[])) = printCExpr e 
-printCExpr (CIndex (e,xs)) = printCExpr e  ++ commaSepList printCExpr "[" "]" xs
-printCExpr (CCond e1 e2 e3)    = printCExpr e1 ++ " ? " ++ printCExpr e2 ++ " : " ++ printCExpr e3
-printCExpr (CBinOp bop e1 e2) = "(" ++ printCExpr e1 ++ printBinOp bop ++ printCExpr e2 ++ ")"
-printCExpr (CUnOp  uop  e) = "(" ++ printUnOp uop ++ printCExpr e ++ ")" 
-printCExpr (CFuncExpr nom args) = nom ++ commaSepList printCExpr "(" ")" args
-printCExpr (CCast t e) = "((" ++ printCType t ++ ")" ++ printCExpr e ++ ")"
+printCExpr :: CExpr -> String 
+printCExpr (CExpr (CVar nom)) = nom
+printCExpr (CExpr (CLiteral v)) = printValue v 
+printCExpr (CExpr (CIndex (e,[]))) = printCExpr e 
+printCExpr (CExpr (CIndex (e,xs))) = printCExpr e  ++ commaSepList printCExpr "[" "]" xs
+printCExpr (CExpr (CCond e1 e2 e3))    = printCExpr e1 ++ " ? " ++ printCExpr e2 ++ " : " ++ printCExpr e3
+printCExpr (CExpr (CBinOp bop e1 e2)) = "(" ++ printCExpr e1 ++ printBinOp bop ++ printCExpr e2 ++ ")"
+printCExpr (CExpr (CUnOp  uop  e)) = "(" ++ printUnOp uop ++ printCExpr e ++ ")" 
+printCExpr (CExpr (CFuncExpr nom args)) = nom ++ commaSepList printCExpr "(" ")" args
+printCExpr (CExpr (CCast t e)) = "((" ++ printCType t ++ ")" ++ printCExpr e ++ ")"
 
 printValue (IntVal i) = show i
 printValue (FloatVal f) = show f 
@@ -162,11 +189,15 @@ printBinOp CShiftR     = ">>"
 printUnOp CBitwiseNeg = "~"       
 
 
-
+----------------------------------------------------------------------------
+-- a small test.
 
 cprg1 = CKernel CQualifyerKernel CVoid "apa" [(CInt,"a"),(CFloat, "b")] 
-        [ CAssign (CVar "apa") [CLiteral (IntVal 5)] (CLiteral (IntVal 5))
-        , CFunc "__syncthreads" []
+        [ cAssign (cVar "apa") [cLiteral (IntVal 5)] (cLiteral (IntVal 5))
+        , cFunc "__syncthreads" []
         ]
-        
+
 spmdcTest1 =  putStrLn$ printCKernel cprg1
+
+---------------------------------------------------------------------------- 
+-- CExpr to Dag

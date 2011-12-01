@@ -375,45 +375,50 @@ class ExpToCExp a where
 
 
 instance  ExpToCExp Bool where 
-  expToCExp (Literal True) = CLiteral (IntVal 1) 
-  expToCExp (Literal False) = CLiteral (IntVal 0) 
+  expToCExp (Literal True) = cLiteral (IntVal 1) 
+  expToCExp (Literal False) = cLiteral (IntVal 0) 
   expToCExp a = expToCExpGeneral a 
 
 instance ExpToCExp Int where 
-  expToCExp (Literal a) = CLiteral (IntVal a) 
+  expToCExp (Literal a) = cLiteral (IntVal a) 
   expToCExp a = expToCExpGeneral a   
 
 instance ExpToCExp Float where 
-  expToCExp (Literal a) = CLiteral (FloatVal a) 
+  expToCExp (Literal a) = cLiteral (FloatVal a) 
   expToCExp a = expToCExpGeneral a 
 
 instance ExpToCExp Double where 
-  expToCExp (Literal a) = CLiteral (DoubleVal a) 
+  expToCExp (Literal a) = cLiteral (DoubleVal a) 
   expToCExp a = expToCExpGeneral a 
 
 instance ExpToCExp Word8 where 
-  expToCExp (Literal a) = CLiteral (Word8Val a) 
+  expToCExp (Literal a) = cLiteral (Word8Val a) 
   expToCExp a = expToCExpGeneral a 
 
 instance ExpToCExp Word16 where 
-  expToCExp (Literal a) = CLiteral (Word16Val a) 
+  expToCExp (Literal a) = cLiteral (Word16Val a) 
   expToCExp a = expToCExpGeneral a 
 
 instance ExpToCExp Word32 where 
-  expToCExp (Literal a) = CLiteral (Word32Val a) 
+  expToCExp (Literal a) = cLiteral (Word32Val a) 
   expToCExp a = expToCExpGeneral a 
 
 instance ExpToCExp Word64 where 
-  expToCExp (Literal a) = CLiteral (Word64Val a) 
+  expToCExp (Literal a) = cLiteral (Word64Val a) 
   expToCExp a = expToCExpGeneral a 
 
   
 expToCExpGeneral :: ExpToCExp a  => Exp a -> CExpr 
-expToCExpGeneral (Index (name,[])) = CIndex (CVar name,[]) 
-expToCExpGeneral (Index (name,xs)) = CIndex (CVar name,map expToCExp xs)  
-expToCExpGeneral (If b e1 e2)      = CCond  (expToCExp b) (expToCExp e1) (expToCExp e2)
-expToCExpGeneral (BinOp op e1 e2)  = CBinOp (binOpToCBinOp op) (expToCExp e1) (expToCExp e2)
-expToCExpGeneral (UnOp  op e1)     = CUnOp  (unOpToCUnOp op) (expToCExp e1) 
+expToCExpGeneral (Index (name,[])) = cIndex (cVar name,[]) 
+expToCExpGeneral (Index (name,xs)) = cIndex (cVar name,map expToCExp xs)  
+expToCExpGeneral (If b e1 e2)      = cCond  (expToCExp b) (expToCExp e1) (expToCExp e2)
+expToCExpGeneral (BinOp Min e1 e2) = cFuncExpr "min" [expToCExp e1, expToCExp e2]
+expToCExpGeneral (BinOp Max e1 e2) = cFuncExpr "max" [expToCExp e1, expToCExp e2]
+expToCExpGeneral (BinOp op e1 e2)  = cBinOp (binOpToCBinOp op) (expToCExp e1) (expToCExp e2)
+expToCExpGeneral (UnOp  Sin e)     = cFuncExpr "sin" [expToCExp e]
+expToCExpGeneral (UnOp  Cos e)     = cFuncExpr "cos" [expToCExp e]
+expToCExpGeneral (UnOp  op e1)     = cUnOp  (unOpToCUnOp op) (expToCExp e1) 
+
 
 -- maybe unnecessary
 binOpToCBinOp Add = CAdd

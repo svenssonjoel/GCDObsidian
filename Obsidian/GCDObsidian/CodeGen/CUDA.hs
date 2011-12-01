@@ -191,8 +191,8 @@ genKernelGlob_ name kernel a = cuda
     swap (x,y) = (y,x)
     inputs = map ((\(t,n) -> (typeToCType t,n)) . swap . fst2) ins
     outputs = map ((\(t,n) -> (typeToCType t,n)) . swap . fst2) outs 
-    tidDecl = CDeclAssign CWord32 "tid" (CVar "threadIdx.x") 
-    bidDecl = CDeclAssign CWord32 "bid" (CVar "blockIdx.x") 
+    tidDecl = cDeclAssign CWord32 "tid" (cVar "threadIdx.x") 
+    bidDecl = cDeclAssign CWord32 "bid" (cVar "blockIdx.x") 
     
     body = tidDecl:bidDecl:(mmSPMDC mm (progToSPMDC threadBudget c) )
     cuda = printCKernel$ CKernel CQualifyerKernel CVoid name (inputs++outputs) body
@@ -284,11 +284,11 @@ genProg mm nt (ProgramSeq p1 p2) =
   
 progToSPMDC :: Word32 -> Program a -> [SPMDC] 
 progToSPMDC nt (Assign name ix a) = 
-  [CAssign (CVar name) [expToCExp ix] (expToCExp a)] 
+  [cAssign (cVar name) [expToCExp ix] (expToCExp a)] 
 progToSPMDC nt (ForAll f n) =         
   if (n < nt) 
   then 
-    [CIf (CBinOp CLt (CVar "tid") (CLiteral (Word32Val n)))
+    [cIf (cBinOp CLt (cVar "tid") (cLiteral (Word32Val n)))
         code []]
   else 
     code 
@@ -296,41 +296,44 @@ progToSPMDC nt (ForAll f n) =
     code = progToSPMDC nt (f (variable "tid"))
     
 progToSPMDC nt (Allocate name size t _) = []
-progToSPMDC nt (Synchronize True) = [CFunc "__synchthreads" []] -- syncLine >> newline 
+progToSPMDC nt (Synchronize True) = [cFunc "__synchthreads" []] -- syncLine >> newline 
 progToSPMDC nt (Synchronize False) = [] -- return () -- line "\\\\__synchthreads();" >> newline 
 progToSPMDC nt Skip = []
 progToSPMDC nt (ProgramSeq p1 p2) = progToSPMDC nt p1 ++ progToSPMDC nt p2
 
 
-
+----------------------------------------------------------------------------
+-- Memory map the arrays in an SPMDC
 mmSPMDC :: MemMap -> [SPMDC] -> [SPMDC] 
 mmSPMDC mm [] = [] 
 mmSPMDC mm (x:xs) = mmSPMDC' mm x : mmSPMDC mm xs
 
 mmSPMDC' :: MemMap -> SPMDC -> SPMDC
-mmSPMDC' mm (CAssign e1 es e2) = 
-  CAssign (mmCExpr mm e1) 
+mmSPMDC' mm (S (CAssign e1 es e2)) = 
+  cAssign (mmCExpr mm e1) 
           (map (mmCExpr mm) es)    
           (mmCExpr mm e2)
-mmSPMDC' mm (CFunc name es) = CFunc name (map (mmCExpr mm) es) 
-mmSPMDC' mm (CIf   e s1 s2) = CIf (mmCExpr mm e) (mmSPMDC mm s1) (mmSPMDC mm s2)
+mmSPMDC' mm (S (CFunc name es)) = cFunc name (map (mmCExpr mm) es) 
+mmSPMDC' mm (S (CIf   e s1 s2)) = cIf (mmCExpr mm e) (mmSPMDC mm s1) (mmSPMDC mm s2)
 
-mmCExpr mm (CVar nom) =  
+mmCExpr mm (CExpr (CVar nom)) =  
   case Map.lookup nom mm of 
     Just (addr,t) -> 
-      let core = CBinOp CAdd (CVar "sbase") (CLiteral (Word32Val addr))
-          cast c = CCast (typeToCType t) c
+      let core = cBinOp CAdd (cVar "sbase") (cLiteral (Word32Val addr))
+          cast c = cCast (typeToCType t) c
       in cast core
     
-    Nothing -> CVar nom
-mmCExpr mm (CIndex (e1,es)) = CIndex (mmCExpr mm e1, map (mmCExpr mm) es)
-mmCExpr mm (CBinOp op e1 e2) = CBinOp op (mmCExpr mm e1) (mmCExpr mm e2)
-mmCExpr mm (CUnOp op e) = CUnOp op (mmCExpr mm e) 
-mmCExpr mm (CFuncExpr nom exprs) = CFuncExpr nom (map (mmCExpr mm) exprs)
-mmCExpr mm (CCast t e) = CCast t (mmCExpr mm e) 
+    Nothing -> cVar nom
+mmCExpr mm (CExpr (CIndex (e1,es))) = cIndex (mmCExpr mm e1, map (mmCExpr mm) es)
+mmCExpr mm (CExpr (CBinOp op e1 e2)) = cBinOp op (mmCExpr mm e1) (mmCExpr mm e2)
+mmCExpr mm (CExpr (CUnOp op e)) = cUnOp op (mmCExpr mm e) 
+mmCExpr mm (CExpr (CFuncExpr nom exprs)) = cFuncExpr nom (map (mmCExpr mm) exprs)
+mmCExpr mm (CExpr (CCast t e)) = cCast t (mmCExpr mm e) 
 mmCExpr mm a = a 
           
   
+----------------------------------------------------------------------------
+-- 
 
 typeToCType Int   = CInt
 typeToCType Float = CFloat
