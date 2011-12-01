@@ -5,7 +5,7 @@ import Obsidian.GCDObsidian.Globs
 
 import Data.Word
 import qualified Data.List as List
-
+import qualified Data.Map as Map
 
 
 ----------------------------------------------------------------------------
@@ -200,4 +200,23 @@ cprg1 = CKernel CQualifyerKernel CVoid "apa" [(CInt,"a"),(CFloat, "b")]
 spmdcTest1 =  putStrLn$ printCKernel cprg1
 
 ---------------------------------------------------------------------------- 
--- CExpr to Dag
+-- CExpr to Dag and back again. 
+
+type CSEMap = Map.Map CExpr NodeID
+
+cExprToDag :: CSEMap -> CExpr -> (CSEMap,CENode) 
+cExprToDag cm expr = undefined 
+
+
+
+spmdcToDag :: CSEMap -> [SPMDC] -> (CSEMap,[SNode])
+spmdcToDag cm sp = undefined
+
+
+
+dagToSpmdc :: CSEMap -> [SNode] -> [SPMDC] 
+dagToSpmdc cm sn = undefined 
+
+dagToCExpr :: CSEMap -> CENode -> CExpr
+dagToCExpr cm expr = undefined 
+

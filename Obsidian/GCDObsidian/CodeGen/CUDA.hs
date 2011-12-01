@@ -301,7 +301,6 @@ progToSPMDC nt (Synchronize False) = [] -- return () -- line "\\\\__synchthreads
 progToSPMDC nt Skip = []
 progToSPMDC nt (ProgramSeq p1 p2) = progToSPMDC nt p1 ++ progToSPMDC nt p2
 
-
 ----------------------------------------------------------------------------
 -- Memory map the arrays in an SPMDC
 mmSPMDC :: MemMap -> [SPMDC] -> [SPMDC] 
@@ -316,6 +315,8 @@ mmSPMDC' mm (S (CAssign e1 es e2)) =
 mmSPMDC' mm (S (CFunc name es)) = cFunc name (map (mmCExpr mm) es) 
 mmSPMDC' mm (S (CIf   e s1 s2)) = cIf (mmCExpr mm e) (mmSPMDC mm s1) (mmSPMDC mm s2)
 
+----------------------------------------------------------------------------
+-- Memory map the arrays in an CExpr
 mmCExpr mm (CExpr (CVar nom)) =  
   case Map.lookup nom mm of 
     Just (addr,t) -> 
