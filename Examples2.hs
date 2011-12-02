@@ -1,4 +1,4 @@
-
+{-# LANGUAGE FlexibleContexts #-}
 module Examples2 where 
 
 import Obsidian.GCDObsidian
@@ -72,10 +72,10 @@ zipWithG op a1 a2 =
 pushGlobal blocksize = 
    unblock . push . block blocksize   
   
-    
+     
 getvSwap = putStrLn$ CUDA.genKernelGlob "vSwap" vSwap (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int),variable "stride")     
 getvSwap_ = putStrLn$ CUDA.genKernelGlob_ "vSwap" vSwap (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int),variable "stride")     
-    
+   
 --pushGlobal (GlobalArray (Pull ixf) n) = 
 --   GlobalArray (Push (\func -> ForAllGlobal (\i -> func (i,(ixf i))) n)) n
       
@@ -116,3 +116,20 @@ __global__ void vSwap(
    (Is a third kind of array needed ? a Mutable 
     storage location kind of array ?) 
 -} 
+
+
+
+reduce :: Syncable (Array Pull) a => (a -> a -> a) -> Array Pull a -> Kernel (Array Pull a)
+reduce op arr | len arr == 1 = return arr
+              | otherwise    = 
+                (pure ((uncurry (zipWith op)) . halve)
+                 ->- sync
+                 ->- reduce op) arr
+
+
+
+reduceAddBlocks :: GlobalArray Pull (Exp Int) -> Kernel (GlobalArray Push (Exp Int)) 
+reduceAddBlocks  = pure (block 256) ->- reduce (+) ->- pure (unblock . push)
+
+getR = putStrLn$ CUDA.genKernelGlob "reduce" reduceAddBlocks (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
+getR_ = putStrLn$ CUDA.genKernelGlob_ "reduce" reduceAddBlocks (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     

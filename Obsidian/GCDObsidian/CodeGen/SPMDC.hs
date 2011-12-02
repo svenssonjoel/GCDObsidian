@@ -209,6 +209,19 @@ spmdcTest1 =  putStrLn$ printCKernel cprg1
 ---------------------------------------------------------------------------- 
 -- CExpr to Dag and back again. 
 
+{- 
+ TODO:  
+   + Some things here are clearly faulty. 
+     - no regards is taken to scope or code blocks {.. code ... } 
+       for example declarations end up within an IF And at the same 
+       time the "Computed"-map will say that that variable is computed "globaly"
+   + CSE is too brutal. I think indexing into a shared memory array 
+     should definitely not be stored in a variable. (these two have same access time 
+     on the GPU) 
+
+
+-} 
+
 type CSEMap = Map.Map CExpr (NodeID,CENode)
 type Computed = Map.Map NodeID CExpr 
 
@@ -281,10 +294,28 @@ performCSE' CSync = return [CSync]
 performCSE' c@(CDeclAssign _ _ _) = return [c]
 performCSE' (CAssign nom es e) = do 
   (n,cm,cp) <- get
-  let (cm',nid) = fst$ runState (cExprToDag cm e) n 
-      (cp',decls,newExp) = dagToSPMDC (Map.elems cm') cp nid   
+  let ((cm',nid),n') = runState (cExprToDag cm e) n 
+      ((cm'',nids),n'') = buildDagList cm' es n'
+      elemList = Map.elems cm'' -- pay attention
+      (cp',decls,newExp) = dagToSPMDC  elemList cp nid   
+      (cp'',moredecls,exps) = dagListToSPMDC elemList cp' nids
   put (nid+1,cm',cp') 
-  return (decls ++ [CAssign nom es newExp])
+  return (decls ++ moredecls ++ [CAssign nom exps newExp])
+performCSE' (CIf b sp1 sp2) = do 
+  sp1' <- mapM performCSE' sp1 
+  sp2' <- mapM performCSE' sp2 
+  return [CIf b (concat sp1') (concat sp2')]
+performCSE' a@(CFunc nom es) = return [a]
+-- performCSE' apa = error$ show apa 
+
+
+buildDag cm e n = runState (cExprToDag cm e) n
+
+buildDagList cm [] n = ((cm,[]),n)
+buildDagList cm (e:es) n = ((cm'', nid:nids), n'')
+  where 
+    ((cm',nid),n') = buildDag cm e n
+    ((cm'',nids), n'') = buildDagList cm' es n'  
 
 dagToSPMDC idl cp nid =
   case Map.lookup nid cp of 
@@ -324,6 +355,23 @@ dagToSPMDC idl cp nid =
             (cp2,d2',es')  = dagListToSPMDC idl cp1 es -- map (dagToSPMDC idl cp1) es 
          
             decs =     d1' ++ d2' 
+            
+        (Just (CENode (CCast e t))) -> 
+          -- Does this do what I hope ?
+          (cp',d',newExpr) 
+          where 
+            newExpr = cCast e' t
+            (cp',d',e') = dagToSPMDC idl cp e
+        (Just (CENode (CCond e1 e2 e3 t))) -> 
+          (Map.insert nid newExpr cp3,d1' ++ d2' ++ d3' ++ [newDecl],newExpr)
+          where 
+            newExpr = cVar ("imm" ++ show nid) t 
+            newDecl = cDeclAssign t ("imm" ++ show nid) (cCond e1' e2' e3' t)
+            (cp1,d1',e1') = dagToSPMDC idl cp e1
+            (cp2,d2',e2') = dagToSPMDC idl cp1 e2
+            (cp3,d3',e3') = dagToSPMDC idl cp2 e3
+        Nothing -> error$ "\n" ++ show nid ++ "\n"  ++ show (map fst idl)
+          
 
 dagListToSPMDC idl cp [] = (cp,[],[])
 dagListToSPMDC idl cp (x:xs) = (cp'',decs ++ moredecs, exp:exps)
