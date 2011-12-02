@@ -282,7 +282,7 @@ genProg mm nt (ProgramSeq p1 p2) =
   
 progToSPMDC :: Word32 -> Program a -> [SPMDC] 
 progToSPMDC nt (Assign name ix a) = 
-  [cAssign name [expToCExp ix] (expToCExp a)] 
+  [cAssign (cVar name CWord8)[expToCExp ix] (expToCExp a)] 
 progToSPMDC nt (ForAll f n) =         
   if (n < nt) 
   then 
@@ -306,8 +306,8 @@ mmSPMDC mm [] = []
 mmSPMDC mm (x:xs) = mmSPMDC' mm x : mmSPMDC mm xs
 
 mmSPMDC' :: MemMap -> SPMDC -> SPMDC
-mmSPMDC' mm (CAssign nom es e2) = 
-  cAssign nom -- (mmCExpr mm e1) 
+mmSPMDC' mm (CAssign e1 es e2) = 
+  cAssign (mmCExpr mm e1) 
           (map (mmCExpr mm) es)    
           (mmCExpr mm e2)
 mmSPMDC' mm (CFunc name es) = cFunc name (map (mmCExpr mm) es) 

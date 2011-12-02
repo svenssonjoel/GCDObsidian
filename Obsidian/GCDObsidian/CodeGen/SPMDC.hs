@@ -64,7 +64,7 @@ data CUnOp = CBitwiseNeg
 -} 
 --                  targ   ifarr  source
 --
-data SPMDC = CAssign Name [CExpr] CExpr -- array or scalar assign 
+data SPMDC = CAssign CExpr [CExpr] CExpr -- array or scalar assign 
            -- Target should be just a name, for less chance of confusio
            | CDeclAssign CType Name CExpr -- declare variable and assign a value 
            | CFunc   Name  [CExpr]       
@@ -110,8 +110,15 @@ cIf = CIf
 --------------------------------------------------------------------------
 -- Printing 
 
--- TODO: Rewrite the printing to have indentation etc. 
+{- 
+ 
+  TODO: 
+     + Rewrite the printing to have indentation etc. 
+         Maybe reuse the stuff from CodeGen.Common
+     + enable "Print as CUDA" and "Print as OpenCL" 
 
+
+-} 
 printCKernel :: CKernel -> String 
 printCKernel (CKernel q t nom ins body) = 
   printCQual q ++ " " ++ printCType t ++ " " ++ nom ++ commaSepList pins "(" ")" ins ++ 
@@ -146,8 +153,8 @@ printCType (CQualified q t) = printCQual q ++ " " ++ printCType t
 printBody [] = "" 
 printBody (x:xs) = printSPMDC x ++ printBody xs
 
-printSPMDC (CAssign nom [] expr) = nom  ++ " = " ++ printCExpr expr  ++ ";\n" 
-printSPMDC (CAssign nom exprs expr) = nom  ++ commaSepList printCExpr "[" "]" exprs ++ " = " ++ printCExpr expr ++ ";\n" 
+printSPMDC (CAssign e [] expr) = printCExpr e  ++ " = " ++ printCExpr expr  ++ ";\n" 
+printSPMDC (CAssign e exprs expr) = printCExpr e  ++ commaSepList printCExpr "[" "]" exprs ++ " = " ++ printCExpr expr ++ ";\n" 
 printSPMDC (CDeclAssign t n e) = printCType t ++ " " ++ n ++ " = " ++ printCExpr e ++ ";\n" 
 printSPMDC (CFunc nom args) = nom ++ commaSepList printCExpr "(" ")" args ++ ";\n"
 printSPMDC CSync  = "__syncthreads();\n"
@@ -200,7 +207,7 @@ printUnOp CBitwiseNeg = "~"
 -- a small test.
 
 cprg1 = CKernel CQualifyerKernel CVoid "apa" [(CInt,"a"),(CFloat, "b")] 
-        [ cAssign "apa" [cLiteral (IntVal 5) CInt] (cLiteral (IntVal 5) CInt)
+        [ cAssign (cVar "apa" CInt) [cLiteral (IntVal 5) CInt] (cLiteral (IntVal 5) CInt)
         , cFunc "__syncthreads" [] 
         ]
 
@@ -346,6 +353,7 @@ dagToSPMDC idl cp nid =
             newDecl = cDeclAssign t ("imm" ++ show nid) (cUnOp op e'  t)
             (cp1,d',e') = dagToSPMDC idl cp e
             decs = d'
+        {- 
         (Just (CENode (CIndex (e1,es) t))) ->         
           (Map.insert nid newExpr cp2,decs++[newDecl],newExpr)
           where 
@@ -355,7 +363,18 @@ dagToSPMDC idl cp nid =
             (cp2,d2',es')  = dagListToSPMDC idl cp1 es -- map (dagToSPMDC idl cp1) es 
          
             decs =     d1' ++ d2' 
-            
+        -} 
+        -- Do not waste register space for stuff already in shared mem
+        (Just (CENode (CIndex (e1,es) t))) ->         
+          (cp2,decs,cIndex (e1',es') t)
+          where 
+            --newExpr = cVar ("imm" ++ show nid) t
+            --newDecl = cDeclAssign t ("imm" ++ show nid) (cIndex (e1',es') t)
+            (cp1,d1',e1') = dagToSPMDC idl cp e1
+            (cp2,d2',es')  = dagListToSPMDC idl cp1 es -- map (dagToSPMDC idl cp1) es 
+         
+            decs =     d1' ++ d2' 
+
         (Just (CENode (CCast e t))) -> 
           -- Does this do what I hope ?
           (cp',d',newExpr) 
