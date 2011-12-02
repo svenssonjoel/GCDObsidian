@@ -184,17 +184,15 @@ genKernelGlob_ name kernel a = cuda
       
     c = c_old *>* outcode
     
-    -- Perform CSE here 
-    -- Maybe output a new form of intermediate code 
-    -- from this stage ?? 
-    -- c' = performCSE c 
+
     swap (x,y) = (y,x)
     inputs = map ((\(t,n) -> (typeToCType t,n)) . swap . fst2) ins
     outputs = map ((\(t,n) -> (typeToCType t,n)) . swap . fst2) outs 
-    tidDecl = cDeclAssign CWord32 "tid" (cVar "threadIdx.x") 
-    bidDecl = cDeclAssign CWord32 "bid" (cVar "blockIdx.x") 
+    tidDecl = cDeclAssign CWord32 "tid" (cVar "threadIdx.x" CWord32) 
+    bidDecl = cDeclAssign CWord32 "bid" (cVar "blockIdx.x" CWord32) 
     
-    body = tidDecl:bidDecl:(mmSPMDC mm (progToSPMDC threadBudget c) )
+    spmd = performCSE (progToSPMDC threadBudget c)
+    body = tidDecl:bidDecl:(mmSPMDC mm spmd)
     cuda = printCKernel$ CKernel CQualifyerKernel CVoid name (inputs++outputs) body
       {- 
     cuda = getCUDA (config threadBudget mm (size m)) 
@@ -288,7 +286,7 @@ progToSPMDC nt (Assign name ix a) =
 progToSPMDC nt (ForAll f n) =         
   if (n < nt) 
   then 
-    [cIf (cBinOp CLt (cVar "tid") (cLiteral (Word32Val n)))
+    [cIf (cBinOp CLt (cVar "tid" CWord32) (cLiteral (Word32Val n) CWord32) CInt)
         code []]
   else 
     code 
@@ -314,28 +312,29 @@ mmSPMDC' mm (CAssign nom es e2) =
           (mmCExpr mm e2)
 mmSPMDC' mm (CFunc name es) = cFunc name (map (mmCExpr mm) es) 
 mmSPMDC' mm (CIf   e s1 s2) = cIf (mmCExpr mm e) (mmSPMDC mm s1) (mmSPMDC mm s2)
-
+mmSPMDC' mm (CDeclAssign t nom e) = cDeclAssign t nom (mmCExpr mm e)
 ----------------------------------------------------------------------------
 -- Memory map the arrays in an CExpr
-mmCExpr mm (CExpr (CVar nom)) =  
+mmCExpr mm (CExpr (CVar nom t)) =  
   case Map.lookup nom mm of 
     Just (addr,t) -> 
-      let core = cBinOp CAdd (cVar "sbase") (cLiteral (Word32Val addr))
-          cast c = cCast (typeToCType t) c
+      let core = cBinOp CAdd (cVar "sbase" CWord8) (cLiteral (Word32Val addr) CWord32)
+          cast c = cCast  (c (typeToCType t)) (typeToCType t)
       in cast core
     
-    Nothing -> cVar nom
-mmCExpr mm (CExpr (CIndex (e1,es))) = cIndex (mmCExpr mm e1, map (mmCExpr mm) es)
-mmCExpr mm (CExpr (CBinOp op e1 e2)) = cBinOp op (mmCExpr mm e1) (mmCExpr mm e2)
-mmCExpr mm (CExpr (CUnOp op e)) = cUnOp op (mmCExpr mm e) 
-mmCExpr mm (CExpr (CFuncExpr nom exprs)) = cFuncExpr nom (map (mmCExpr mm) exprs)
-mmCExpr mm (CExpr (CCast t e)) = cCast t (mmCExpr mm e) 
+    Nothing -> cVar nom t
+mmCExpr mm (CExpr (CIndex (e1,es) t)) = cIndex (mmCExpr mm e1, map (mmCExpr mm) es) t
+mmCExpr mm (CExpr (CBinOp op e1 e2 t)) = cBinOp op (mmCExpr mm e1) (mmCExpr mm e2) t
+mmCExpr mm (CExpr (CUnOp op e t)) = cUnOp op (mmCExpr mm e) t 
+mmCExpr mm (CExpr (CFuncExpr nom exprs t)) = cFuncExpr nom (map (mmCExpr mm) exprs) t
+mmCExpr mm (CExpr (CCast e t)) = cCast (mmCExpr mm e) t 
 mmCExpr mm a = a 
           
   
 ----------------------------------------------------------------------------
 -- 
 
+{-
 typeToCType Int   = CInt
 typeToCType Float = CFloat
 typeToCType Double = CDouble
@@ -346,6 +345,6 @@ typeToCType Word64 = CWord64
 typeToCType (Pointer t) = CPointer (typeToCType t)
 typeToCType (Global t)  = CQualified CQualifyerGlobal (typeToCType t) 
 typeToCType (Local t)  = CQualified CQualifyerLocal (typeToCType t) 
-
+-}
 ----------------------------------------------------------------------------
 --

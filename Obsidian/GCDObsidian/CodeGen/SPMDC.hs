@@ -9,6 +9,9 @@ import qualified Data.Map as Map
 
 import Control.Monad.State
 
+import Data.Maybe
+
+
 ----------------------------------------------------------------------------
 -- 
 data Value = IntVal Int
@@ -32,14 +35,14 @@ data CQualifyer = CQualifyerGlobal
                 deriving (Eq,Ord,Show)
 
 
-data CExprP e  = CVar Name
-               | CLiteral Value 
-               | CIndex (e,[e]) 
-               | CCond e e e
-               | CBinOp CBinOp e e
-               | CUnOp  CUnOp  e 
-               | CFuncExpr Name [e]   -- min, max, sin, cos 
-               | CCast CType e        -- cast expr to type 
+data CExprP e  = CVar Name CType 
+               | CLiteral Value CType
+               | CIndex (e,[e]) CType
+               | CCond e e e CType
+               | CBinOp CBinOp e e  CType
+               | CUnOp  CUnOp  e    CType
+               | CFuncExpr Name [e] CType  -- min, max, sin, cos 
+               | CCast e CType            -- cast expr to type 
                deriving (Eq,Ord,Show)
                         
 data CBinOp = CAdd | CSub | CMul | CDiv | CMod  
@@ -90,14 +93,14 @@ newtype CENode = CENode (CExprP NodeID)
 --              deriving Show
 ----------------------------------------------------------------------------
 -- 
-cVar n            = CExpr $ CVar n
-cLiteral l        = CExpr $ CLiteral l
-cIndex a          = CExpr $ CIndex a
-cCond b e1 e2     = CExpr $ CCond b e1 e2
-cFuncExpr n es    = CExpr $ CFuncExpr n es
-cBinOp op e1 e2   = CExpr $ CBinOp op e1 e2
-cUnOp op e        = CExpr $ CUnOp op e 
-cCast t e         = CExpr $ CCast t e  
+cVar n t          = CExpr $ CVar n t
+cLiteral l t      = CExpr $ CLiteral l t
+cIndex a t        = CExpr $ CIndex a t
+cCond b e1 e2 t   = CExpr $ CCond b e1 e2 t
+cFuncExpr n es t  = CExpr $ CFuncExpr n es t
+cBinOp op e1 e2 t = CExpr $ CBinOp op e1 e2 t
+cUnOp op e t      = CExpr $ CUnOp op e t
+cCast e t         = CExpr $ CCast e t 
 
 cAssign = CAssign 
 cFunc = CFunc  
@@ -155,15 +158,15 @@ printSPMDC (CIf e xs ys ) =  "if " ++ printCExpr e ++ "{\n" ++ concatMap printSP
 
 
 printCExpr :: CExpr -> String 
-printCExpr (CExpr (CVar nom)) = nom
-printCExpr (CExpr (CLiteral v)) = printValue v 
-printCExpr (CExpr (CIndex (e,[]))) = printCExpr e 
-printCExpr (CExpr (CIndex (e,xs))) = printCExpr e  ++ commaSepList printCExpr "[" "]" xs
-printCExpr (CExpr (CCond e1 e2 e3))    = printCExpr e1 ++ " ? " ++ printCExpr e2 ++ " : " ++ printCExpr e3
-printCExpr (CExpr (CBinOp bop e1 e2)) = "(" ++ printCExpr e1 ++ printBinOp bop ++ printCExpr e2 ++ ")"
-printCExpr (CExpr (CUnOp  uop  e)) = "(" ++ printUnOp uop ++ printCExpr e ++ ")" 
-printCExpr (CExpr (CFuncExpr nom args)) = nom ++ commaSepList printCExpr "(" ")" args
-printCExpr (CExpr (CCast t e)) = "((" ++ printCType t ++ ")" ++ printCExpr e ++ ")"
+printCExpr (CExpr (CVar nom _)) = nom
+printCExpr (CExpr (CLiteral v _)) = printValue v 
+printCExpr (CExpr (CIndex (e,[]) _)) = printCExpr e 
+printCExpr (CExpr (CIndex (e,xs) _)) = printCExpr e  ++ commaSepList printCExpr "[" "]" xs
+printCExpr (CExpr (CCond e1 e2 e3 _))    = printCExpr e1 ++ " ? " ++ printCExpr e2 ++ " : " ++ printCExpr e3
+printCExpr (CExpr (CBinOp bop e1 e2 _)) = "(" ++ printCExpr e1 ++ printBinOp bop ++ printCExpr e2 ++ ")"
+printCExpr (CExpr (CUnOp  uop  e _)) = "(" ++ printUnOp uop ++ printCExpr e ++ ")" 
+printCExpr (CExpr (CFuncExpr nom args _)) = nom ++ commaSepList printCExpr "(" ")" args
+printCExpr (CExpr (CCast e t)) = "((" ++ printCType t ++ ")" ++ printCExpr e ++ ")"
 
 printValue (IntVal i) = show i
 printValue (FloatVal f) = show f 
@@ -197,8 +200,8 @@ printUnOp CBitwiseNeg = "~"
 -- a small test.
 
 cprg1 = CKernel CQualifyerKernel CVoid "apa" [(CInt,"a"),(CFloat, "b")] 
-        [ cAssign "apa" [cLiteral (IntVal 5)] (cLiteral (IntVal 5))
-        , cFunc "__syncthreads" []
+        [ cAssign "apa" [cLiteral (IntVal 5) CInt] (cLiteral (IntVal 5) CInt)
+        , cFunc "__syncthreads" [] 
         ]
 
 spmdcTest1 =  putStrLn$ printCKernel cprg1
@@ -207,6 +210,7 @@ spmdcTest1 =  putStrLn$ printCKernel cprg1
 -- CExpr to Dag and back again. 
 
 type CSEMap = Map.Map CExpr (NodeID,CENode)
+type Computed = Map.Map NodeID CExpr 
 
 newNodeID = do 
   i <- get 
@@ -224,23 +228,31 @@ insertCM cm expr node =
   
 
 cExprToDag :: CSEMap -> CExpr -> State NodeID (CSEMap,NodeID) 
-cExprToDag cm e@(CExpr (CVar nom)) = do
-  insertCM cm e (CENode (CVar nom))
-cExprToDag cm e@(CExpr (CLiteral l)) = do 
-  insertCM cm e (CENode (CLiteral l))
+cExprToDag cm exp@(CExpr (CVar nom t)) = do
+  insertCM cm exp (CENode (CVar nom t))
+cExprToDag cm exp@(CExpr (CLiteral l t)) = do 
+  insertCM cm exp (CENode (CLiteral l t))
+cExprToDag cm exp@(CExpr (CCast e t)) = do 
+  (cm1,e') <- cExprToDag cm e
+  insertCM cm1 exp (CENode (CCast e' t)) 
   
-cExprToDag cm exp@(CExpr (CIndex (e,es))) = do 
+cExprToDag cm exp@(CExpr (CIndex (e,es) t)) = do 
   (cm1,e') <- cExprToDag cm e
   (cm2,es') <- cExprListToDag cm1 es 
-  insertCM cm2 exp (CENode (CIndex (e',es')))
+  insertCM cm2 exp (CENode (CIndex (e',es') t))
 
-cExprToDag cm exp@(CExpr (CBinOp op e1 e2)) = do   
+cExprToDag cm exp@(CExpr (CBinOp op e1 e2 t)) = do   
   (cm1,i1) <- cExprToDag cm e1
   (cm2,i2) <- cExprToDag cm1 e2 
-  insertCM cm2 exp (CENode (CBinOp op i1 i2))
-cExprToDag cm exp@(CExpr (CUnOp op e)) = do    
+  insertCM cm2 exp (CENode (CBinOp op i1 i2 t))
+
+cExprToDag cm exp@(CExpr (CUnOp op e t)) = do    
   (cm1,i1) <- cExprToDag cm e
-  insertCM cm1 exp (CENode (CUnOp op i1))
+  insertCM cm1 exp (CENode (CUnOp op i1 t))
+
+cExprToDag cm exp@(CExpr (CFuncExpr nom es t)) = do    
+  (cm1,es1) <- cExprListToDag cm es
+  insertCM cm1 exp (CENode (CFuncExpr nom es1 t))
 
   
 cExprListToDag :: CSEMap -> [CExpr]  -> State NodeID (CSEMap,[NodeID])                  
@@ -250,27 +262,83 @@ cExprListToDag cm (x:xs) = do
   (cmEnd,x') <- cExprToDag cm' x 
   return (cmEnd, x':xs')
 
---spmdcToDag :: CSEMap -> [SPMDC] -> State NodeID (CSEMap,[SNode])
---spmdcToDag cm sp = undefined
 
-performCSE :: CSEMap -> SPMDC -> SPMDC 
-performCSE = undefined
+type DoneMap = Map.Map CExpr NodeID
 
---dagToSpmdc :: CSEMap -> [SNode] -> [SPMDC] 
---dagToSpmdc cm sn = undefined 
+performCSE :: [SPMDC] -> [SPMDC] 
+performCSE sp = let (_,_,_,r) = performCSEGlobal Map.empty 0 Map.empty sp
+                in r
+  
+performCSEGlobal :: CSEMap -> NodeID -> Computed -> [SPMDC] -> (CSEMap,NodeID,Computed,[SPMDC])
+performCSEGlobal cm n cp [] = (cm,n,cp,[]) 
+performCSEGlobal cm n cp (p:ps) = (cma,nid,cpn,spcmds ++ prg)
+  where 
+    (spcmds,(newnid,cm',cp')) = runState (performCSE' p) (n,cm,cp)
+    (cma,nid,cpn,prg) = performCSEGlobal cm' newnid cp' ps
+                            
+performCSE' :: SPMDC -> State (NodeID,CSEMap,Computed) [SPMDC]
+performCSE' CSync = return [CSync]
+performCSE' c@(CDeclAssign _ _ _) = return [c]
+performCSE' (CAssign nom es e) = do 
+  (n,cm,cp) <- get
+  let (cm',nid) = fst$ runState (cExprToDag cm e) n 
+      (cp',decls,newExp) = dagToSPMDC (Map.elems cm') cp nid   
+  put (nid+1,cm',cp') 
+  return (decls ++ [CAssign nom es newExp])
 
--- dagToCExpr :: CSEMap -> CENode -> CExpr
--- dagToCExpr cm expr = undefined 
+dagToSPMDC idl cp nid =
+  case Map.lookup nid cp of 
+    (Just expr) -> (cp,[],expr)
+    Nothing -> 
+      case lookup nid idl of 
+        (Just (CENode (CVar nom t))) -> (cp,[], cVar nom t)
+        (Just (CENode (CLiteral l t))) -> (cp,[], cLiteral l t) 
+        (Just (CENode (CFuncExpr nom args t))) -> 
+          (Map.insert nid newExpr cp1,decs++[newDecl],newExpr )
+          where 
+            newExpr = cVar ("imm" ++show nid ) t
+            newDecl = cDeclAssign t ("imm" ++ show nid) (cFuncExpr nom args' t) 
+            (cp1,decs,args') = dagListToSPMDC idl cp args
+         
+        (Just (CENode (CBinOp op e1 e2 t))) -> 
+          (Map.insert nid newExpr cp2,decs++[newDecl],newExpr)
+          where 
+            newExpr = cVar ("imm" ++ show nid) t
+            newDecl = cDeclAssign t ("imm" ++ show nid) (cBinOp op e1' e2' t)
+            (cp1,d1',e1') = dagToSPMDC idl cp e1 
+            (cp2,d2',e2') = dagToSPMDC idl cp1 e2 
+            decs = d1' ++ d2'
+        (Just (CENode (CUnOp op e t))) -> 
+          (Map.insert nid newExpr cp1,decs++[newDecl],newExpr)
+          where 
+            newExpr = cVar ("imm" ++ show nid) t
+            newDecl = cDeclAssign t ("imm" ++ show nid) (cUnOp op e'  t)
+            (cp1,d',e') = dagToSPMDC idl cp e
+            decs = d'
+        (Just (CENode (CIndex (e1,es) t))) ->         
+          (Map.insert nid newExpr cp2,decs++[newDecl],newExpr)
+          where 
+            newExpr = cVar ("imm" ++ show nid) t
+            newDecl = cDeclAssign t ("imm" ++ show nid) (cIndex (e1',es') t)
+            (cp1,d1',e1') = dagToSPMDC idl cp e1
+            (cp2,d2',es')  = dagListToSPMDC idl cp1 es -- map (dagToSPMDC idl cp1) es 
+         
+            decs =     d1' ++ d2' 
 
+dagListToSPMDC idl cp [] = (cp,[],[])
+dagListToSPMDC idl cp (x:xs) = (cp'',decs ++ moredecs, exp:exps)
+  where 
+    (cp',decs,exp) = dagToSPMDC idl cp x 
+    (cp'',moredecs, exps) = dagListToSPMDC idl cp' xs 
 
-
-
+snd3 (_,y,_) = y
+trd3 (_,_,z) = z
 
 ----------------------------------------------------------------------------
 -- Examples
 
-small = CExpr$ CBinOp CAdd (CExpr (CVar "a")) (CExpr (CVar "b"))
-large = CExpr$ CBinOp CAdd small small 
-huge  = CExpr$ CBinOp CAdd large large
-testExpr = CExpr (CVar "hej")
+small = CExpr$ CBinOp CAdd (CExpr (CVar "a" CInt)) (CExpr (CVar "b" CInt) ) CInt
+large = CExpr$ CBinOp CAdd small small CInt
+huge  = CExpr$ CBinOp CAdd large large CInt
+testExpr = CExpr (CVar "hej" CInt)
 toDag1 = Map.elems$ fst$ fst$ runState (cExprToDag Map.empty huge) 0
