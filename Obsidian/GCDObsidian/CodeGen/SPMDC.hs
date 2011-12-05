@@ -3,6 +3,8 @@ module Obsidian.GCDObsidian.CodeGen.SPMDC where
 
 import Obsidian.GCDObsidian.Globs
 
+import Obsidian.GCDObsidian.CodeGen.PP
+
 import Data.Word
 import qualified Data.List as List
 import qualified Data.Map as Map
@@ -62,13 +64,11 @@ data CUnOp = CBitwiseNeg
        + Already in normal C code generation this will be an issue. 
        
 -} 
---                  targ   ifarr  source
---
 data SPMDC = CAssign CExpr [CExpr] CExpr -- array or scalar assign 
-           -- Target should be just a name, for less chance of confusio
            | CDeclAssign CType Name CExpr -- declare variable and assign a value 
-           | CFunc   Name  [CExpr]       
+           | CFunc   Name  [CExpr]                    
            | CSync                  -- CUDA and OpenCL
+
            | CIf     CExpr [SPMDC] [SPMDC]
            deriving (Eq,Ord,Show)
                     
@@ -81,26 +81,28 @@ data CKernel = CKernel CQualifyer CType Name [(CType,Name)] [SPMDC]
 newtype CExpr = CExpr (CExprP CExpr)
              deriving (Eq,Ord,Show)
                       
---newtype SPMDC = S (SPMDCP CExpr) 
---              deriving (Eq,Ord,Show)
-
 ----------------------------------------------------------------------------                      
 -- DAGs
 type NodeID = Integer                
 newtype CENode = CENode (CExprP NodeID) 
                deriving Show
---newtype SNode = SNode (SPMDCP NodeID) 
---              deriving Show
+                        
 ----------------------------------------------------------------------------
--- 
-cVar n t          = CExpr $ CVar n t
-cLiteral l t      = CExpr $ CLiteral l t
-cIndex a t        = CExpr $ CIndex a t
-cCond b e1 e2 t   = CExpr $ CCond b e1 e2 t
-cFuncExpr n es t  = CExpr $ CFuncExpr n es t
-cBinOp op e1 e2 t = CExpr $ CBinOp op e1 e2 t
-cUnOp op e t      = CExpr $ CUnOp op e t
-cCast e t         = CExpr $ CCast e t 
+-- Helpers 
+
+cexpr1 exp a       = CExpr $ exp a 
+cexpr2 exp a b     = CExpr $ exp a b 
+cexpr3 exp a b c   = CExpr $ exp a b c 
+cexpr4 exp a b c d = CExpr $ exp a b c d  
+
+cVar      = cexpr2 CVar 
+cLiteral  = cexpr2 CLiteral 
+cIndex    = cexpr2 CIndex 
+cCond     = cexpr4 CCond   
+cFuncExpr = cexpr3 CFuncExpr 
+cBinOp    = cexpr4 CBinOp 
+cUnOp     = cexpr3 CUnOp 
+cCast     = cexpr2 CCast 
 
 cAssign = CAssign 
 cFunc = CFunc  
@@ -116,103 +118,144 @@ cIf = CIf
      + Rewrite the printing to have indentation etc. 
          Maybe reuse the stuff from CodeGen.Common
      + enable "Print as CUDA" and "Print as OpenCL" 
-
-
 -} 
-printCKernel :: CKernel -> String 
-printCKernel (CKernel q t nom ins body) = 
-  printCQual q ++ " " ++ printCType t ++ " " ++ nom ++ commaSepList pins "(" ")" ins ++ 
-  "{\n" ++
-  printBody body ++ 
-  "}\n"
-  where 
-    pins (t,nom) = printCType t ++ " " ++ nom
-  
 
-commaSepList printElt s e xs = s ++ concat (List.intersperse "," (commaSepList' xs)) ++ e
+data PPConfig = PPConfig {ppKernelQ :: String, 
+                          ppGlobalQ :: String, 
+                          ppLocalQ  :: String,
+                          ppSyncLine :: String} 
+
+printCKernel :: PPConfig -> CKernel -> String 
+printCKernel ppc kern = runPP (ppCKernel ppc  kern ) 0 
+
+ppCKernel :: PPConfig -> CKernel -> PP () 
+ppCKernel ppc (CKernel q t nom ins body) = 
+  ppCQual ppc q >> space >> ppCType ppc t >> space >> line nom >> ppCommaSepList ppIns "(" ")" ins >> 
+  begin >> indent >> newline >> 
+  ppSPMDCList ppc body >>  unindent >> newline >>
+  end 
+  where 
+    ppIns (t,nom) = ppCType ppc t >> space >> line nom
+  
+ppCQual ppc CQualifyerGlobal = line$ ppGlobalQ ppc 
+ppCQual ppc CQualifyerLocal  = line$ ppLocalQ ppc 
+ppCQual ppc CQualifyerKernel = line$ ppKernelQ ppc 
+
+space = line " " 
+
+
+ppCType ppc CVoid    = line "void"
+ppCType ppc CInt     = line "int"
+ppCType ppc CFloat   = line "float"
+ppCType ppc CDouble  = line "double"            
+ppCType ppc CWord8   = line "uint8_t"
+ppCType ppc CWord16  = line "uint16_t"
+ppCType ppc CWord32  = line "uint32_t"
+ppCType ppc CWord64  = line "uint64_t" 
+ppCType ppc (CPointer t) = ppCType ppc t >> line "*"
+ppCType ppc (CQualified q t) = ppCQual ppc q >> space >> ppCType ppc t
+
+ppValue (IntVal i) = line$ show i
+ppValue (FloatVal f) = line$ show f 
+ppValue (DoubleVal d) = line$ show d
+ppValue (Word8Val  w) = line$ show w 
+ppValue (Word16Val w) = line$ show w
+ppValue (Word32Val w) = line$ show w
+ppValue (Word64Val w) = line$ show w 
+
+
+ppBinOp CAdd = line$ "+"
+ppBinOp CSub = line$ "-"
+ppBinOp CMul = line$ "*"
+ppBinOp CDiv = line$ "/"
+ppBinOp CMod = line$ "%" 
+ppBinOp CEq  = line$ "=="
+ppBinOp CLt  = line$ "<" 
+ppBinOp CLEq = line$ "<="
+ppBinOp CGt  = line$ ">" 
+ppBinOp CGEq = line$ ">="
+ppBinOp CBitwiseAnd = line$ "&"  
+ppBinOp CBitwiseOr  = line$ "|" 
+ppBinOp CBitwiseXor = line$ "^" 
+ppBinOp CShiftL     = line$ "<<" 
+ppBinOp CShiftR     = line$ ">>"
+                     
+ppUnOp CBitwiseNeg = line$ "~"       
+
+
+
+
+ppCommaSepList ppElt s e xs = line s >>  sequence_ (List.intersperse (line ",") (commaSepList' xs)) >> line e
   where 
     commaSepList' [] = [] 
-    commaSepList' (x:xs) = printElt x : commaSepList' xs
+    commaSepList' (x:xs) = ppElt x : commaSepList' xs
   
-printCQual CQualifyerGlobal  = "__global__"
-printCQual CQualifyerLocal   = "" -- "__local"
-printCQual CQualifyerKernel  = "__global__" -- "__kernel"
 
-printCType CVoid    = "void"
-printCType CInt     = "int"
-printCType CFloat   = "float"
-printCType CDouble  = "double"            
-printCType CWord8   = "uint8_t"
-printCType CWord16  = "uint16_t"
-printCType CWord32  = "uint32_t"
-printCType CWord64  = "uint64_t" 
-printCType (CPointer t) = printCType t ++ "*"
-printCType (CQualified q t) = printCQual q ++ " " ++ printCType t
+ppSPMDCList ppc xs = sequence_ (map (ppSPMDC ppc) xs) 
 
-
-printBody [] = "" 
-printBody (x:xs) = printSPMDC x ++ printBody xs
-
-printSPMDC (CAssign e [] expr) = printCExpr e  ++ " = " ++ printCExpr expr  ++ ";\n" 
-printSPMDC (CAssign e exprs expr) = printCExpr e  ++ commaSepList printCExpr "[" "]" exprs ++ " = " ++ printCExpr expr ++ ";\n" 
-printSPMDC (CDeclAssign t n e) = printCType t ++ " " ++ n ++ " = " ++ printCExpr e ++ ";\n" 
-printSPMDC (CFunc nom args) = nom ++ commaSepList printCExpr "(" ")" args ++ ";\n"
-printSPMDC CSync  = "__syncthreads();\n"
+ppSPMDC :: PPConfig -> SPMDC -> PP () 
+ppSPMDC ppc (CAssign e [] expr) = ppCExpr ppc e >> line " = " >> ppCExpr ppc expr >> line ";" >> newline
+ppSPMDC ppc (CAssign e exprs expr) = ppCExpr ppc e >> 
+                                     ppCommaSepList (ppCExpr ppc) "[" "]" exprs >> 
+                                     line " = " >> 
+                                     ppCExpr ppc expr >> 
+                                     line ";" >> newline
+ppSPMDC ppc (CDeclAssign t n e) = ppCType ppc t >> space >> line n >> line " = " >> ppCExpr ppc e >> line ";" >> newline
+ppSPMDC ppc (CFunc nom args) = line nom >> ppCommaSepList (ppCExpr ppc) "(" ")" args >> line ";" >> newline 
+ppSPMDC ppc  CSync = line$ ppSyncLine ppc
+ppSPMDC ppc (CIf e [] []) = return ()
+ppSPMDC ppc (CIf e xs []) = line "if " >> ppCExpr ppc e >> begin >> indent >> newline  >> 
+                            ppSPMDCList ppc xs >>  unindent >> end
+ppSPMDC ppc (CIf e xs ys) = line "if " >> ppCExpr ppc e >> begin >> indent >> newline >> 
+                            ppSPMDCList ppc xs >>  unindent >> end >> 
+                            line "else " >> begin >> indent >> newline >> 
+                            ppSPMDCList ppc ys >>  unindent >> end 
+{-
 printSPMDC (CIf e [] [] ) = "" -- 
 printSPMDC (CIf e xs [] ) =  "if " ++ printCExpr e ++ "{\n" ++ concatMap printSPMDC xs ++ "}\n"
 printSPMDC (CIf e xs ys ) =  "if " ++ printCExpr e ++ "{\n" ++ concatMap printSPMDC xs ++ "}\n" ++ 
                                  "else {\n" ++ concatMap printSPMDC ys ++ "}\n"
 
-
-printCExpr :: CExpr -> String 
-printCExpr (CExpr (CVar nom _)) = nom
-printCExpr (CExpr (CLiteral v _)) = printValue v 
-printCExpr (CExpr (CIndex (e,[]) _)) = printCExpr e 
-printCExpr (CExpr (CIndex (e,xs) _)) = printCExpr e  ++ commaSepList printCExpr "[" "]" xs
-printCExpr (CExpr (CCond e1 e2 e3 _))    = printCExpr e1 ++ " ? " ++ printCExpr e2 ++ " : " ++ printCExpr e3
-printCExpr (CExpr (CBinOp bop e1 e2 _)) = "(" ++ printCExpr e1 ++ printBinOp bop ++ printCExpr e2 ++ ")"
-printCExpr (CExpr (CUnOp  uop  e _)) = "(" ++ printUnOp uop ++ printCExpr e ++ ")" 
-printCExpr (CExpr (CFuncExpr nom args _)) = nom ++ commaSepList printCExpr "(" ")" args
-printCExpr (CExpr (CCast e t)) = "((" ++ printCType t ++ ")" ++ printCExpr e ++ ")"
-
-printValue (IntVal i) = show i
-printValue (FloatVal f) = show f 
-printValue (DoubleVal d) = show d
-printValue (Word8Val  w) = show w 
-printValue (Word16Val w) = show w
-printValue (Word32Val w) = show w
-printValue (Word64Val w) = show w 
-
-
-printBinOp CAdd = "+"
-printBinOp CSub = "-"
-printBinOp CMul = "*"
-printBinOp CDiv = "/"
-printBinOp CMod = "%" 
-printBinOp CEq  = "=="
-printBinOp CLt  = "<" 
-printBinOp CLEq = "<="
-printBinOp CGt  = ">" 
-printBinOp CGEq = ">="
-printBinOp CBitwiseAnd = "&"  
-printBinOp CBitwiseOr  = "|" 
-printBinOp CBitwiseXor = "^" 
-printBinOp CShiftL     = "<<" 
-printBinOp CShiftR     = ">>"
-                     
-printUnOp CBitwiseNeg = "~"       
+-}
+ppCExpr :: PPConfig -> CExpr -> PP ()  
+ppCExpr ppc (CExpr (CVar nom _)) = line nom
+ppCExpr ppc (CExpr (CLiteral v _)) = ppValue v 
+ppCExpr ppc (CExpr (CIndex (e,[]) _)) = ppCExpr ppc e 
+ppCExpr ppc (CExpr (CIndex (e,xs) _)) = ppCExpr ppc e  >>  
+                                        ppCommaSepList (ppCExpr ppc) "[" "]" xs
+ppCExpr ppc (CExpr (CCond e1 e2 e3 _))    = ppCExpr ppc e1 >> 
+                                            line " ? " >> 
+                                            ppCExpr ppc e2 >> 
+                                            line " : " >>  
+                                            ppCExpr ppc e3
+ppCExpr ppc (CExpr (CBinOp bop e1 e2 _)) = line "(" >>  
+                                           ppCExpr ppc e1 >> 
+                                           ppBinOp bop >> 
+                                           ppCExpr ppc e2 >> 
+                                           line ")"
+ppCExpr ppc (CExpr (CUnOp  uop  e _)) = line "(" >> 
+                                        ppUnOp uop >> 
+                                        ppCExpr ppc e >> 
+                                        line ")" 
+ppCExpr ppc (CExpr (CFuncExpr nom args _)) = line nom >> 
+                                             ppCommaSepList (ppCExpr ppc) "(" ")" args
+ppCExpr ppc (CExpr (CCast e t)) = line "((" >> 
+                                  ppCType ppc t >> 
+                                  line ")" >> 
+                                  ppCExpr ppc e >> 
+                                  line ")"
 
 
 ----------------------------------------------------------------------------
 -- a small test.
-
+{- 
 cprg1 = CKernel CQualifyerKernel CVoid "apa" [(CInt,"a"),(CFloat, "b")] 
         [ cAssign (cVar "apa" CInt) [cLiteral (IntVal 5) CInt] (cLiteral (IntVal 5) CInt)
         , cFunc "__syncthreads" [] 
         ]
 
 spmdcTest1 =  putStrLn$ printCKernel cprg1
-
+-}
 ---------------------------------------------------------------------------- 
 -- CExpr to Dag and back again. 
 
@@ -222,11 +265,10 @@ spmdcTest1 =  putStrLn$ printCKernel cprg1
      - no regards is taken to scope or code blocks {.. code ... } 
        for example declarations end up within an IF And at the same 
        time the "Computed"-map will say that that variable is computed "globaly"
-   + CSE is too brutal. I think indexing into a shared memory array 
-     should definitely not be stored in a variable. (these two have same access time 
-     on the GPU) 
-
-
+   + CSE is too brutal. 
+      - DONE: I think indexing into a shared memory array should definitely 
+              not be stored in a variable. (these two have same access time 
+              on the GPU) 
 -} 
 
 type CSEMap = Map.Map CExpr (NodeID,CENode)
@@ -402,10 +444,93 @@ snd3 (_,y,_) = y
 trd3 (_,_,z) = z
 
 ----------------------------------------------------------------------------
--- Examples
+-- 
 
-small = CExpr$ CBinOp CAdd (CExpr (CVar "a" CInt)) (CExpr (CVar "b" CInt) ) CInt
-large = CExpr$ CBinOp CAdd small small CInt
-huge  = CExpr$ CBinOp CAdd large large CInt
-testExpr = CExpr (CVar "hej" CInt)
-toDag1 = Map.elems$ fst$ fst$ runState (cExprToDag Map.empty huge) 0
+
+
+
+-- old printing 
+{- 
+printCKernel :: CKernel -> String 
+printCKernel (CKernel q t nom ins body) = 
+  printCQual q ++ " " ++ printCType t ++ " " ++ nom ++ commaSepList pins "(" ")" ins ++ 
+  "{\n" ++
+  printBody body ++ 
+  "}\n"
+  where 
+    pins (t,nom) = printCType t ++ " " ++ nom
+  
+
+commaSepList printElt s e xs = s ++ concat (List.intersperse "," (commaSepList' xs)) ++ e
+  where 
+    commaSepList' [] = [] 
+    commaSepList' (x:xs) = printElt x : commaSepList' xs
+  
+printCQual CQualifyerGlobal  = "__global__"
+printCQual CQualifyerLocal   = "" -- "__local"
+printCQual CQualifyerKernel  = "__global__" -- "__kernel"
+
+printCType CVoid    = "void"
+printCType CInt     = "int"
+printCType CFloat   = "float"
+printCType CDouble  = "double"            
+printCType CWord8   = "uint8_t"
+printCType CWord16  = "uint16_t"
+printCType CWord32  = "uint32_t"
+printCType CWord64  = "uint64_t" 
+printCType (CPointer t) = printCType t ++ "*"
+printCType (CQualified q t) = printCQual q ++ " " ++ printCType t
+
+
+printBody [] = "" 
+printBody (x:xs) = printSPMDC x ++ printBody xs
+
+printSPMDC (CAssign e [] expr) = printCExpr e  ++ " = " ++ printCExpr expr  ++ ";\n" 
+printSPMDC (CAssign e exprs expr) = printCExpr e  ++ commaSepList printCExpr "[" "]" exprs ++ " = " ++ printCExpr expr ++ ";\n" 
+printSPMDC (CDeclAssign t n e) = printCType t ++ " " ++ n ++ " = " ++ printCExpr e ++ ";\n" 
+printSPMDC (CFunc nom args) = nom ++ commaSepList printCExpr "(" ")" args ++ ";\n"
+printSPMDC CSync  = "__syncthreads();\n"
+printSPMDC (CIf e [] [] ) = "" -- 
+printSPMDC (CIf e xs [] ) =  "if " ++ printCExpr e ++ "{\n" ++ concatMap printSPMDC xs ++ "}\n"
+printSPMDC (CIf e xs ys ) =  "if " ++ printCExpr e ++ "{\n" ++ concatMap printSPMDC xs ++ "}\n" ++ 
+                                 "else {\n" ++ concatMap printSPMDC ys ++ "}\n"
+
+
+printCExpr :: CExpr -> String 
+printCExpr (CExpr (CVar nom _)) = nom
+printCExpr (CExpr (CLiteral v _)) = printValue v 
+printCExpr (CExpr (CIndex (e,[]) _)) = printCExpr e 
+printCExpr (CExpr (CIndex (e,xs) _)) = printCExpr e  ++ commaSepList printCExpr "[" "]" xs
+printCExpr (CExpr (CCond e1 e2 e3 _))    = printCExpr e1 ++ " ? " ++ printCExpr e2 ++ " : " ++ printCExpr e3
+printCExpr (CExpr (CBinOp bop e1 e2 _)) = "(" ++ printCExpr e1 ++ printBinOp bop ++ printCExpr e2 ++ ")"
+printCExpr (CExpr (CUnOp  uop  e _)) = "(" ++ printUnOp uop ++ printCExpr e ++ ")" 
+printCExpr (CExpr (CFuncExpr nom args _)) = nom ++ commaSepList printCExpr "(" ")" args
+printCExpr (CExpr (CCast e t)) = "((" ++ printCType t ++ ")" ++ printCExpr e ++ ")"
+
+printValue (IntVal i) = show i
+printValue (FloatVal f) = show f 
+printValue (DoubleVal d) = show d
+printValue (Word8Val  w) = show w 
+printValue (Word16Val w) = show w
+printValue (Word32Val w) = show w
+printValue (Word64Val w) = show w 
+
+
+printBinOp CAdd = "+"
+printBinOp CSub = "-"
+printBinOp CMul = "*"
+printBinOp CDiv = "/"
+printBinOp CMod = "%" 
+printBinOp CEq  = "=="
+printBinOp CLt  = "<" 
+printBinOp CLEq = "<="
+printBinOp CGt  = ">" 
+printBinOp CGEq = ">="
+printBinOp CBitwiseAnd = "&"  
+printBinOp CBitwiseOr  = "|" 
+printBinOp CBitwiseXor = "^" 
+printBinOp CShiftL     = "<<" 
+printBinOp CShiftR     = ">>"
+                     
+printUnOp CBitwiseNeg = "~"       
+-} 

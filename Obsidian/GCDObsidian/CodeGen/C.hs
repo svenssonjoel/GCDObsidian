@@ -20,6 +20,7 @@ import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 import Obsidian.GCDObsidian.Program
 
+import Obsidian.GCDObsidian.CodeGen.PP
 import Obsidian.GCDObsidian.CodeGen.Common
 import Obsidian.GCDObsidian.CodeGen.InOut
 import Obsidian.GCDObsidian.CodeGen.Liveness

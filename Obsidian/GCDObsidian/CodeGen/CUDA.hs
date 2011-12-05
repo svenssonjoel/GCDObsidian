@@ -18,9 +18,10 @@ import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 import Obsidian.GCDObsidian.Program
+
+import Obsidian.GCDObsidian.CodeGen.PP
 import Obsidian.GCDObsidian.CodeGen.Common
 import Obsidian.GCDObsidian.CodeGen.InOut 
-
 import Obsidian.GCDObsidian.CodeGen.SyncAnalysis
 import Obsidian.GCDObsidian.CodeGen.Memory
 import Obsidian.GCDObsidian.CodeGen.Liveness
@@ -193,7 +194,7 @@ genKernelGlob_ name kernel a = cuda
     
     spmd = performCSE (progToSPMDC threadBudget c)
     body = tidDecl:bidDecl:(mmSPMDC mm spmd)
-    cuda = printCKernel$ CKernel CQualifyerKernel CVoid name (inputs++outputs) body
+    cuda = printCKernel (PPConfig "__global__" "" "" "__syncthreads()")  (CKernel CQualifyerKernel CVoid name (inputs++outputs) body)
       {- 
     cuda = getCUDA (config threadBudget mm (size m)) 
                    c  
