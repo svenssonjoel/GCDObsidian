@@ -138,6 +138,9 @@ genKernelGlob name kernel a = cuda
     
     -- TODO: *ERROR* will only work if there 
     --       is atleast one sync in the kernel. 
+    --  + Maybe not an error. This kind of globalKernel 
+    --    must push at some point since only push arrays are 
+    --    acceptable global outputs
     threadBudget = threadsNeeded c 
     
     lc = liveness c_old 
@@ -147,14 +150,7 @@ genKernelGlob name kernel a = cuda
       runInOut_ (writeGlobalOutput threadBudget res) 
       
     c = c_old *>* outcode
-    
-    -- Perform CSE here 
-    -- Maybe output a new form of intermediate code 
-    -- from this stage ?? 
-    -- c' = performCSE c 
-    
- --    cuda = error$ printBody (mmSPMDC mm (progToSPMDC threadBudget c) )
- 
+     
     cuda = getCUDA (config threadBudget mm (size m)) 
                    c  
                    name
