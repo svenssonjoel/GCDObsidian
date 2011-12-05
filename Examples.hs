@@ -199,6 +199,7 @@ testGlobRev = pure globRev ->-
               pure (unblock . push) 
 
 getTestGlobRev = putStrLn$ CUDA.genKernelGlob "testGlobRev" testGlobRev (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int)) 
+getTestGlobRev_ = putStrLn$ CUDA.genKernelGlob_ "testGlobRev" testGlobRev (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int)) 
 
 
 vSwap :: (GlobalArray Pull (Exp Int), Exp Word32) -> 

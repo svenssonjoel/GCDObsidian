@@ -194,16 +194,9 @@ genKernelGlob_ name kernel a = cuda
     
     spmd = performCSE (progToSPMDC threadBudget c)
     body = tidDecl:bidDecl:(mmSPMDC mm spmd)
-    cuda = printCKernel (PPConfig "__global__" "" "" "__syncthreads()")  (CKernel CQualifyerKernel CVoid name (inputs++outputs) body)
-      {- 
-    cuda = getCUDA (config threadBudget mm (size m)) 
-                   c  
-                   name
-                   (map fst2 ins) 
-                   (map fst2 outs)
-     -} 
-
-
+    ckernel = CKernel CQualifyerKernel CVoid name (inputs++outputs) body
+    cuda = printCKernel (PPConfig "__global__" "" "" "__syncthreads()") ckernel 
+  
 
 ------------------------------------------------------------------------------
 -- put together all the parts that make a CUDA kernel.     
@@ -279,7 +272,7 @@ genProg mm nt (ProgramSeq p1 p2) =
 ---------------------------------------------------------------------------- 
 -- genProgSPMDC 
     
-
+ctid = cVar "tid" CWord32
   
 progToSPMDC :: Word32 -> Program a -> [SPMDC] 
 progToSPMDC nt (Assign name ix a) = 
@@ -287,7 +280,7 @@ progToSPMDC nt (Assign name ix a) =
 progToSPMDC nt (ForAll f n) =         
   if (n < nt) 
   then 
-    [cIf (cBinOp CLt (cVar "tid" CWord32) (cLiteral (Word32Val n) CWord32) CInt)
+    [cIf (cBinOp CLt ctid (cLiteral (Word32Val n) CWord32) CInt)
         code []]
   else 
     code 
