@@ -137,13 +137,14 @@ ppCKernel ppc (CKernel q t nom ins body) =
   where 
     ppIns (t,nom) = ppCType ppc t >> space >> line nom
   
+----------------------------------------------------------------------------
 ppCQual ppc CQualifyerGlobal = line$ ppGlobalQ ppc 
 ppCQual ppc CQualifyerLocal  = line$ ppLocalQ ppc 
 ppCQual ppc CQualifyerKernel = line$ ppKernelQ ppc 
 
 space = line " " 
 
-
+----------------------------------------------------------------------------
 ppCType ppc CVoid    = line "void"
 ppCType ppc CInt     = line "int"
 ppCType ppc CFloat   = line "float"
@@ -155,6 +156,7 @@ ppCType ppc CWord64  = line "uint64_t"
 ppCType ppc (CPointer t) = ppCType ppc t >> line "*"
 ppCType ppc (CQualified q t) = ppCQual ppc q >> space >> ppCType ppc t
 
+----------------------------------------------------------------------------
 ppValue (IntVal i) = line$ show i
 ppValue (FloatVal f) = line$ show f 
 ppValue (DoubleVal d) = line$ show d
@@ -163,7 +165,7 @@ ppValue (Word16Val w) = line$ show w
 ppValue (Word32Val w) = line$ show w
 ppValue (Word64Val w) = line$ show w 
 
-
+----------------------------------------------------------------------------
 ppBinOp CAdd = line$ "+"
 ppBinOp CSub = line$ "-"
 ppBinOp CMul = line$ "*"
@@ -183,15 +185,19 @@ ppBinOp CShiftR     = line$ ">>"
 ppUnOp CBitwiseNeg = line$ "~"       
 
 
-
-
-ppCommaSepList ppElt s e xs = line s >>  sequence_ (List.intersperse (line ",") (commaSepList' xs)) >> line e
+----------------------------------------------------------------------------
+--
+ppCommaSepList ppElt s e xs = 
+  line s >>  
+  sequence_ (List.intersperse (line ",") (commaSepList' xs)) >> line e
   where 
     commaSepList' [] = [] 
     commaSepList' (x:xs) = ppElt x : commaSepList' xs
   
-
+----------------------------------------------------------------------------
+--
 ppSPMDCList ppc xs = sequence_ (map (ppSPMDC ppc) xs) 
+
 
 ppSPMDC :: PPConfig -> SPMDC -> PP () 
 ppSPMDC ppc (CAssign e [] expr) = ppCExpr ppc e >> line " = " >> ppCExpr ppc expr >> line ";" >> newline
@@ -210,13 +216,9 @@ ppSPMDC ppc (CIf e xs ys) = line "if " >> ppCExpr ppc e >> begin >> indent >> ne
                             ppSPMDCList ppc xs >>  unindent >> end >> 
                             line "else " >> begin >> indent >> newline >> 
                             ppSPMDCList ppc ys >>  unindent >> end 
-{-
-printSPMDC (CIf e [] [] ) = "" -- 
-printSPMDC (CIf e xs [] ) =  "if " ++ printCExpr e ++ "{\n" ++ concatMap printSPMDC xs ++ "}\n"
-printSPMDC (CIf e xs ys ) =  "if " ++ printCExpr e ++ "{\n" ++ concatMap printSPMDC xs ++ "}\n" ++ 
-                                 "else {\n" ++ concatMap printSPMDC ys ++ "}\n"
-
--}
+                            
+----------------------------------------------------------------------------
+--
 ppCExpr :: PPConfig -> CExpr -> PP ()  
 ppCExpr ppc (CExpr (CVar nom _)) = line nom
 ppCExpr ppc (CExpr (CLiteral v _)) = ppValue v 
@@ -246,16 +248,6 @@ ppCExpr ppc (CExpr (CCast e t)) = line "((" >>
                                   line ")"
 
 
-----------------------------------------------------------------------------
--- a small test.
-{- 
-cprg1 = CKernel CQualifyerKernel CVoid "apa" [(CInt,"a"),(CFloat, "b")] 
-        [ cAssign (cVar "apa" CInt) [cLiteral (IntVal 5) CInt] (cLiteral (IntVal 5) CInt)
-        , cFunc "__syncthreads" [] 
-        ]
-
-spmdcTest1 =  putStrLn$ printCKernel cprg1
--}
 ---------------------------------------------------------------------------- 
 -- CExpr to Dag and back again. 
 

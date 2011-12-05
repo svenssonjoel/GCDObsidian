@@ -1,9 +1,9 @@
 
 module Obsidian.GCDObsidian.CodeGen.CUDA 
        (genKernel
-       ,genKernel_
+       ,genKernel_ -- uses new intermediate representation and performs cse
        ,genKernelGlob
-       ,genKernelGlob_) where 
+       ,genKernelGlob_ ) where 
 
 import Data.List
 import Data.Word 
@@ -122,7 +122,6 @@ genKernel name kernel a = cuda
     c' = sc {-*>* Synchronize True-} *>* outCode 
     sc = c -- remove
     
---    cuda = error$ printBody (mmSPMDC mm (progToSPMDC threadBudget c))
     cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
 
 
@@ -323,18 +322,3 @@ mmCExpr mm a = a
   
 ----------------------------------------------------------------------------
 -- 
-
-{-
-typeToCType Int   = CInt
-typeToCType Float = CFloat
-typeToCType Double = CDouble
-typeToCType Word8 = CWord8
-typeToCType Word16 = CWord16
-typeToCType Word32 = CWord32
-typeToCType Word64 = CWord64
-typeToCType (Pointer t) = CPointer (typeToCType t)
-typeToCType (Global t)  = CQualified CQualifyerGlobal (typeToCType t) 
-typeToCType (Local t)  = CQualified CQualifyerLocal (typeToCType t) 
--}
-----------------------------------------------------------------------------
---
