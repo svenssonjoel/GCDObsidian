@@ -509,9 +509,6 @@ performCSE2 sps = test ++ r
     
     (_,_,_,r) = performCSEGlobal cseMap 0 cp sps
                    
-     
-
-
 
 -- Extract things that can be computed early
 getGlobals :: CSEMap -> [(NodeID,CENode)]
