@@ -1,7 +1,7 @@
 
 module Obsidian.GCDObsidian.CodeGen.CUDA 
        (genKernel
-       ,genKernel_ -- uses new intermediate representation and performs cse
+       ,genKernel_ 
        ,genKernelGlob
        ,genKernelGlob_ ) where 
 
@@ -170,6 +170,7 @@ genKernelGlob_ name kernel a = cuda
     
     -- TODO: *ERROR* will only work if there 
     --       is atleast one sync in the kernel. 
+    --       (This kind of kernel always will have) 
     threadBudget = threadsNeeded c 
     
     lc = liveness c_old 
@@ -187,7 +188,7 @@ genKernelGlob_ name kernel a = cuda
     tidDecl = cDeclAssign CWord32 "tid" (cVar "threadIdx.x" CWord32) 
     bidDecl = cDeclAssign CWord32 "bid" (cVar "blockIdx.x" CWord32) 
     
-    spmd = performCSE (progToSPMDC threadBudget c)
+    spmd = performCSE2 (progToSPMDC threadBudget c)
     body = tidDecl:bidDecl:(mmSPMDC mm spmd)
     ckernel = CKernel CQualifyerKernel CVoid name (inputs++outputs) body
     cuda = printCKernel (PPConfig "__global__" "" "" "__syncthreads()") ckernel 
@@ -248,7 +249,6 @@ genProg mm nt (ForAll f n) = potentialCond gc mm n nt $
 genProg mm nt (ForAllGlobal f n) = error "hello world"                                
 --genProg mm nt (f (variable "gtid"))
   
-  
   -- TODO: Many details missing here, think about nested ForAlls 
   -- TODO: Sync only if needed here                              
   --      ++ Might help to add information to Program type that a "sync is requested"                              
@@ -283,8 +283,8 @@ progToSPMDC nt (ForAll f n) =
     code = progToSPMDC nt (f (variable "tid"))
     
 progToSPMDC nt (Allocate name size t _) = []
-progToSPMDC nt (Synchronize True) = [cFunc "__synchthreads" []] -- syncLine >> newline 
-progToSPMDC nt (Synchronize False) = [] -- return () -- line "\\\\__synchthreads();" >> newline 
+progToSPMDC nt (Synchronize True) = [CSync] 
+progToSPMDC nt (Synchronize False) = [] 
 progToSPMDC nt Skip = []
 progToSPMDC nt (ProgramSeq p1 p2) = progToSPMDC nt p1 ++ progToSPMDC nt p2
 
@@ -300,6 +300,7 @@ mmSPMDC' mm (CAssign e1 es e2) =
           (map (mmCExpr mm) es)    
           (mmCExpr mm e2)
 mmSPMDC' mm (CFunc name es) = cFunc name (map (mmCExpr mm) es) 
+mmSPMDC' mm CSync           = CSync
 mmSPMDC' mm (CIf   e s1 s2) = cIf (mmCExpr mm e) (mmSPMDC mm s1) (mmSPMDC mm s2)
 mmSPMDC' mm (CDeclAssign t nom e) = cDeclAssign t nom (mmCExpr mm e)
 ----------------------------------------------------------------------------

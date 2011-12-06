@@ -113,14 +113,6 @@ cIf = CIf
 
 --------------------------------------------------------------------------
 -- Printing 
-
-{- 
-  TODO: 
-     + Rewrite the printing to have indentation etc. 
-         Maybe reuse the stuff from CodeGen.Common
-     + enable "Print as CUDA" and "Print as OpenCL" 
--} 
-
 data PPConfig = PPConfig {ppKernelQ :: String, 
                           ppGlobalQ :: String, 
                           ppLocalQ  :: String,
@@ -142,8 +134,6 @@ ppCKernel ppc (CKernel q t nom ins body) =
 ppCQual ppc CQualifyerGlobal = line$ ppGlobalQ ppc 
 ppCQual ppc CQualifyerLocal  = line$ ppLocalQ ppc 
 ppCQual ppc CQualifyerKernel = line$ ppKernelQ ppc 
-
-space = line " " 
 
 ----------------------------------------------------------------------------
 ppCType ppc CVoid    = line "void"
@@ -201,15 +191,18 @@ ppSPMDCList ppc xs = sequence_ (map (ppSPMDC ppc) xs)
 
 
 ppSPMDC :: PPConfig -> SPMDC -> PP () 
-ppSPMDC ppc (CAssign e [] expr) = ppCExpr ppc e >> line " = " >> ppCExpr ppc expr >> line ";" >> newline
+ppSPMDC ppc (CAssign e [] expr) = ppCExpr ppc e >> 
+                                  line " = " >> 
+                                  ppCExpr ppc expr >> 
+                                  cTermLn
 ppSPMDC ppc (CAssign e exprs expr) = ppCExpr ppc e >> 
                                      ppCommaSepList (ppCExpr ppc) "[" "]" exprs >> 
                                      line " = " >> 
                                      ppCExpr ppc expr >> 
-                                     line ";" >> newline
-ppSPMDC ppc (CDeclAssign t n e) = ppCType ppc t >> space >> line n >> line " = " >> ppCExpr ppc e >> line ";" >> newline
-ppSPMDC ppc (CFunc nom args) = line nom >> ppCommaSepList (ppCExpr ppc) "(" ")" args >> line ";" >> newline 
-ppSPMDC ppc  CSync = line$ ppSyncLine ppc
+                                     cTermLn 
+ppSPMDC ppc (CDeclAssign t n e) = ppCType ppc t >> space >> line n >> line " = " >> ppCExpr ppc e >> cTermLn
+ppSPMDC ppc (CFunc nom args) = line nom >> ppCommaSepList (ppCExpr ppc) "(" ")" args >> cTermLn
+ppSPMDC ppc  CSync = line (ppSyncLine ppc) >> cTermLn 
 ppSPMDC ppc (CIf e [] []) = return ()
 ppSPMDC ppc (CIf e xs []) = line "if " >> ppCExpr ppc e >> begin >> indent >> newline  >> 
                             ppSPMDCList ppc xs >>  unindent >> end
@@ -272,20 +265,26 @@ ppCExpr ppc (CExpr (CCast e t)) = line "((" >>
         or indexing into global arrays, can be moved to toplevel. (out of all ifs) 
       - Things will be marked as Globally "computed" only if they have been 
         moved out and declared at toplevel.  
+      - What about conditional blocks. 
+        Atleast Array indexing inside such a block should not be moved. 
         
       
 
 
 -} 
-
+                           --                n-uses  is "Global"
 type CSEMap = Map.Map CExpr (NodeID,CENode)
+-- type CSEMap = Map.Map CExpr (NodeID,CENode)
 type Computed = Map.Map NodeID CExpr 
 
+
+----------------------------------------------------------------------------
 newNodeID = do 
   i <- get 
   put (i+1)
   return i
 
+----------------------------------------------------------------------------
 insertCM :: CSEMap -> CExpr -> CENode -> State NodeID (CSEMap,NodeID) 
 insertCM cm expr node = 
   case Map.lookup expr cm of 
@@ -296,11 +295,22 @@ insertCM cm expr node =
       return (cm',i)
   
 
+globalName nom = not (List.isPrefixOf "arr" nom)
+
+isGlobal (CExpr (CVar nom _)) = globalName nom
+isGlobal (CExpr (CLiteral l _)) = True 
+isGlobal (CExpr (CCast e _)) = isGlobal e
+isGlobal (CExpr (CIndex (e,es) _)) = False -- isGlobal e && (all isGlobal es) 
+isGlobal (CExpr (CBinOp _ e1 e2 _)) = isGlobal e1 && isGlobal e2
+isGlobal (CExpr (CUnOp _ e _)) = isGlobal e
+isGlobal (CExpr (CFuncExpr nom es _)) = all isGlobal es
+  
+----------------------------------------------------------------------------
 cExprToDag :: CSEMap -> CExpr -> State NodeID (CSEMap,NodeID) 
 cExprToDag cm exp@(CExpr (CVar nom t)) = do
-  insertCM cm exp (CENode (CVar nom t))
+  insertCM cm exp (CENode (CVar nom t)) 
 cExprToDag cm exp@(CExpr (CLiteral l t)) = do 
-  insertCM cm exp (CENode (CLiteral l t))
+  insertCM cm exp (CENode (CLiteral l t)) 
 cExprToDag cm exp@(CExpr (CCast e t)) = do 
   (cm1,e') <- cExprToDag cm e
   insertCM cm1 exp (CENode (CCast e' t)) 
@@ -323,7 +333,7 @@ cExprToDag cm exp@(CExpr (CFuncExpr nom es t)) = do
   (cm1,es1) <- cExprListToDag cm es
   insertCM cm1 exp (CENode (CFuncExpr nom es1 t))
 
-  
+----------------------------------------------------------------------------
 cExprListToDag :: CSEMap -> [CExpr]  -> State NodeID (CSEMap,[NodeID])                  
 cExprListToDag cm [] = return (cm,[])
 cExprListToDag cm (x:xs) = do 
@@ -331,14 +341,20 @@ cExprListToDag cm (x:xs) = do
   (cmEnd,x') <- cExprToDag cm' x 
   return (cmEnd, x':xs')
 
-
+----------------------------------------------------------------------------
 type DoneMap = Map.Map CExpr NodeID
 
+----------------------------------------------------------------------------
 performCSE :: [SPMDC] -> [SPMDC] 
 performCSE sp = let (_,_,_,r) = performCSEGlobal Map.empty 0 Map.empty sp
                 in r
   
-performCSEGlobal :: CSEMap -> NodeID -> Computed -> [SPMDC] -> (CSEMap,NodeID,Computed,[SPMDC])
+----------------------------------------------------------------------------
+performCSEGlobal :: CSEMap 
+                    -> NodeID 
+                    -> Computed 
+                    -> [SPMDC] 
+                    -> (CSEMap,NodeID,Computed,[SPMDC])
 performCSEGlobal cm n cp [] = (cm,n,cp,[]) 
 performCSEGlobal cm n cp (p:ps) = (cma,nid,cpn,spcmds ++ prg)
   where 
@@ -362,7 +378,6 @@ performCSE' (CIf b sp1 sp2) = do
   sp2' <- mapM performCSE' sp2 
   return [CIf b (concat sp1') (concat sp2')]
 performCSE' a@(CFunc nom es) = return [a]
--- performCSE' apa = error$ show apa 
 
 
 buildDag cm e n = runState (cExprToDag cm e) n
@@ -373,6 +388,7 @@ buildDagList cm (e:es) n = ((cm'', nid:nids), n'')
     ((cm',nid),n') = buildDag cm e n
     ((cm'',nids), n'') = buildDagList cm' es n'  
 
+dagToSPMDC :: [(NodeID,CENode)] -> Computed -> NodeID -> (Computed,[SPMDC],CExpr)
 dagToSPMDC idl cp nid =
   case Map.lookup nid cp of 
     (Just expr) -> (cp,[],expr)
@@ -452,92 +468,71 @@ trd3 (_,_,z) = z
 
 ----------------------------------------------------------------------------
 -- 
+----------------------------------------------------------------------------
+-- 
 
 
-
-
--- old printing 
-{- 
-printCKernel :: CKernel -> String 
-printCKernel (CKernel q t nom ins body) = 
-  printCQual q ++ " " ++ printCType t ++ " " ++ nom ++ commaSepList pins "(" ")" ins ++ 
-  "{\n" ++
-  printBody body ++ 
-  "}\n"
+buildCSEMap :: [SPMDC] -> CSEMap 
+buildCSEMap sps = snd$  buildCSEMap' (Map.empty) 0 sps 
   where 
-    pins (t,nom) = printCType t ++ " " ++ nom
-  
-
-commaSepList printElt s e xs = s ++ concat (List.intersperse "," (commaSepList' xs)) ++ e
+    
+buildCSEMap' cm n [] = (n,cm) 
+buildCSEMap' cm n (sp:sps) =  buildCSEMap' cm' n' sps
   where 
-    commaSepList' [] = [] 
-    commaSepList' (x:xs) = printElt x : commaSepList' xs
-  
-printCQual CQualifyerGlobal  = "__global__"
-printCQual CQualifyerLocal   = "" -- "__local"
-printCQual CQualifyerKernel  = "__global__" -- "__kernel"
+    (n',cm') = (collectCSE cm n sp)
 
-printCType CVoid    = "void"
-printCType CInt     = "int"
-printCType CFloat   = "float"
-printCType CDouble  = "double"            
-printCType CWord8   = "uint8_t"
-printCType CWord16  = "uint16_t"
-printCType CWord32  = "uint32_t"
-printCType CWord64  = "uint64_t" 
-printCType (CPointer t) = printCType t ++ "*"
-printCType (CQualified q t) = printCQual q ++ " " ++ printCType t
+    
+collectCSE cm n CSync = (n,cm)
+collectCSE cm n (CDeclAssign _ _ _) = error "CDeclAssign found during collectCSE"
+collectCSE cm n (CAssign nom es e) = 
+  let ((cm',nid),n') = runState (cExprToDag cm e) n 
+      ((cm'',nids),n'') = buildDagList cm' es n'
+  in (n'',cm'')
+     
 
-
-printBody [] = "" 
-printBody (x:xs) = printSPMDC x ++ printBody xs
-
-printSPMDC (CAssign e [] expr) = printCExpr e  ++ " = " ++ printCExpr expr  ++ ";\n" 
-printSPMDC (CAssign e exprs expr) = printCExpr e  ++ commaSepList printCExpr "[" "]" exprs ++ " = " ++ printCExpr expr ++ ";\n" 
-printSPMDC (CDeclAssign t n e) = printCType t ++ " " ++ n ++ " = " ++ printCExpr e ++ ";\n" 
-printSPMDC (CFunc nom args) = nom ++ commaSepList printCExpr "(" ")" args ++ ";\n"
-printSPMDC CSync  = "__syncthreads();\n"
-printSPMDC (CIf e [] [] ) = "" -- 
-printSPMDC (CIf e xs [] ) =  "if " ++ printCExpr e ++ "{\n" ++ concatMap printSPMDC xs ++ "}\n"
-printSPMDC (CIf e xs ys ) =  "if " ++ printCExpr e ++ "{\n" ++ concatMap printSPMDC xs ++ "}\n" ++ 
-                                 "else {\n" ++ concatMap printSPMDC ys ++ "}\n"
+collectCSE cm n (CIf b sp1 sp2) = (n3,cm3)
+  where 
+    ((cm1,nid),n1) = runState (cExprToDag cm b) n 
+    (n2,cm2) = buildCSEMap' cm1 n1 sp1
+    (n3,cm3) = buildCSEMap' cm2 n2 sp2 
+collectCSE cm n (CFunc nom es) = (n1,cm1)
+  where 
+    ((cm1,nids),n1) = buildDagList cm es n
 
 
-printCExpr :: CExpr -> String 
-printCExpr (CExpr (CVar nom _)) = nom
-printCExpr (CExpr (CLiteral v _)) = printValue v 
-printCExpr (CExpr (CIndex (e,[]) _)) = printCExpr e 
-printCExpr (CExpr (CIndex (e,xs) _)) = printCExpr e  ++ commaSepList printCExpr "[" "]" xs
-printCExpr (CExpr (CCond e1 e2 e3 _))    = printCExpr e1 ++ " ? " ++ printCExpr e2 ++ " : " ++ printCExpr e3
-printCExpr (CExpr (CBinOp bop e1 e2 _)) = "(" ++ printCExpr e1 ++ printBinOp bop ++ printCExpr e2 ++ ")"
-printCExpr (CExpr (CUnOp  uop  e _)) = "(" ++ printUnOp uop ++ printCExpr e ++ ")" 
-printCExpr (CExpr (CFuncExpr nom args _)) = nom ++ commaSepList printCExpr "(" ")" args
-printCExpr (CExpr (CCast e t)) = "((" ++ printCType t ++ ")" ++ printCExpr e ++ ")"
-
-printValue (IntVal i) = show i
-printValue (FloatVal f) = show f 
-printValue (DoubleVal d) = show d
-printValue (Word8Val  w) = show w 
-printValue (Word16Val w) = show w
-printValue (Word32Val w) = show w
-printValue (Word64Val w) = show w 
+performCSE2 :: [SPMDC] -> [SPMDC] 
+performCSE2 sps = test ++ r
+  where 
+    cseMap = buildCSEMap sps -- map containing all expressions 
+    -- globs  = getGlobals cseMap
+    (cp,test)   = declareGlobals cseMap
+    
+    (_,_,_,r) = performCSEGlobal cseMap 0 cp sps
+                   
+     
 
 
-printBinOp CAdd = "+"
-printBinOp CSub = "-"
-printBinOp CMul = "*"
-printBinOp CDiv = "/"
-printBinOp CMod = "%" 
-printBinOp CEq  = "=="
-printBinOp CLt  = "<" 
-printBinOp CLEq = "<="
-printBinOp CGt  = ">" 
-printBinOp CGEq = ">="
-printBinOp CBitwiseAnd = "&"  
-printBinOp CBitwiseOr  = "|" 
-printBinOp CBitwiseXor = "^" 
-printBinOp CShiftL     = "<<" 
-printBinOp CShiftR     = ">>"
-                     
-printUnOp CBitwiseNeg = "~"       
--} 
+
+-- Extract things that can be computed early
+getGlobals :: CSEMap -> [(NodeID,CENode)]
+getGlobals cm = globs
+  where 
+    globs = Map.elems cm' 
+    cm'   = Map.filterWithKey (\k e -> isGlobal k) cm
+    
+declareGlobals :: CSEMap -> (Computed, [SPMDC]) 
+declareGlobals cm = declareGlobals' (Map.empty) globs 
+  where 
+    globs = getGlobals cm 
+    declareGlobals' cp []  = (cp,[]) 
+    declareGlobals' cp ((nid,cenode):xs) = 
+      case Map.lookup nid cp of
+        (Just e) -> declareGlobals' cp xs          
+        Nothing -> 
+          let (cp',sps,e) = dagToSPMDC globs cp nid 
+              (cp'',sps2) = declareGlobals' cp' xs
+          in (cp'',sps ++ sps2)
+      
+--dagToSPMDC :: [(NodeID,CENode)] -> Computed -> NodeID -> (Computed,[SPMDC],CExpr)
+
+
