@@ -38,12 +38,12 @@
 
 * TODO and to look into:
   + Improve upon the things in Sync.hs 
+    Syncing needs to be improved. (work on more kinds of arrays, needs type class magic)
   + Fix SyncAnalysis
-  + Perform CSE
-  + Kernel Coordination layer
-  + Generate the vSwap/iSwap kind of kernels. That is Kernels that operate 
-       on an array based on its global tid instead of local tid.
-  +  Generate Kernels that take scalar parameters
-  + Syncing needs to be improved. (work on more kinds of arrays, needs type class magic)
+  + IN PROGRESS: Perform CSE
+  + IN PROGRESS: Kernel Coordination layer
+  + DONE: Generate the vSwap/iSwap kind of kernels. That is Kernels that operate 
+          on an array based on its global tid instead of local tid.
+  + DONE: Generate Kernels that take scalar parameters
   + Push arrays and parallelism 
   + Filters and unsafe operations that lead to nondeterminism

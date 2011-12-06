@@ -98,7 +98,6 @@ input256 = namedArray "apa" 256
 getZippUnpair = putStrLn$ CUDA.genKernel "zippUnpair" zippUnpair (input32,input32)
 
 
-
 zippUnpairP :: (Array Pull IntE, Array Pull IntE) -> Kernel (Array Push IntE) 
 zippUnpairP = pure (unpairP . zipp)
 

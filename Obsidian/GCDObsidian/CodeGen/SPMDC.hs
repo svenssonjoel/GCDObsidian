@@ -13,6 +13,8 @@ import Control.Monad.State
 
 import Data.Maybe
 
+-- A C LIKE AST (SPMDC - Single Program Multiple Data C) 
+
 
 ----------------------------------------------------------------------------
 -- 
@@ -113,7 +115,6 @@ cIf = CIf
 -- Printing 
 
 {- 
- 
   TODO: 
      + Rewrite the printing to have indentation etc. 
          Maybe reuse the stuff from CodeGen.Common
@@ -261,6 +262,20 @@ ppCExpr ppc (CExpr (CCast e t)) = line "((" >>
       - DONE: I think indexing into a shared memory array should definitely 
               not be stored in a variable. (these two have same access time 
               on the GPU) 
+
+   + Add More detail to the CSEMap. 
+      - information about if the declaration of a variable can be moved 
+        to toplevel (GLOBAL) or not (LOCAL) 
+      - Things are local if they are expressions looking up a value in a shared
+        memory array for example or depending on such an expression in any way.   
+        Expressions invlving only threadId, BlockId, constants, lengths of global arrays 
+        or indexing into global arrays, can be moved to toplevel. (out of all ifs) 
+      - Things will be marked as Globally "computed" only if they have been 
+        moved out and declared at toplevel.  
+        
+      
+
+
 -} 
 
 type CSEMap = Map.Map CExpr (NodeID,CENode)
