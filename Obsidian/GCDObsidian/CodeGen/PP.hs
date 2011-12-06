@@ -49,3 +49,5 @@ end =  unindent >> newline >> line "}" >> newline
 
 space   = line " " 
 cTermLn = line ";" >> newline
+
+wrap s e p = line s >> p >> line e 

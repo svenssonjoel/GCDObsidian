@@ -204,9 +204,13 @@ ppSPMDC ppc (CDeclAssign t n e) = ppCType ppc t >> space >> line n >> line " = "
 ppSPMDC ppc (CFunc nom args) = line nom >> ppCommaSepList (ppCExpr ppc) "(" ")" args >> cTermLn
 ppSPMDC ppc  CSync = line (ppSyncLine ppc) >> cTermLn 
 ppSPMDC ppc (CIf e [] []) = return ()
-ppSPMDC ppc (CIf e xs []) = line "if " >> ppCExpr ppc e >> begin >> indent >> newline  >> 
+ppSPMDC ppc (CIf e xs []) = line "if " >> 
+                            wrap "(" ")" (ppCExpr ppc e) >> 
+                            begin >> indent >> newline  >> 
                             ppSPMDCList ppc xs >>  unindent >> end
-ppSPMDC ppc (CIf e xs ys) = line "if " >> ppCExpr ppc e >> begin >> indent >> newline >> 
+ppSPMDC ppc (CIf e xs ys) = line "if " >> 
+                            wrap "(" ")" (ppCExpr ppc e) >> 
+                            begin >> indent >> newline >> 
                             ppSPMDCList ppc xs >>  unindent >> end >> 
                             line "else " >> begin >> indent >> newline >> 
                             ppSPMDCList ppc ys >>  unindent >> end 
@@ -247,7 +251,7 @@ ppCExpr ppc (CExpr (CCast e t)) = line "((" >>
 
 {- 
  TODO:  
-   + Some things here are clearly faulty. 
+   + IN PROGRESS: Some things here are clearly faulty. 
      - no regards is taken to scope or code blocks {.. code ... } 
        for example declarations end up within an IF And at the same 
        time the "Computed"-map will say that that variable is computed "globaly"
@@ -272,8 +276,8 @@ ppCExpr ppc (CExpr (CCast e t)) = line "((" >>
 
 
 -} 
-                           --                n-uses  is "Global"
-type CSEMap = Map.Map CExpr (NodeID,CENode)
+
+type CSEMap = Map.Map CExpr (NodeID,CENode,Integer)
 -- type CSEMap = Map.Map CExpr (NodeID,CENode)
 type Computed = Map.Map NodeID CExpr 
 
@@ -288,12 +292,16 @@ newNodeID = do
 insertCM :: CSEMap -> CExpr -> CENode -> State NodeID (CSEMap,NodeID) 
 insertCM cm expr node = 
   case Map.lookup expr cm of 
-    (Just (i,n)) -> return (cm, i)
+    (Just (i,n,m)) -> 
+      let cm' = Map.insert expr (i,n,m+1) cm
+      in return (cm', i)
     Nothing  -> do
       i <- newNodeID 
-      let cm' = Map.insert expr (i,node) cm 
+      let cm' = Map.insert expr (i,node,1) cm 
       return (cm',i)
   
+----------------------------------------------------------------------------
+-- Find expressions that can be computed once globally 
 
 globalName nom = not (List.isPrefixOf "arr" nom)
 
@@ -345,11 +353,13 @@ cExprListToDag cm (x:xs) = do
 type DoneMap = Map.Map CExpr NodeID
 
 ----------------------------------------------------------------------------
+{-
 performCSE :: [SPMDC] -> [SPMDC] 
 performCSE sp = let (_,_,_,r) = performCSEGlobal Map.empty 0 Map.empty sp
                 in r
-  
+  -}
 ----------------------------------------------------------------------------
+{- 
 performCSEGlobal :: CSEMap 
                     -> NodeID 
                     -> Computed 
@@ -374,11 +384,16 @@ performCSE' (CAssign nom es e) = do
   put (nid+1,cm',cp') 
   return (decls ++ moredecls ++ [CAssign nom exps newExp])
 performCSE' (CIf b sp1 sp2) = do 
+  (n,cm,cp) <- get
+  let ((cm',nid),n') = runState (cExprToDag cm b) n 
+      elemList = Map.elems cm'
+      (cp',decls,newExp) = dagToSPMDC elemList cp nid
+  put (nid+1,cm',cp') 
   sp1' <- mapM performCSE' sp1 
   sp2' <- mapM performCSE' sp2 
-  return [CIf b (concat sp1') (concat sp2')]
+  return$ decls ++ [CIf newExp (concat sp1') (concat sp2')]
 performCSE' a@(CFunc nom es) = return [a]
-
+-} 
 
 buildDag cm e n = runState (cExprToDag cm e) n
 
@@ -418,17 +433,7 @@ dagToSPMDC idl cp nid =
             newDecl = cDeclAssign t ("imm" ++ show nid) (cUnOp op e'  t)
             (cp1,d',e') = dagToSPMDC idl cp e
             decs = d'
-        {- 
-        (Just (CENode (CIndex (e1,es) t))) ->         
-          (Map.insert nid newExpr cp2,decs++[newDecl],newExpr)
-          where 
-            newExpr = cVar ("imm" ++ show nid) t
-            newDecl = cDeclAssign t ("imm" ++ show nid) (cIndex (e1',es') t)
-            (cp1,d1',e1') = dagToSPMDC idl cp e1
-            (cp2,d2',es')  = dagListToSPMDC idl cp1 es -- map (dagToSPMDC idl cp1) es 
-         
-            decs =     d1' ++ d2' 
-        -} 
+       
         -- Do not waste register space for stuff already in shared mem
         (Just (CENode (CIndex (e1,es) t))) ->         
           (cp2,decs,cIndex (e1',es') t)
@@ -507,29 +512,102 @@ performCSE2 sps = test ++ r
     -- globs  = getGlobals cseMap
     (cp,test)   = declareGlobals cseMap
     
-    (_,_,_,r) = performCSEGlobal cseMap 0 cp sps
-                   
-
+    r = performCSEPass cseMap cp sps 
+    --(_,_,_,r) = performCSEGlobal cseMap 0 cp sps
+                
 -- Extract things that can be computed early
-getGlobals :: CSEMap -> [(NodeID,CENode)]
-getGlobals cm = globs
-  where 
-    globs = Map.elems cm' 
-    cm'   = Map.filterWithKey (\k e -> isGlobal k) cm
     
 declareGlobals :: CSEMap -> (Computed, [SPMDC]) 
 declareGlobals cm = declareGlobals' (Map.empty) globs 
   where 
+    getGlobals :: CSEMap -> [(NodeID,CENode,Integer)]
+    getGlobals cm = globs
+      where 
+        globs = Map.elems cm' 
+        cm'   = Map.filterWithKey (\k e -> isGlobal k) cm
+
     globs = getGlobals cm 
+    strip = map (\(x,y,z) -> (x,y))
     declareGlobals' cp []  = (cp,[]) 
-    declareGlobals' cp ((nid,cenode):xs) = 
-      case Map.lookup nid cp of
-        (Just e) -> declareGlobals' cp xs          
-        Nothing -> 
-          let (cp',sps,e) = dagToSPMDC globs cp nid 
-              (cp'',sps2) = declareGlobals' cp' xs
-          in (cp'',sps ++ sps2)
+    declareGlobals' cp ((nid,cenode,i):xs) = 
+      if (i >= 2) 
+      then
+        case Map.lookup nid cp of
+          (Just e) -> declareGlobals' cp xs          
+          Nothing -> 
+            let (cp',sps,e) = dagToSPMDC (strip globs) cp nid 
+                (cp'',sps2) = declareGlobals' cp' xs
+            in (cp'',sps ++ sps2)
+      else declareGlobals' cp xs          
+           
+           
       
 --dagToSPMDC :: [(NodeID,CENode)] -> Computed -> NodeID -> (Computed,[SPMDC],CExpr)
 
+performCSEPass :: CSEMap -> Computed -> [SPMDC] -> [SPMDC]                             
+performCSEPass cm cp [] = []
+performCSEPass cm cp (x:xs) = performCSEPass' cm cp x : performCSEPass cm cp xs 
 
+-- Does not add any new declarations (Maybe will later)              
+performCSEPass' :: CSEMap -> Computed -> SPMDC -> SPMDC
+performCSEPass' cm cp CSync = CSync
+performCSEPass' cm cp (CDeclAssign _ _ _) = error "CDeclAssign found during CSEPass" 
+performCSEPass' cm cp (CAssign nom es e)  = CAssign nom xs x 
+  where
+    (x:xs) = cseReplaceL cm cp (e:es) 
+performCSEPass' cm cp (CIf b sp1 sp2) = CIf b' (performCSEPass cm cp sp1) 
+                                               (performCSEPass cm cp sp2)
+  where 
+    b' = cseReplace cm cp b 
+performCSEPass' cm cp a@(CFunc nom es) = a -- look
+
+
+----------------------------------------------------------------------------
+cseReplaceL cm cp [] = []
+cseReplaceL cm cp (x:xs) = cseReplace cm cp x: cseReplaceL cm cp xs
+
+
+cseReplace cm cp exp@(CExpr (CIndex (e,es) t))  = 
+  case Map.lookup exp cm of 
+    (Just (nid,node,_)) ->
+      case Map.lookup nid cp of 
+        (Just exp') -> exp' 
+        Nothing -> CExpr (CIndex (cseReplace cm cp e,
+                                  cseReplaceL cm cp es) t)
+    Nothing -> error "cseReplace: expression missing from CSEMap"
+cseReplace cm cp exp@(CExpr (CCast e t)) = 
+  case Map.lookup exp cm of 
+    (Just (nid,node,_)) ->
+      case Map.lookup nid cp of 
+        (Just exp') -> exp' 
+        Nothing -> CExpr (CCast (cseReplace cm cp e) t)                                 
+    Nothing -> error "cseReplace: expression missing from CSEMap"
+cseReplace cm cp exp@(CExpr (CBinOp op e1 e2 t)) = 
+  case Map.lookup exp cm of 
+    (Just (nid,node,_)) ->
+      case Map.lookup nid cp of 
+        (Just exp') -> exp' 
+        Nothing -> CExpr (CBinOp op (cseReplace cm cp e1) 
+                                    (cseReplace cm cp e2) t)                                 
+    Nothing -> error "cseReplace: expression missing from CSEMap"                                        
+cseReplace cm cp exp@(CExpr (CUnOp op e t)) = 
+  case Map.lookup exp cm of 
+    (Just (nid,node,_)) ->
+      case Map.lookup nid cp of 
+        (Just exp') -> exp' 
+        Nothing -> CExpr (CUnOp op (cseReplace cm cp e) t)                                 
+    Nothing -> error "cseReplace: expression missing from CSEMap"                                        
+cseReplace cm cp exp@(CExpr (CFuncExpr nom es t)) = 
+  case Map.lookup exp cm of 
+    (Just (nid,node,_)) ->
+      case Map.lookup nid cp of 
+        (Just exp') -> exp' 
+        Nothing -> CExpr (CFuncExpr nom (cseReplaceL cm cp es) t)                                 
+    Nothing -> error "cseReplace: expression missing from CSEMap"                                        
+cseReplace cm cp exp = 
+  case Map.lookup exp cm of 
+    (Just (nid,node,_)) ->  
+      case Map.lookup nid cp of 
+        (Just exp') -> exp'
+        Nothing     -> exp 
+    Nothing -> error "cseReplace: expression missing from CSEMap"                                        
