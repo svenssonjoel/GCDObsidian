@@ -4,14 +4,12 @@
   + Generates CUDA/OpenCL kernels
   + Generates Sequential C code for testing purposes
     
-* News in GCDObsidian 
-  + Push Arrays: Explanation to come
-       
-* Latest changes/Changes in progress
-  + Added the ability to pass scalar parameters to Kernels.  
-  + Going to move away from Array/ArrayP and towards
-    having the type (Array Pull) for Pull arrays and (Array Push) for Push arrays.  
-  + Added GlobalArray 
+* News and current status
+  + OpenCL and C code generation is currently broken!!
+    This is because of addition of new intermediate representation and 
+    common subexpression elimination experiments. Been working on 
+    getting the CUDA part to work first. 
+  + Global Arrays
     Experimenting with a new kind of Kernel. These kernels 
     have types like: GlobalArray Pull (Exp a) -> Kernel (GlobalArray Push (Exp a))
     This also lets the Obsidian programmer express some aspects of what we 
@@ -20,9 +18,9 @@
     for processing by what we have so far called a Kernel.
     There are some restrictions (maybe totally necessary): There is no way to, 
     within a kernel, go from (GlobalArray Push a) to (GlobalArray Pull a).  
-       
-  + Added Push arrays 
-
+    
+  + Push Arrays: Explanation to come
+    
 * Notes
   + (Solved, it works, see below)
     OpenCL: The kind of pointer arithmetic + casting, that has worked so well 
