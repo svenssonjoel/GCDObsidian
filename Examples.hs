@@ -163,18 +163,16 @@ vSwap (arr,stride) = return p5
   where 
     t1 ix = ix + (ix .&. (complement (stride - 1)))
     t2 ix = ix `xor` ((stride `shiftL` 1)-1)
-    arr1  = GlobalArray (Pull (\ix -> arr ! t1 ix)) (globLen arr `div` 2)
-    arr2  = GlobalArray (Pull (\ix -> arr ! t2 ix)) (globLen arr `div` 2)
+    arr1  = mkGlobalPullArray (\ix -> arr ! t1 ix) (globLen arr `div` 2)
+    arr2  = mkGlobalPullArray (\ix -> arr ! t2 ix) (globLen arr `div` 2)
     arr1' = zipWithG min arr1 arr2
     arr2' = zipWithG max arr1 arr2
     p1    = pushGlobal 512 arr1'
     p2    = pushGlobal 512 arr2'
-    p3    = ixMapGlobal t1 p1 
-    p4    = ixMapGlobal t2 p2 
-    p5    = GlobalArray (Push (\k -> p3 !** k *>* p4 !** k)) (globLen arr)
+    p3    = ixMap t1 p1 
+    p4    = ixMap t2 p2 
+    p5    = GlobalArray (Push (\k -> p3 !* k *>* p4 !* k)) (globLen arr)
     
-infixl 9 !** 
-(!**) (GlobalArray (Push f) _) a = f a                                      
                                      
 zipWithG op a1 a2 =  
   GlobalArray (Pull  (\ix -> (a1 ! ix) `op` (a2 ! ix)))

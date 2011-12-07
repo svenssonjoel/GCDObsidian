@@ -25,7 +25,7 @@ rev arr = mkPullArray (\ix -> arr ! (m - ix)) n
          n = len arr
          
 revTest :: Array Pull a -> Array Pull a 
-revTest arr = ixMapPull (\ix -> (m-ix)) arr
+revTest arr = ixMap (\ix -> (m-ix)) arr
    where 
      m = fromIntegral (n-1)
      n = len arr
@@ -154,8 +154,8 @@ ivt i j f arr = Array (Pull g) nl
 -- TODO: is a "select" operation useful. 
     --  with meaning same as resize + ixMapPull
 ivDiv :: Int -> Int -> Array Pull a -> (Array Pull a, Array Pull a)
-ivDiv i j arr = (resize (ixMapPull left arr) (n-n2),
-                 resize (ixMapPull right arr) n2)
+ivDiv i j arr = (resize (ixMap left arr) (n-n2),
+                 resize (ixMap right arr) n2)
   where 
     n  = len arr
     n2 = n `div` 2
@@ -184,23 +184,25 @@ revP  arr = ixMap (\ix -> (fromIntegral (n-1)) - ix) parr
     parr = push arr
     n =  len parr
 
--- Does this do the same as in the push array case?
--- if so then make a class of it 
-ixMapPull :: (Exp Word32 -> Exp Word32)
-             -> Array Pull a 
-             -> Array Pull a 
-ixMapPull f (Array (Pull ixf) n) = Array (Pull (ixf . f)) n 
+----------------------------------------------------------------------------
+-- IxMap Class
+class IxMap a where 
+  ixMap :: (Exp Word32 -> Exp Word32) 
+           -> a e 
+           -> a e
 
-ixMap :: (Exp Word32 -> Exp Word32) 
-         -> Array Push a 
-         -> Array Push a 
-ixMap f (Array (Push p) n) = Array (Push (ixMap' f p)) n
+instance IxMap (Array Push) where
+  ixMap f (Array (Push p) n) = Array (Push (ixMap' f p)) n
 
-ixMapGlobal :: (Exp Word32 -> Exp Word32) 
-               -> GlobalArray Push a 
-               -> GlobalArray Push a
-ixMapGlobal f (GlobalArray (Push p) n) = 
-  GlobalArray (Push (ixMap' f p)) n
+instance IxMap (GlobalArray Push) where 
+  ixMap f (GlobalArray (Push p) n) = 
+     GlobalArray (Push (ixMap' f p)) n
+
+instance IxMap (Array Pull) where 
+  ixMap f (Array (Pull ixf) n) = Array (Pull (ixf . f)) n 
+
+instance IxMap (GlobalArray Pull) where 
+  ixMap f (GlobalArray (Pull ixf) n) = GlobalArray (Pull (ixf . f)) n 
 
 ixMap' :: (Exp Word32 -> Exp Word32) 
          -> P (Exp Word32, a)
@@ -353,8 +355,8 @@ ilv2 i f g arr
   where
     n  = len arr
     n2 = n `div` 2
-    a1 = resize (ixMapPull left arr) (n-n2) -- Array (Pull (ixf . left)) (n-n2)
-    a2 = resize (ixMapPull right arr) (n2)  -- Array (Pull (ixf . right)) n2
+    a1 = resize (ixMap left arr) (n-n2) -- Array (Pull (ixf . left)) (n-n2)
+    a2 = resize (ixMap right arr) (n2)  -- Array (Pull (ixf . right)) n2
     a3 = zipWith f a1 a2
     a4 = zipWith g a1 a2
     a5 = ixMap left (push a3)
@@ -372,8 +374,8 @@ vee2 i f g arr
   where
     n  = len arr
     n2 = n `div` 2
-    a1 = resize (ixMapPull left arr) (n-n2) -- Array (Pull (ixf . left)) (n-n2)
-    a2 = resize (ixMapPull right arr) n2    -- Array (Pull (ixf . right)) n2
+    a1 = resize (ixMap left arr) (n-n2) -- Array (Pull (ixf . left)) (n-n2)
+    a2 = resize (ixMap right arr) n2    -- Array (Pull (ixf . right)) n2
     a3 = zipWith f a1 a2
     a4 = zipWith g a1 a2
     a5 = ixMap left (push a3)
@@ -391,8 +393,8 @@ ilvVee2 i j f g arr
   where
     n  = len arr
     n2 = n `div` 2
-    a1 = resize (ixMapPull left arr) (n-n2) -- Array (Pull (ixf . left)) (n-n2)
-    a2 = resize (ixMapPull right arr) n2    -- Array (Pull (ixf . right)) n2
+    a1 = resize (ixMap left arr) (n-n2) -- Array (Pull (ixf . left)) (n-n2)
+    a2 = resize (ixMap right arr) n2    -- Array (Pull (ixf . right)) n2
     a3 = zipWith f a1 a2
     a4 = zipWith g a1 a2
     a5 = ixMap left (push a3)

@@ -86,8 +86,6 @@ instance Applicative P where
 
 
 -- TODO: Do you need (Exp e) where there is only e ? 
--- DONE: Will this again influence the Exp Tuples or not issue?
---    THE TUPLES ARE GONE NOW. 
 class Len a => PushyInternal a where 
   push' :: Word32 -> a e -> Array Push e  
   push'' :: Word32 -> a e -> Array Push e 
@@ -131,6 +129,15 @@ class Indexible a e where
 instance Indexible (Array Pull) a where
   access (Array ixf _) ix = pullFun ixf ix
 
+class PushApp a where 
+  papp :: a e -> ((Exp Word32,e) -> Program ()) -> Program ()
+
+instance PushApp (Array Push) where 
+  papp (Array (Push f) n) a = f a 
+
+instance PushApp (GlobalArray Push) where 
+  papp (GlobalArray (Push f) n) a = f a 
+  
 class Len a where 
   len :: a e -> Word32
 
@@ -142,8 +149,8 @@ infixl 9 !
 (!) = access
 
 infixl 9 !* 
-(!*) :: Array Push t -> ((Exp Word32,t) -> Program ()) -> Program () 
-(!*) (Array (Push f) n) a = f a 
+(!*) :: PushApp a => a e -> ((Exp Word32,e) -> Program ()) -> Program () 
+(!*) p a = papp p a 
 
 ------------------------------------------------------------------------------
 -- Show 
