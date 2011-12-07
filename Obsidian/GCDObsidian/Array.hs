@@ -86,7 +86,7 @@ instance Applicative P where
 
 
 -- TODO: Do you need (Exp e) where there is only e ? 
-class Len a => PushyInternal a where 
+class  PushyInternal a where 
   push' :: Word32 -> a e -> Array Push e  
   push'' :: Word32 -> a e -> Array Push e 
 
@@ -108,7 +108,7 @@ instance PushyInternal (Array Pull)  where
     
 
          
-class Len a => Pushy a where 
+class Pushy a where 
   push :: a e -> Array Push e 
 
 instance Pushy (Array Push) where 
@@ -196,18 +196,9 @@ nblks = variable "gridDim.x"
 
 unblock :: Array Push a -> GlobalArray Push a 
 unblock array = GlobalArray newFun (nblks * (fromIntegral n)) 
+ -- from a kernel's point of view the arrays is (nblks * n) long
   where 
     (Array (Push fun) n) = array
     newFun  = Push (\func -> fun (\(i,a) -> func (bid * (fromIntegral n)+i,a)))
-    
--- pushGlobal (GlobalArray (Pull ixf) n) = GlobalArray (Push (\func -> ForAllGlobal (\i -> func (i,(ixf i))) n)) n
 
-----------------------------------------------------------------------------
--- A kernel should now be something like
--- GlobalArray Pull a -> Kernel (GlobalArray Push a) 
-
-
-{- 
-apa arr = pure (blocks 512) ->- vsort 9 ->- pure unblocks
--} 
 
