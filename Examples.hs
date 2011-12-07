@@ -187,29 +187,12 @@ pushGlobal blocksize =
 getvSwap = putStrLn$ CUDA.genKernelGlob "vSwap" vSwap (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int),variable "stride")     
 getvSwap_ = putStrLn$ CUDA.genKernelGlob_ "vSwap" vSwap (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int),variable "stride")     
 
-{- 
-   A kernel Takes a global Pull array as input 
-   and Pushes a global array as output. 
-   
-   There should be no way to go from a Global Push array 
-   to a global Pull inside a kernel.  
-
-   TODO: All Kernel generation functions need to 
-         be updated! 
-   TODO: Implement vSwap iSwap as example usages 
-         of our Global Arrays. 
-   TODO: Parameters to kernels that are not Arrays! 
-         (should not be too tricky to add) 
-
-   (Is a third kind of array needed ? a Mutable 
-    storage location kind of array ?) 
--} 
-
-
-
-
+----------------------------------------------------------------------------
+--
 reduceAddBlocks :: GlobalArray Pull (Exp Int) -> Kernel (GlobalArray Push (Exp Int)) 
-reduceAddBlocks  = pure (block 256) ->- reduce (+) ->- pure (unblock . push)
+reduceAddBlocks  = withBlockSize 64 (reduce (+)) 
+
+withBlockSize n p = pure (block n) ->- p ->- pure (unblock . push) 
 
 getR = putStrLn$ CUDA.genKernelGlob "reduce" reduceAddBlocks (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
 getR_ = putStrLn$ CUDA.genKernelGlob_ "reduce" reduceAddBlocks (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
