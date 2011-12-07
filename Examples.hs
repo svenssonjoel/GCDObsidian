@@ -126,47 +126,6 @@ getSumIM = snd $ runKernel (sum input8)
 
 
 
--- SyncAnalysis seems to work for extremely simple cases. 
--- TODO: need more involved programs to test on. 
-testSA arr = 
-  do 
-    arr1 <- sync arr 
-    arr2 <- sync arr1 
-    arr3 <- sync arr2
-    arr4 <- sync arr3 
-    arr5 <- sync arr4 
-    arr6 <- (pure (twoK 1 rev) ->- sync) arr5
-    return arr6
-    
-getTestSA  = putStrLn$ CUDA.genKernel "sa" testSA input64
-
-testSA1 arr = 
-  do 
-    arr1 <- sync arr 
-    arr2 <- sync arr1 
-    arr3 <- sync arr2
-    arr4 <- sync arr3 
-    arr5 <- sync (rev arr4)
-    arr6 <- (pure (twoK 1 rev) ->- sync) arr5
-    return arr6
-    
-getTestSA1  = putStrLn$ CUDA.genKernel "sa" testSA1 input128
-
-
-testSA2 arr = 
-  do 
-    arr1 <- sync arr 
-    arr2 <- sync arr1 
-    arr3 <- sync arr2
-    arr4 <- sync arr3 
-    arr5 <- sync (rev arr4)
-    arr6 <- (pure (twoK 2 rev) ->- sync) arr5
-    return arr6
-    
-getTestSA2  = putStrLn$ CUDA.genKernel "sa" testSA2 input256
-
-
-
 ---------------------------------------------------------------------------- 
 --  GLOBAL ARRAY TESTS 
 
