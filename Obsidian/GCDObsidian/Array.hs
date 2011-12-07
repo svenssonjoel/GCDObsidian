@@ -185,14 +185,17 @@ instance Indexible (GlobalArray Pull) a where
   
 globLen (GlobalArray _ n) = n
 
+
+
+ -- TODO: These should be somewhere else !!! 
 block :: Word32 -> GlobalArray Pull a -> Array Pull a   
 block blockSize glob = Array (Pull newFun) blockSize 
   where 
     newFun ix = (pullFun pull) ((bid * (fromIntegral blockSize)) + ix)  
     (GlobalArray pull n) = glob 
 
-bid   = variable "bid"
-nblks = variable "gridDim.x"
+bid   = BlockIdx X -- variable "bid"
+nblks = GridDim X -- variable "gridDim.x"
 
 unblock :: Array Push a -> GlobalArray Push a 
 unblock array = GlobalArray newFun (nblks * (fromIntegral n)) 

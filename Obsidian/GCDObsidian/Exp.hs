@@ -5,7 +5,9 @@
              FlexibleInstances, 
              UndecidableInstances #-} 
 
-module Obsidian.GCDObsidian.Exp where 
+module Obsidian.GCDObsidian.Exp 
+       (module Obsidian.GCDObsidian.Exp,
+        module Obsidian.GCDObsidian.DimSpec) where 
 
 
 
@@ -14,6 +16,8 @@ import Data.Word
 import Data.Bits
 
 import qualified Foreign.Storable as Storable
+
+import Obsidian.GCDObsidian.DimSpec
 
 ------------------------------------------------------------------------------
 -- Obsidian imports
@@ -96,18 +100,18 @@ data Exp a where
     idea to add them as constructors here. These 
     can be translated into the CUDA/OpenCL specific 
     concept later in the codegeneration 
-
+  -} 
   BlockIdx :: DimSpec 
               -> Exp Word32
   ThreadIdx :: DimSpec
                -> Exp Word32
-
+  
   BlockDim :: DimSpec       -- useful ?? 
               -> Exp Word32  
 
   GridDim  :: DimSpec 
               -> Exp Word32
-  -}
+  
   
   Index   :: Scalar a => 
              (Name,[Exp Word32]) 
@@ -133,7 +137,7 @@ data Exp a where
              -> Exp a 
              -> Exp b 
              
-data DimSpec = X | Y | Z
+
   
 ----------------------------------------------------------------------------
 -- Operations
@@ -415,6 +419,11 @@ instance ExpToCExp Word64 where
 
   
 expToCExpGeneral :: ExpToCExp a  => Exp a -> CExpr 
+expToCExpGeneral (BlockIdx d) = cBlockIdx d
+expToCExpGeneral (ThreadIdx d) = cThreadIdx d
+expToCExpGeneral (BlockDim d) = cBlockDim d
+expToCExpGeneral (GridDim d)  = cGridDim d
+
 expToCExpGeneral e@(Index (name,[])) = cVar name (typeToCType (typeOf e))
 expToCExpGeneral e@(Index (name,xs)) = cIndex (cVar name (CPointer (typeToCType (typeOf e))),map expToCExp xs) (typeToCType (typeOf e)) 
 expToCExpGeneral e@(If b e1 e2)      = cCond  (expToCExp b) (expToCExp e1) (expToCExp e2) (typeToCType (typeOf e)) 

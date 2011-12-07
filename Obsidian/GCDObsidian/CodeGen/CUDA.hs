@@ -185,11 +185,11 @@ genKernelGlob_ name kernel a = cuda
     swap (x,y) = (y,x)
     inputs = map ((\(t,n) -> (typeToCType t,n)) . swap . fst2) ins
     outputs = map ((\(t,n) -> (typeToCType t,n)) . swap . fst2) outs 
-    tidDecl = cDeclAssign CWord32 "tid" (cVar "threadIdx.x" CWord32) 
-    bidDecl = cDeclAssign CWord32 "bid" (cVar "blockIdx.x" CWord32) 
+    --tidDecl = cDeclAssign CWord32 "tid" (cVar "threadIdx.x" CWord32) 
+    --bidDecl = cDeclAssign CWord32 "bid" (cVar "blockIdx.x" CWord32) 
     
     spmd = performCSE2 (progToSPMDC threadBudget c)
-    body = tidDecl:bidDecl:(mmSPMDC mm spmd)
+    body = {- tidDecl:bidDecl: -} (mmSPMDC mm spmd)
     ckernel = CKernel CQualifyerKernel CVoid name (inputs++outputs) body
     cuda = printCKernel (PPConfig "__global__" "" "" "__syncthreads()") ckernel 
   
@@ -206,9 +206,9 @@ getCUDA :: Config
            
 getCUDA conf c name ins outs = 
   runPP (kernelHead name ins outs >>  
-         begin >>
-         tidLine >> newline >>
-         bidLine >> newline >>
+         begin >> newline >> 
+         -- tidLine >> newline >>
+         -- bidLine >> newline >>
          sBase (configLocalMem conf) >> newline >> 
          genCUDABody conf c >>
          end ) 0 
@@ -244,7 +244,7 @@ genProg mm nt (Assign name ix a) =
         
         
 genProg mm nt (ForAll f n) = potentialCond gc mm n nt $ 
-                               genProg mm nt (f (variable "tid"))
+                               genProg mm nt (f (ThreadIdx X) {- (variable "tid") -} )
 -- Investigate why this line is not used. 
 genProg mm nt (ForAllGlobal f n) = error "hello world"                                
 --genProg mm nt (f (variable "gtid"))
@@ -280,7 +280,7 @@ progToSPMDC nt (ForAll f n) =
   else 
     code 
   where 
-    code = progToSPMDC nt (f (variable "tid"))
+    code = progToSPMDC nt (f (ThreadIdx X) {- (variable "tid") -} )
     
 progToSPMDC nt (Allocate name size t _) = []
 progToSPMDC nt (Synchronize True) = [CSync] 

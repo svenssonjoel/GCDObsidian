@@ -2,8 +2,10 @@ module Obsidian.GCDObsidian.CodeGen.SPMDC where
 
 
 import Obsidian.GCDObsidian.Globs
+import Obsidian.GCDObsidian.DimSpec
 
 import Obsidian.GCDObsidian.CodeGen.PP
+
 
 import Data.Word
 import qualified Data.List as List
@@ -40,6 +42,13 @@ data CQualifyer = CQualifyerGlobal
 
 
 data CExprP e  = CVar Name CType 
+
+               -- Threads, Blocks, Grids (All of type Word32) 
+               | CBlockIdx  DimSpec 
+               | CThreadIdx DimSpec
+               | CBlockDim  DimSpec
+               | CGridDim   DimSpec
+               
                | CLiteral Value CType
                | CIndex (e,[e]) CType
                | CCond e e e CType
@@ -97,6 +106,10 @@ cexpr2 exp a b     = CExpr $ exp a b
 cexpr3 exp a b c   = CExpr $ exp a b c 
 cexpr4 exp a b c d = CExpr $ exp a b c d  
 
+cBlockIdx = cexpr1 CBlockIdx
+cThreadIdx = cexpr1 CThreadIdx
+cBlockDim  = cexpr1 CBlockDim
+cGridDim  = cexpr1 CGridDim 
 cVar      = cexpr2 CVar 
 cLiteral  = cexpr2 CLiteral 
 cIndex    = cexpr2 CIndex 
@@ -218,6 +231,22 @@ ppSPMDC ppc (CIf e xs ys) = line "if " >>
 ----------------------------------------------------------------------------
 --
 ppCExpr :: PPConfig -> CExpr -> PP ()  
+-- Cheat and do CUDA print for now!
+  -- should do lookup in PPConfig and figure out how to 
+  -- print these for CUDA/OpenCL
+ppCExpr ppc (CExpr (CBlockIdx X)) = line "blockIdx.x" 
+ppCExpr ppc (CExpr (CBlockIdx Y)) = line "blockIdx.y" 
+ppCExpr ppc (CExpr (CBlockIdx Z)) = line "blockIdx.z" 
+ppCExpr ppc (CExpr (CThreadIdx X)) = line "threadIdx.x" 
+ppCExpr ppc (CExpr (CThreadIdx Y)) = line "threadIdx.y" 
+ppCExpr ppc (CExpr (CThreadIdx Z)) = line "threadIdx.z" 
+ppCExpr ppc (CExpr (CBlockDim X)) = line "blockDim.x" 
+ppCExpr ppc (CExpr (CBlockDim Y)) = line "blockDim.y" 
+ppCExpr ppc (CExpr (CBlockDim Z)) = line "blockDim.z" 
+ppCExpr ppc (CExpr (CGridDim X)) = line "gridDim.x" 
+ppCExpr ppc (CExpr (CGridDim Y)) = line "gridDim.y" 
+ppCExpr ppc (CExpr (CGridDim Z)) = line "gridDim.z" 
+
 ppCExpr ppc (CExpr (CVar nom _)) = line nom
 ppCExpr ppc (CExpr (CLiteral v _)) = ppValue v 
 ppCExpr ppc (CExpr (CIndex (e,[]) _)) = ppCExpr ppc e 
@@ -305,6 +334,10 @@ insertCM cm expr node =
 
 globalName nom = not (List.isPrefixOf "arr" nom)
 
+isGlobal (CExpr (CBlockIdx a)) = True
+isGlobal (CExpr (CThreadIdx a)) = True
+isGlobal (CExpr (CBlockDim a)) = True
+isGlobal (CExpr (CGridDim a)) = True 
 isGlobal (CExpr (CVar nom _)) = globalName nom
 isGlobal (CExpr (CLiteral l _)) = True 
 isGlobal (CExpr (CCast e _)) = isGlobal e
@@ -315,9 +348,18 @@ isGlobal (CExpr (CFuncExpr nom es _)) = all isGlobal es
   
 ----------------------------------------------------------------------------
 cExprToDag :: CSEMap -> CExpr -> State NodeID (CSEMap,NodeID) 
-cExprToDag cm exp@(CExpr (CVar nom t)) = do
+cExprToDag cm exp@(CExpr (CBlockIdx a)) = 
+  insertCM cm exp (CENode (CBlockIdx a)) 
+cExprToDag cm exp@(CExpr (CThreadIdx a)) = 
+  insertCM cm exp (CENode (CThreadIdx a)) 
+cExprToDag cm exp@(CExpr (CBlockDim a)) = 
+  insertCM cm exp (CENode (CBlockDim a)) 
+cExprToDag cm exp@(CExpr (CGridDim a)) = 
+  insertCM cm exp (CENode (CGridDim a)) 
+  
+cExprToDag cm exp@(CExpr (CVar nom t)) = 
   insertCM cm exp (CENode (CVar nom t)) 
-cExprToDag cm exp@(CExpr (CLiteral l t)) = do 
+cExprToDag cm exp@(CExpr (CLiteral l t)) =  
   insertCM cm exp (CENode (CLiteral l t)) 
 cExprToDag cm exp@(CExpr (CCast e t)) = do 
   (cm1,e') <- cExprToDag cm e
@@ -409,6 +451,11 @@ dagToSPMDC idl cp nid =
     (Just expr) -> (cp,[],expr)
     Nothing -> 
       case lookup nid idl of 
+        (Just (CENode (CBlockIdx a))) -> (cp, [], cBlockIdx a)
+        (Just (CENode (CThreadIdx a))) -> (cp, [], cThreadIdx a)
+        (Just (CENode (CBlockDim a))) -> (cp, [], cBlockDim a)
+        (Just (CENode (CGridDim a))) -> (cp, [], cGridDim a)
+        
         (Just (CENode (CVar nom t))) -> (cp,[], cVar nom t)
         (Just (CENode (CLiteral l t))) -> (cp,[], cLiteral l t) 
         (Just (CENode (CFuncExpr nom args t))) -> 
