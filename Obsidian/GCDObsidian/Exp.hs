@@ -36,6 +36,7 @@ type UWordE  = Exp Word32
 type ULongE  = Exp Word64 
 ------------------------------------------------------------------------------
 -- Class Scalar. All the things we can handle code generation for 
+
 class (ExpToCExp a, Show a) => Scalar a where 
   sizeOf :: Exp a -> Int   --  
   typeOf :: Exp a -> Type  --   Good enough for me ... 
@@ -87,7 +88,27 @@ data Exp a where
   Literal :: Scalar a 
              => a 
              -> Exp a 
+  
+  {- 
+  Add more specific constructors for block,thread variables
+   (these concepts excist in both OpenCL and CUDA 
+    but are accessed differently so it could be a good 
+    idea to add them as constructors here. These 
+    can be translated into the CUDA/OpenCL specific 
+    concept later in the codegeneration 
 
+  BlockIdx :: DimSpec 
+              -> Exp Word32
+  ThreadIdx :: DimSpec
+               -> Exp Word32
+
+  BlockDim :: DimSpec       -- useful ?? 
+              -> Exp Word32  
+
+  GridDim  :: DimSpec 
+              -> Exp Word32
+  -}
+  
   Index   :: Scalar a => 
              (Name,[Exp Word32]) 
              -> Exp a 
@@ -111,6 +132,8 @@ data Exp a where
              => Op (a -> b)            
              -> Exp a 
              -> Exp b 
+             
+data DimSpec = X | Y | Z
   
 ----------------------------------------------------------------------------
 -- Operations
