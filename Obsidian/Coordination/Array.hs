@@ -30,6 +30,16 @@
       runKC :: (GlobalArray a -> KC (GlobalArray b)) -> SomeKindOfHaskellArray a -> SomeKindOfHaskellArray 
 
 
+
+
+
+
+   -- TODO: Look at all of this again, with the new "GlobalArrays" 
+      from Obsidian.GCDObsidian.Arrays in mind. 
+      
+   -- TODO: ALSO! see if the new version of Foreign.CUDA 
+        works properly on never CUDA versions. If it does 
+        se if it can be used to launch Obsidian kernels somehow. 
 -} 
 
 
