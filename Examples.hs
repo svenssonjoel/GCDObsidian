@@ -175,7 +175,7 @@ vSwap (arr,stride) = return p5
     
                                      
 zipWithG op a1 a2 =  
-  GlobalArray (Pull  (\ix -> (a1 ! ix) `op` (a2 ! ix)))
+  mkGlobalPullArray (\ix -> (a1 ! ix) `op` (a2 ! ix))
                    (min (globLen a1) (globLen a2))
 
 -- a global array is "pushed" by dividing 
@@ -186,29 +186,6 @@ pushGlobal blocksize =
      
 getvSwap = putStrLn$ CUDA.genKernelGlob "vSwap" vSwap (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int),variable "stride")     
 getvSwap_ = putStrLn$ CUDA.genKernelGlob_ "vSwap" vSwap (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int),variable "stride")     
-   
---pushGlobal (GlobalArray (Pull ixf) n) = 
---   GlobalArray (Push (\func -> ForAllGlobal (\i -> func (i,(ixf i))) n)) n
-      
-{- 
-__global__ void vSwap(
-    int *d_input,
-    int *d_output
-    unsigned int stride){
-
-    unsigned int tid = blockIdx.x * blockDim.x + threadIdx.x;
-   
-    unsigned int ix = tid + (tid & ~(stride - 1));
-
-    unsigned int ix2 = ix^((stride<<1)-1);
-    
-    int v1 = d_input[ix];
-    int v2 = d_input[ix2];
-
-    d_output[ix] = min(v1,v2);
-    d_output[ix2] = max(v1,v2);
-    
-} -} 
 
 {- 
    A kernel Takes a global Pull array as input 
