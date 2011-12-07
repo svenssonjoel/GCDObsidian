@@ -209,6 +209,10 @@ ixMap' :: (Exp Word32 -> Exp Word32)
          -> P (Exp Word32, a) 
 ixMap' f p = \g -> ( p) (\(i,a) -> g (f i,a))
 
+
+
+
+
 ----------------------------------------------------------------------------
 -- Concatenate on Push arrays
 concP :: (Pushy arr1,

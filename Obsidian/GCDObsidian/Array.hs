@@ -202,3 +202,4 @@ unblock array = GlobalArray newFun (nblks * (fromIntegral n))
     newFun  = Push (\func -> fun (\(i,a) -> func (bid * (fromIntegral n)+i,a)))
 
 
+
