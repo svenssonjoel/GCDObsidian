@@ -162,7 +162,7 @@ vSwap (arr,stride) = return p5
     
   where 
     t1 ix = ix + (ix .&. (complement (stride - 1)))
-    t2 ix = ix `xor` ((stride `shiftL` 1)-1)
+    t2 ix = (t1 ix) `xor` ((stride `shiftL` 1)-1)
     arr1  = mkGlobalPullArray (\ix -> arr ! t1 ix) (globLen arr `div` 2)
     arr2  = mkGlobalPullArray (\ix -> arr ! t2 ix) (globLen arr `div` 2)
     arr1' = zipWithG min arr1 arr2
