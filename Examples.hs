@@ -174,6 +174,31 @@ vSwap (arr,stride) = return p5
     p5    = GlobalArray (Push (\k -> p3 !* k *>* p4 !* k)) (globLen arr)
     
                                      
+vSwap' :: (GlobalArray Pull (Exp Int), Exp Word32) -> 
+         Kernel (GlobalArray Push (Exp Int)) 
+vSwap' (arr,stride) = 
+  do 
+    p1 <- pushGlobal' 512 arr1'
+    p2 <- pushGlobal' 512 arr2'
+    let p3    = ixMap t1 p1 
+    let p4    = ixMap t2 p2 
+    let p5    = GlobalArray (Push (\k -> p3 !* k *>* p4 !* k)) (globLen arr)
+    return p5 
+    
+  where 
+    t1 ix = ix + (ix .&. (complement (stride - 1)))
+    t2 ix = (t1 ix) `xor` ((stride `shiftL` 1)-1)
+    arr1  = mkGlobalPullArray (\ix -> arr ! t1 ix) (globLen arr `div` 2)
+    arr2  = mkGlobalPullArray (\ix -> arr ! t2 ix) (globLen arr `div` 2)
+    arr1' = zipWithG min arr1 arr2
+    arr2' = zipWithG max arr1 arr2
+    -- p1    = pushGlobal 512 arr1'
+    -- p2    = pushGlobal 512 arr2'
+    -- p3    = ixMap t1 p1 
+    -- p4    = ixMap t2 p2 
+    -- p5    = GlobalArray (Push (\k -> p3 !* k *>* p4 !* k)) (globLen arr)
+
+
 zipWithG op a1 a2 =  
   mkGlobalPullArray (\ix -> (a1 ! ix) `op` (a2 ! ix))
                    (min (globLen a1) (globLen a2))
@@ -183,9 +208,14 @@ zipWithG op a1 a2 =
 pushGlobal blocksize = 
    unblock . push . block blocksize   
   
+pushGlobal' blocksize = 
+  pure  (block blocksize) ->- sync  ->- pure (unblock . push) 
      
 getvSwap = putStrLn$ CUDA.genKernelGlob "vSwap" vSwap (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int),variable "stride")     
 getvSwap_ = putStrLn$ CUDA.genKernelGlob_ "vSwap" vSwap (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int),variable "stride")     
+
+getvSwap' = putStrLn$ CUDA.genKernelGlob "vSwap" vSwap' (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int),variable "stride")     
+getvSwap'_ = putStrLn$ CUDA.genKernelGlob_ "vSwap" vSwap' (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int),variable "stride")     
 
 
 ----------------------------------------------------------------------------
