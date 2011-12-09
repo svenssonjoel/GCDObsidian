@@ -182,7 +182,7 @@ vSwap' (arr,stride) =
     p2 <- pushGlobal' 512 arr2'
     let p3    = ixMap t1 p1 
     let p4    = ixMap t2 p2 
-    let p5    = GlobalArray (Push (\k -> p3 !* k *>* p4 !* k)) (globLen arr)
+    let p5    = mkGlobalPushArray (\k -> p3 !* k *>* p4 !* k) (globLen arr)
     return p5 
     
   where 
