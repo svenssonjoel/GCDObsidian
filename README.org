@@ -55,4 +55,5 @@
   + Filters and unsafe operations that lead to nondeterminism
   + 2D and 3D Arrays. Add in some form.  
   + clean up
+  + Sequential arrays
     
