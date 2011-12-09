@@ -61,6 +61,7 @@ data CExprP e  = CVar Name CType
 data CBinOp = CAdd | CSub | CMul | CDiv | CMod  
             | CEq | CNotEq | CLt | CLEq | CGt | CGEq 
             | CAnd | COr
+            | CPow
             | CBitwiseAnd | CBitwiseOr | CBitwiseXor 
             | CShiftL | CShiftR 
             deriving (Eq,Ord,Show) 
