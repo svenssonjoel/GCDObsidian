@@ -180,6 +180,31 @@ data Op a where
   Max        :: Ord a => Op ((a,a) -> a) 
 
 
+  -- Floating (different CUDA functions for float and double, issue maybe?) 
+  Exp :: Floating a => Op (a -> a) -- "expf" 
+  Sqrt :: Floating a => Op (a -> a) -- "sqrtf" 
+  --RSqrt :: Floating a => Op (a -> a) -- "rsqrtf"
+  Log :: Floating a => Op (a -> a) -- "logf"
+  Log2 :: Floating a => Op (a -> a) -- "log2f"
+  Log10 :: Floating a => Op (a -> a) -- "log10f"
+  Pow :: Floating a => Op ((a, a) -> a) -- "powf"
+  -- Floating Trig
+  Tan :: Floating a => Op (a -> a) -- "tanf"
+  ASin :: Floating a => Op (a -> a) -- "asinf"
+  ATan :: Floating a => Op (a -> a) -- "atanf"
+  ACos :: Floating a => Op (a -> a) -- "acosf"
+  SinH :: Floating a => Op (a -> a) -- "sinhf"
+  TanH :: Floating a => Op (a -> a) -- "tanhf"
+  CosH :: Floating a => Op (a -> a) -- "coshf"
+  ASinH :: Floating a => Op (a -> a) -- "asinhf" 
+  ATanH :: Floating a => Op (a -> a) -- "atanhf"
+  ACosH :: Floating a => Op (a -> a) -- "acoshf"
+  -- There is no "div" in "Num" but it's already defined above. 
+  FDiv :: Floating a => Op ((a, a) -> a) -- "acoshf"
+
+
+
+
 ------------------------------------------------------------------------------
 -- helpers 
 
