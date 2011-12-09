@@ -102,7 +102,7 @@ genIndices gc mm es = concatMap (pIndex mm) es
     pIndex mm e = "[" ++ concat (genExp gc mm e) ++ "]"
 
 
-genIf         [b,e1,e2] = b ++ " ? " ++ e1 ++ " : " ++ e2
+genIf         [b,e1,e2] = "(" ++ b ++ " ? " ++ e1 ++ " : " ++ e2 ++ ")"
 
 ------------------------------------------------------------------------------
 -- genOp

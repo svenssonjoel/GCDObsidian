@@ -59,7 +59,8 @@ data CExprP e  = CVar Name CType
                deriving (Eq,Ord,Show)
                         
 data CBinOp = CAdd | CSub | CMul | CDiv | CMod  
-            | CEq | CLt | CLEq | CGt | CGEq 
+            | CEq | CNotEq | CLt | CLEq | CGt | CGEq 
+            | CAnd | COr
             | CBitwiseAnd | CBitwiseOr | CBitwiseXor 
             | CShiftL | CShiftR 
             deriving (Eq,Ord,Show) 
@@ -180,6 +181,9 @@ ppBinOp CLt  = line$ "<"
 ppBinOp CLEq = line$ "<="
 ppBinOp CGt  = line$ ">" 
 ppBinOp CGEq = line$ ">="
+ppBinOp CNotEq = line$ "/=" 
+ppBinOp CAnd   = line$ "&&"
+ppBinOp COr    = line$ "||" 
 ppBinOp CBitwiseAnd = line$ "&"  
 ppBinOp CBitwiseOr  = line$ "|" 
 ppBinOp CBitwiseXor = line$ "^" 
@@ -252,11 +256,13 @@ ppCExpr ppc (CExpr (CLiteral v _)) = ppValue v
 ppCExpr ppc (CExpr (CIndex (e,[]) _)) = ppCExpr ppc e 
 ppCExpr ppc (CExpr (CIndex (e,xs) _)) = ppCExpr ppc e  >>  
                                         ppCommaSepList (ppCExpr ppc) "[" "]" xs
-ppCExpr ppc (CExpr (CCond e1 e2 e3 _))    = ppCExpr ppc e1 >> 
-                                            line " ? " >> 
-                                            ppCExpr ppc e2 >> 
-                                            line " : " >>  
-                                            ppCExpr ppc e3
+ppCExpr ppc (CExpr (CCond e1 e2 e3 _))    = wrap "(" ")" 
+                                              (ppCExpr ppc e1 >> 
+                                               line " ? " >> 
+                                               ppCExpr ppc e2 >> 
+                                               line " : " >>  
+                                               ppCExpr ppc e3
+                                              )
 ppCExpr ppc (CExpr (CBinOp bop e1 e2 _)) = line "(" >>  
                                            ppCExpr ppc e1 >> 
                                            ppBinOp bop >> 
@@ -281,6 +287,8 @@ ppCExpr ppc (CExpr (CCast e t)) = line "((" >>
 {- 
  TODO:  
    + IN PROGRESS: Some things here are clearly faulty. 
+     NOTE: fixing this right now by only performing CSE 
+       on expressions that can safely be moved to the "head" of the program
      - no regards is taken to scope or code blocks {.. code ... } 
        for example declarations end up within an IF And at the same 
        time the "Computed"-map will say that that variable is computed "globaly"

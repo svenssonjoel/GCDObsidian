@@ -5,6 +5,10 @@
   + Generates Sequential C code for testing purposes
     
 * News and current status
+  + Bunch of small bug fixes 
+     Conditional expressions (?:) should be printed correctly now. 
+     Added precedence levels for operations. 
+  + Added &&*, ||* and /=*  
   + OpenCL and C code generation is currently broken!!
     This is because of addition of new intermediate representation and 
     common subexpression elimination experiments. Been working on 
@@ -35,6 +39,8 @@
     a CUDA int is 64bit on 64bit architectures?
 
 * TODO and to look into:
+  + Many-in -> Many-out operations 
+  + Coordination 
   + Improve upon the things in Sync.hs 
     Syncing needs to be improved. (work on more kinds of arrays, needs type class magic)
   + Fix SyncAnalysis
@@ -43,6 +49,6 @@
   + DONE: Generate the vSwap/iSwap kind of kernels. That is Kernels that operate 
           on an array based on its global tid instead of local tid.
   + DONE: Generate Kernels that take scalar parameters
-  + Push arrays and parallelism 
   + Filters and unsafe operations that lead to nondeterminism
   + 2D and 3D Arrays. Add in some form.  
+  + clean up

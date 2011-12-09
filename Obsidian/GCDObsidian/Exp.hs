@@ -157,10 +157,15 @@ data Op a where
   
   -- Comparisons
   Eq  :: Ord a => Op ((a,a) -> Bool)
+  NotEq :: Ord a => Op ((a,a) -> Bool) 
   Lt  :: Ord a => Op ((a,a) -> Bool) 
   LEq :: Ord a => Op ((a,a) -> Bool) 
   Gt  :: Ord a => Op ((a,a) -> Bool) 
   GEq :: Ord a => Op ((a,a) -> Bool) 
+  
+  -- Boolean 
+  And :: Op ((Bool,Bool) -> Bool) 
+  Or  :: Op ((Bool,Bool) -> Bool)
   
   -- Bitwise 
   BitwiseAnd :: Bits a => Op ((a,a) -> a) 
@@ -311,8 +316,11 @@ instance Integral (Exp Word32) where
   
 ----------------------------------------------------------------------------
   
+infix 4 ==*, /=*, <*, >*, >=*, <=* 
+  
 (==*) (Literal a) (Literal b) = Literal (a == b) 
 (==*) a b = BinOp Eq a b
+(/=*) a b = BinOp NotEq a b 
 (<*)  (Literal a) (Literal b) = Literal (a < b) 
 (<*)  a b = BinOp Lt a b
 (<=*) (Literal a) (Literal b) = Literal (a <= b) 
@@ -320,6 +328,10 @@ instance Integral (Exp Word32) where
 (>*)  a b = BinOp Gt  a b
 (>=*) a b = BinOp GEq a b
 
+infixr 3 &&*
+infixr 2 ||* 
+(&&*) a b = BinOp And a b 
+(||*) a b = BinOp Or a b 
 
 class Choice a where 
   ifThenElse :: Exp Bool -> a -> a -> a 
@@ -359,10 +371,14 @@ printOp Mul = " * "
 -- printOp If  = " if "
 
 printOp Eq  = " == "
+printOp NotEq = " /= " 
 printOp Lt  = " < " 
 printOp LEq = " <= " 
 printOp Gt  = " > "
 printOp GEq = " >= " 
+
+printOp And = " && "
+printOp Or  = " || " 
 
 printOp Min = " Min "
 printOp Max = " Max " 
@@ -452,11 +468,17 @@ binOpToCBinOp Sub = CSub
 binOpToCBinOp Mul = CMul
 binOpToCBinOp Div = CDiv 
 binOpToCBinOp Mod = CMod
+
 binOpToCBinOp Eq  = CEq 
+binOpToCBinOp NotEq = CNotEq
 binOpToCBinOp Lt  = CLt 
 binOpToCBinOp LEq = CLEq
 binOpToCBinOp Gt  = CGt 
 binOpToCBinOp GEq = CGEq 
+
+binOpToCBinOp And = CAnd 
+binOpToCBinOp Or  = COr 
+
 binOpToCBinOp BitwiseAnd = CBitwiseAnd
 binOpToCBinOp BitwiseOr  = CBitwiseOr
 binOpToCBinOp BitwiseXor = CBitwiseXor
