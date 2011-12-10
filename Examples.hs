@@ -26,6 +26,7 @@ input1 :: Array Pull IntE
 input1 = namedArray "apa" 32
 
 getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
+getMapFusion_   = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusion input1
 getMapFusionC  = putStrLn$ C.genKernel "mapFusion" mapFusion input1
 getMapFusionCL = putStrLn$ CL.genKernel "mapFusion" mapFusion input1
 
