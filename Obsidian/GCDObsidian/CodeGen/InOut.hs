@@ -29,7 +29,7 @@ import Data.Word
 ------------------------------------------------------------------------------
 -- Block index ! 
 bid :: Exp Word32
-bid = variable "bid" 
+bid = variable "blockIdx.x" 
 
 -- should work for any indexible
 cTypeOfArray :: Scalar a =>  Array Pull (Exp a) -> Type 
