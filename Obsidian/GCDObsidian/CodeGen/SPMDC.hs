@@ -343,6 +343,8 @@ ppCExpr ppc (CExpr (CCast e t)) = line "((" >>
 
 -} 
 
+---------------------------------------------------------------------------- 
+-- 
 type CSEMap = Map.Map CExpr (NodeID,CENode,Integer)
 -- type CSEMap = Map.Map CExpr (NodeID,CENode)
 type Computed = Map.Map NodeID CExpr 
@@ -378,7 +380,9 @@ isGlobal (CExpr (CGridDim a)) = True
 isGlobal (CExpr (CVar nom _)) = globalName nom
 isGlobal (CExpr (CLiteral l _)) = True 
 isGlobal (CExpr (CCast e _)) = isGlobal e
-isGlobal (CExpr (CIndex (e,es) _)) = False -- isGlobal e && (all isGlobal es) 
+
+isGlobal (CExpr (CIndex (e,es) _)) = isGlobal e -- False -- isGlobal e && (all isGlobal es) 
+
 isGlobal (CExpr (CBinOp _ e1 e2 _)) = isGlobal e1 && isGlobal e2
 isGlobal (CExpr (CUnOp _ e _)) = isGlobal e
 isGlobal (CExpr (CFuncExpr nom es _)) = all isGlobal es
