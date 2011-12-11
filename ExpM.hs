@@ -130,6 +130,8 @@ vsort1 n = compose [ istage(n-i) (i-j) | i <- [1..n], j <- [1..i]]
     istage i j = ilvVee1 i j min max
 
 writevsort1 k = writeFile "vsort1.cu" $ CUDA.genKernel "vsort1" (vsort1 k) (namedArray "apa" (2^k))
+printvsort1 k = putStrLn $ CUDA.genKernel "vsort1" (vsort1 k) (namedArray "apa" (2^k))
+printvsort1_ k = putStrLn $ CUDA.genKernel_ "vsort1" (vsort1 k) (namedArray "apa" (2^k))
 
 
 
@@ -141,6 +143,7 @@ vsort n = composeS . map pure $ [ istage (n-i) (i-j) | i <- [1..n], j <- [1..i]]
 
 
 writevsort k = writeFile "vsort.cu" $ CUDA.genKernel "vsort" (vsort k) (namedArray "inp" (2^k))
-
+printvsort k = putStrLn $ CUDA.genKernel "vsort" (vsort k) (namedArray "inp" (2^k))
+printvsort_ k = putStrLn $ CUDA.genKernel_ "vsort" (vsort k) (namedArray "inp" (2^k))
 
 -- halve' arr = Prelude.splitAt ((len arr) `div` 2) arr

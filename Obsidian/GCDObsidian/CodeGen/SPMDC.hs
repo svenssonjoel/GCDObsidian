@@ -380,6 +380,7 @@ isGlobal (CExpr (CGridDim a)) = True
 isGlobal (CExpr (CVar nom _)) = globalName nom
 isGlobal (CExpr (CLiteral l _)) = True 
 isGlobal (CExpr (CCast e _)) = isGlobal e
+isGlobal (CExpr (CCond e1 e2 e3 _)) = isGlobal e1 && isGlobal e2 && isGlobal e3 -- ?? 
 
 isGlobal (CExpr (CIndex (e,es) _)) = isGlobal e -- False -- isGlobal e && (all isGlobal es) 
 
@@ -423,6 +424,11 @@ cExprToDag cm exp@(CExpr (CUnOp op e t)) = do
 cExprToDag cm exp@(CExpr (CFuncExpr nom es t)) = do    
   (cm1,es1) <- cExprListToDag cm es
   insertCM cm1 exp (CENode (CFuncExpr nom es1 t))
+cExprToDag cm exp@(CExpr (CCond e1 e2 e3 t)) = do 
+  (cm1,e1') <- cExprToDag cm e1 
+  (cm2,e2') <- cExprToDag cm1 e2 
+  (cm3,e3') <- cExprToDag cm2 e3 
+  insertCM cm3 exp (CENode (CCond e1' e2' e3' t))
 
 ----------------------------------------------------------------------------
 cExprListToDag :: CSEMap -> [CExpr]  -> State NodeID (CSEMap,[NodeID])                  
@@ -692,6 +698,13 @@ cseReplace cm cp exp@(CExpr (CFuncExpr nom es t)) =
         (Just exp') -> exp' 
         Nothing -> CExpr (CFuncExpr nom (cseReplaceL cm cp es) t)                                 
     Nothing -> error "cseReplace: expression missing from CSEMap"                                        
+cseReplace cm cp exp@(CExpr (CCond e1 e2 e3 t)) =     
+  case Map.lookup exp cm of 
+    (Just (nid,node,_)) -> 
+      case Map.lookup nid cp of 
+        (Just exp') -> exp'
+        Nothing -> CExpr (CCond (cseReplace cm cp e1) (cseReplace cm cp e2) (cseReplace cm cp e3) t)
+-- dont know what to do so just put expression back...     
 cseReplace cm cp exp = 
   case Map.lookup exp cm of 
     (Just (nid,node,_)) ->  
