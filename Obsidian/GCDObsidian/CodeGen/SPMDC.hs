@@ -174,7 +174,7 @@ ppCType ppc CWord64  = line "uint64_t"
 ppCType ppc (CPointer t) = ppCType ppc t >> line "*"
 ppCType ppc (CQualified q t) = ppCQual ppc q >> space >> ppCType ppc t
 
---  a hack 
+--  a hack (whats the correct way to handle C's t[] ?)
 ppCTypedName ppc CVoid   nom = line "void" >> space >> line nom
 ppCTypedName ppc CInt    nom = line "int" >> space >> line nom
 ppCTypedName ppc CFloat  nom = line "float" >> space >> line nom
