@@ -153,8 +153,10 @@ genKernel_ name kernel a = cuda
     
    
     spmd = performCSE2  (progToSPMDC threadBudget c')
-    body = mmSPMDC mm spmd
+    body = shared : mmSPMDC mm spmd
     ckernel = CKernel CQualifyerKernel CVoid name (inputs++outputs) body
+    shared = CDecl (CQualified CQualifyerExtern (CQualified CQualifyerShared ((CQualified (CQualifyerAttrib (CAttribAligned 16)) (CArray []  (CWord8)))))) "sbase"
+    
     cuda = printCKernel (PPConfig "__global__" "" "" "__syncthreads()") ckernel 
   
     

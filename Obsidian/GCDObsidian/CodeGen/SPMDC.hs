@@ -31,14 +31,21 @@ data Value = IntVal Int
              
 data CType = CVoid | CInt | CFloat | CDouble              
            | CWord8 | CWord16 | CWord32 | CWord64
-           | CPointer CType 
+           | CPointer CType -- *type
+           | CArray [CExpr] CType -- type[e1][e2][e3]..[en] or type[] 
            | CQualified CQualifyer CType 
            deriving (Eq,Ord,Show)
              
 data CQualifyer = CQualifyerGlobal 
                 | CQualifyerLocal
                 | CQualifyerKernel
+                | CQualifyerShared
+                | CQualifyerExtern   
+                | CQualifyerAttrib CQAttribute
                 deriving (Eq,Ord,Show)
+
+data CQAttribute = CAttribAligned Word32
+                   deriving (Eq,Ord,Show)
 
 
 data CExprP e  = CVar Name CType 
@@ -55,7 +62,7 @@ data CExprP e  = CVar Name CType
                | CBinOp CBinOp e e  CType
                | CUnOp  CUnOp  e    CType
                | CFuncExpr Name [e] CType  -- min, max, sin, cos 
-               | CCast e CType            -- cast expr to type 
+               | CCast e CType             -- cast expr to type 
                deriving (Eq,Ord,Show)
                         
 data CBinOp = CAdd | CSub | CMul | CDiv | CMod  
@@ -77,7 +84,8 @@ data CUnOp = CBitwiseNeg
        + Already in normal C code generation this will be an issue. 
        
 -} 
-data SPMDC = CAssign CExpr [CExpr] CExpr -- array or scalar assign 
+data SPMDC = CAssign CExpr [CExpr] CExpr  -- array or scalar assign 
+           | CDecl CType Name             -- Declare but no assign
            | CDeclAssign CType Name CExpr -- declare variable and assign a value 
            | CFunc   Name  [CExpr]                    
            | CSync                  -- CUDA and OpenCL
@@ -149,7 +157,11 @@ ppCKernel ppc (CKernel q t nom ins body) =
 ppCQual ppc CQualifyerGlobal = line$ ppGlobalQ ppc 
 ppCQual ppc CQualifyerLocal  = line$ ppLocalQ ppc 
 ppCQual ppc CQualifyerKernel = line$ ppKernelQ ppc 
+ppCQual ppc CQualifyerExtern = line$ "extern" 
+ppCQual ppc CQualifyerShared = line$ "__shared__" -- should this be same as local ?
+ppCQual ppc (CQualifyerAttrib a) = ppCAttrib ppc a
 
+ppCAttrib ppc (CAttribAligned x) = line$ "__attribute__ ((aligned(" ++ show x ++ ")))" 
 ----------------------------------------------------------------------------
 ppCType ppc CVoid    = line "void"
 ppCType ppc CInt     = line "int"
@@ -161,6 +173,19 @@ ppCType ppc CWord32  = line "uint32_t"
 ppCType ppc CWord64  = line "uint64_t" 
 ppCType ppc (CPointer t) = ppCType ppc t >> line "*"
 ppCType ppc (CQualified q t) = ppCQual ppc q >> space >> ppCType ppc t
+
+--  a hack (whats the correct way to handle C's t[] ?)
+ppCTypedName ppc CVoid   nom = line "void" >> space >> line nom
+ppCTypedName ppc CInt    nom = line "int" >> space >> line nom
+ppCTypedName ppc CFloat  nom = line "float" >> space >> line nom
+ppCTypedName ppc CDouble nom = line "double" >> space >> line nom     
+ppCTypedName ppc CWord8  nom = line "uint8_t" >> space >> line nom
+ppCTypedName ppc CWord16 nom = line "uint16_t" >> space >> line nom
+ppCTypedName ppc CWord32 nom = line "uint32_t" >> space >> line nom
+ppCTypedName ppc CWord64 nom = line "uint64_t" >> space >> line nom
+ppCTypedName ppc (CPointer t) nom = ppCType ppc t >> line "*" >> line nom
+ppCTypedName ppc (CArray [] t) nom = ppCType ppc t >> space >> line nom >> line "[]"
+ppCTypedName ppc (CQualified q t) nom = ppCQual ppc q >> space >> ppCTypedName ppc t nom 
 
 ----------------------------------------------------------------------------
 ppValue (IntVal i) = line$ show i
@@ -218,7 +243,10 @@ ppSPMDC ppc (CAssign e exprs expr) = ppCExpr ppc e >>
                                      line " = " >> 
                                      ppCExpr ppc expr >> 
                                      cTermLn 
-ppSPMDC ppc (CDeclAssign t n e) = ppCType ppc t >> space >> line n >> line " = " >> ppCExpr ppc e >> cTermLn
+--ppSPMDC ppc (CDecl t n) = ppCType ppc t >> space >> line n >> cTermLn
+ppSPMDC ppc (CDecl t n) = ppCTypedName ppc t n  >> cTermLn
+--ppSPMDC ppc (CDeclAssign t n e) = ppCType ppc t >> space >> line n >> line " = " >> ppCExpr ppc e >> cTermLn
+ppSPMDC ppc (CDeclAssign t n e) = ppCTypedName ppc t n >> line " = " >> ppCExpr ppc e >> cTermLn
 ppSPMDC ppc (CFunc nom args) = line nom >> ppCommaSepList (ppCExpr ppc) "(" ")" args >> cTermLn
 ppSPMDC ppc  CSync = line (ppSyncLine ppc) >> cTermLn 
 ppSPMDC ppc (CIf e [] []) = return ()
@@ -315,6 +343,8 @@ ppCExpr ppc (CExpr (CCast e t)) = line "((" >>
 
 -} 
 
+---------------------------------------------------------------------------- 
+-- 
 type CSEMap = Map.Map CExpr (NodeID,CENode,Integer)
 -- type CSEMap = Map.Map CExpr (NodeID,CENode)
 type Computed = Map.Map NodeID CExpr 
@@ -350,7 +380,9 @@ isGlobal (CExpr (CGridDim a)) = True
 isGlobal (CExpr (CVar nom _)) = globalName nom
 isGlobal (CExpr (CLiteral l _)) = True 
 isGlobal (CExpr (CCast e _)) = isGlobal e
-isGlobal (CExpr (CIndex (e,es) _)) = False -- isGlobal e && (all isGlobal es) 
+
+isGlobal (CExpr (CIndex (e,es) _)) = isGlobal e -- False -- isGlobal e && (all isGlobal es) 
+
 isGlobal (CExpr (CBinOp _ e1 e2 _)) = isGlobal e1 && isGlobal e2
 isGlobal (CExpr (CUnOp _ e _)) = isGlobal e
 isGlobal (CExpr (CFuncExpr nom es _)) = all isGlobal es
