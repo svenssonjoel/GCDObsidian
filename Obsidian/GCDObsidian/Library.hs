@@ -405,5 +405,67 @@ ilvVee2 i j f g arr
     a6 = ixMap right (push a4)
     left = insertZero (i+j)
     right = flipBitsFrom i j . left
+
+
+
+-- Generalisation needed here
    
 
+ilv4 :: Choice b => Int -> (a -> a -> b) -> (a -> a -> b) -> 
+                    Array Pull a -> Array Push b
+ilv4 i f g arr
+   = mkPushArray (\k -> a9 !* k *>* a10 !* k *>* a11 !* k *>* a12 !* k) n
+  where
+    n  = len arr
+    n2 = n `div` 4
+    a1 = resize (ixMap q1 arr) (n-3*n2)
+    a2 = resize (ixMap q2 arr) n2
+    a3 = resize (ixMap q3 arr) n2
+    a4 = resize (ixMap q4 arr) n2
+    a5 = zipWith f a1 a3
+    a6 = zipWith g a1 a3
+    a7 = zipWith f a2 a4
+    a8 = zipWith g a2 a4
+    a9 = ixMap q1 (push a5)
+    a10 = ixMap q2 (push a7)
+    a11 = ixMap q3 (push a6)
+    a12 = ixMap q4 (push a8)
+    q1 = insert2Zeros i
+    q2 = flipBit (i-1)  . q1
+    q3 = flipBit i . q1
+    q4 = flipBit i . q2
+    
+
+
+ilv42 :: Choice a => Int -> (a -> a -> a) -> (a -> a -> a) -> 
+                    Array Pull a -> Array Push a
+ilv42 i f g arr 
+   = mkPushArray (\k -> a13 !* k *>* a14 !* k *>* a15 !* k *>* a16 !* k) n
+  where
+    n  = len arr
+    n2 = n `div` 4
+    a1 = resize (ixMap q1 arr) (n-3*n2)
+    a2 = resize (ixMap q2 arr) n2
+    a3 = resize (ixMap q3 arr) n2
+    a4 = resize (ixMap q4 arr) n2
+    a5 = zipWith f a1 a3
+    a6 = zipWith g a1 a3
+    a7 = zipWith f a2 a4
+    a8 = zipWith g a2 a4
+    a9 = zipWith f a5 a7
+    a10 = zipWith g a5 a7
+    a11 = zipWith f a6 a8
+    a12 = zipWith g a6 a8
+    a13 = ixMap q1 (push a9)
+    a14 = ixMap q2 (push a10)
+    a15 = ixMap q3 (push a11)
+    a16 = ixMap q4 (push a12)
+    q1 = insert2Zeros i
+    q2 = flipBit (i-1)  . q1
+    q3 = flipBit i . q1
+    q4 = flipBit i . q2
+   
+
+insert2Zeros :: Int -> Exp Word32 -> Exp Word32
+insert2Zeros 0 a = a `shiftL` 2
+insert2Zeros i a = a + 3*(a .&. fromIntegral (complement (oneBits (i-1) :: Word32)))
