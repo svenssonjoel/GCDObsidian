@@ -16,7 +16,14 @@ import Control.Monad.State
 import Data.Maybe
 
 -- A C LIKE AST (SPMDC - Single Program Multiple Data C) 
+{- 
+  TODO: 
+    + Add for loops to SPMDC 
+      - needed for sequential c code generation 
+      - potentially also for computing sequentialy on GPUs 
+        in the future. (by adding a sequential array construct to Obsidian)
 
+-} 
 
 ----------------------------------------------------------------------------
 -- 
@@ -88,7 +95,7 @@ data SPMDC = CAssign CExpr [CExpr] CExpr  -- array or scalar assign
            | CDecl CType Name             -- Declare but no assign
            | CDeclAssign CType Name CExpr -- declare variable and assign a value 
            | CFunc   Name  [CExpr]                    
-           | CSync                  -- CUDA and OpenCL
+           | CSync                  -- CUDA: "__syncthreads()" OpenCL: "barrier(CLK_LOCAL_MEM_FENCE)"
 
            | CIf     CExpr [SPMDC] [SPMDC]
            deriving (Eq,Ord,Show)
@@ -327,7 +334,7 @@ ppCExpr ppc (CExpr (CCast e t)) = line "((" >>
               on the GPU) 
 
    + Add More detail to the CSEMap. 
-      - information about if the declaration of a variable can be moved 
+      - DONE ALREADY BUT DIFFERENTLY: information about if the declaration of a variable can be moved 
         to toplevel (GLOBAL) or not (LOCAL) 
       - Things are local if they are expressions looking up a value in a shared
         memory array for example or depending on such an expression in any way.   
@@ -448,7 +455,8 @@ performCSE sp = let (_,_,_,r) = performCSEGlobal Map.empty 0 Map.empty sp
                 in r
   -}
 ----------------------------------------------------------------------------
-{- 
+
+{-
 performCSEGlobal :: CSEMap 
                     -> NodeID 
                     -> Computed 
@@ -483,6 +491,8 @@ performCSE' (CIf b sp1 sp2) = do
   return$ decls ++ [CIf newExp (concat sp1') (concat sp2')]
 performCSE' a@(CFunc nom es) = return [a]
 -} 
+----------------------------------------------------------------------------
+-- 
 
 buildDag cm e n = runState (cExprToDag cm e) n
 
@@ -607,7 +617,8 @@ performCSE2 sps = test ++ r
     (cp,test)   = declareGlobals cseMap
     
     r = performCSEPass cseMap cp sps 
-    --(_,_,_,r) = performCSEGlobal cseMap 0 cp sps
+        
+    -- (_,_,_,r) = performCSEGlobal cseMap 0 cp apa
                 
 -- Extract things that can be computed early
     
@@ -636,16 +647,21 @@ declareGlobals cm = declareGlobals' (Map.empty) globs
            
            
       
---dagToSPMDC :: [(NodeID,CENode)] -> Computed -> NodeID -> (Computed,[SPMDC],CExpr)
-
+----------------------------------------------------------------------------
+-- PerformCSEPass 
+-- Walk over code and replace expressions with globaly defined variables
 performCSEPass :: CSEMap -> Computed -> [SPMDC] -> [SPMDC]                             
 performCSEPass cm cp [] = []
 performCSEPass cm cp (x:xs) = performCSEPass' cm cp x : performCSEPass cm cp xs 
 
 -- Does not add any new declarations (Maybe will later)              
+--  + TODO: Perform local CSE on things that can not be "moved". 
+--       - inside If blocks 
+
 performCSEPass' :: CSEMap -> Computed -> SPMDC -> SPMDC
 performCSEPass' cm cp CSync = CSync
-performCSEPass' cm cp (CDeclAssign _ _ _) = error "CDeclAssign found during CSEPass" 
+performCSEPass' cm cp (CDeclAssign _ _ _) = error "performCSEPass': CDeclAssign found during CSEPass" 
+performCSEPass' cm cp (CDecl _ _)         = error "performCSEPass': CDecl found during CSEPass" 
 performCSEPass' cm cp (CAssign nom es e)  = CAssign nom xs x 
   where
     (x:xs) = cseReplaceL cm cp (e:es) 
