@@ -106,6 +106,8 @@ bmerge4 n |even n = [ilv42 (n-2*i+1) min max | i <- [1.. (div n 2)]]
     stage i = ilv42 i min max
 
 writes4b k = writeFile "bmerge4N.cu" $ CUDA.genKernel_ "bmerge4" (composeP (bmerge4 k)) (namedArray "inp" (2^k))
+print4b k = putStrLn $ CUDA.genKernel "bmerge4" (composeP (bmerge4 k)) (namedArray "inp" (2^k))
+print4b_ k = putStrLn $ CUDA.genKernel_ "bmerge4" (composeP (bmerge4 k)) (namedArray "inp" (2^k))
 
 
 

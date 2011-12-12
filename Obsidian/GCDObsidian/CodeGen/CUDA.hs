@@ -328,6 +328,12 @@ progToSPMDC nt (ProgramSeq p1 p2) = progToSPMDC nt p1 ++ progToSPMDC nt p2
 
 ----------------------------------------------------------------------------
 -- Memory map the arrays in an SPMDC
+
+sbaseCExpr 0    = cVar "sbase" (CPointer CWord8) 
+sbaseCExpr addr = cBinOp CAdd (cVar "sbase" (CPointer CWord8)) 
+                              (cLiteral (Word32Val addr) CWord32) 
+                              (CPointer CWord8) 
+
 mmSPMDC :: MemMap -> [SPMDC] -> [SPMDC] 
 mmSPMDC mm [] = [] 
 mmSPMDC mm (x:xs) = mmSPMDC' mm x : mmSPMDC mm xs
@@ -346,8 +352,8 @@ mmSPMDC' mm (CDeclAssign t nom e) = cDeclAssign t nom (mmCExpr mm e)
 mmCExpr mm (CExpr (CVar nom t)) =  
   case Map.lookup nom mm of 
     Just (addr,t) -> 
-      let core = cBinOp CAdd (cVar "sbase" CWord8) (cLiteral (Word32Val addr) CWord32)
-          cast c = cCast  (c (typeToCType t)) (typeToCType t)
+      let core = sbaseCExpr addr 
+          cast c = cCast  c (typeToCType t)
       in cast core
     
     Nothing -> cVar nom t
