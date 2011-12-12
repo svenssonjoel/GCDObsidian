@@ -36,11 +36,11 @@ data CType = CVoid | CInt | CFloat | CDouble
            | CQualified CQualifyer CType 
            deriving (Eq,Ord,Show)
              
-data CQualifyer = CQualifyerGlobal 
-                | CQualifyerLocal
-                | CQualifyerKernel
-                | CQualifyerShared
-                | CQualifyerExtern   
+data CQualifyer = CQualifyerGlobal  -- CUDA: ""           OpenCL: "__global" 
+                | CQualifyerLocal   -- CUDA: ""           OpenCL: "__local"
+                | CQualifyerKernel  -- CUDA: "__global__" OpenCL: "__kernel"  
+                | CQualifyerShared  -- CUDA: "__shared__" OpenCL: "__local" 
+                | CQualifyerExtern  -- extern   
                 | CQualifyerAttrib CQAttribute
                 deriving (Eq,Ord,Show)
 
