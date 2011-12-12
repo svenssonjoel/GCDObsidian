@@ -614,7 +614,7 @@ collectCSE cm n (CFunc nom es) = (n1,cm1)
 ----------------------------------------------------------------------------
 -- 2nd performCSE experiment
 performCSE2 :: [SPMDC] -> [SPMDC] 
-performCSE2 sps = globDecls ++ r
+performCSE2 sps = globDecls ++ r' 
   where 
     cseMap = buildCSEMap sps -- map containing all expressions 
    
@@ -622,10 +622,15 @@ performCSE2 sps = globDecls ++ r
     
     r = performCSEPass cseMap cp sps 
         
+        
+    r' = performCSELocal cseMap Map.empty r 
+    
     -- (_,_,_,r) = performCSEGlobal cseMap 0 cp apa
                 
 -- Extract things that can be computed early
     
+---------------------------------------------------------------------------- 
+-- 
 declareGlobals :: CSEMap -> (Computed, [SPMDC]) 
 declareGlobals cm = declareGlobals' (Map.empty) globs 
   where 
@@ -661,6 +666,8 @@ performCSEPass cm cp (x:xs) = performCSEPass' cm cp x : performCSEPass cm cp xs
 -- Does not add any new declarations (Maybe will later)              
 --  + TODO: Perform local CSE on things that can not be "moved". 
 --       - inside If blocks 
+--       - can rely on intermediate arrays all having separate names.
+--         So not much need to track scope very much 
 
 performCSEPass' :: CSEMap -> Computed -> SPMDC -> SPMDC
 performCSEPass' cm cp CSync = CSync
@@ -732,3 +739,31 @@ cseReplace cm cp exp =
         (Just exp') -> exp'
         Nothing     -> exp 
     Nothing -> error "cseReplace: expression missing from CSEMap"                                        
+    
+----------------------------------------------------------------------------
+performCSELocal cm cp [] = [] 
+performCSELocal cm cp (x:xs) = performCSELocal' cm cp x ++ performCSELocal cm cp xs -- but what to do 
+
+
+perfromCSELocal' cm cp CSync = [CSync]
+performCSELocal' cm cp c@(CDecl _ _) = [c] -- should not appear
+performCSELocal' cm cp c@(CDeclAssign _ _ _) = [c] -- appears only as result of previous CSE phase
+performCSELocal' cm cp c@(CFunc _ _) = [c] -- Skipping these for now (they dont appear in reality) 
+performCSELocal' cm cp (CIf e1 s1 s2) = r
+  where 
+    ss1 = performCSELocal cm (Map.empty) s1 -- local cse in then branch, consider nothing computed.  
+    ss2 = performCSELocal cm (Map.empty) s2 -- local cse else branch
+    e1' = case Map.lookup e1 cm of 
+       -- What about the Just case here... what makes sence to do. 
+      (Just (nid,node,count)) -> undefined
+      Nothing -> e1 -- will most likely mean that this exp is the result of global cse
+    r   = [CIf e1 ss1 ss2] 
+performCSELocal' cm cp (CAssign nomExpr es e) = defs ++ r
+  where
+    (defs,(x:xs)) = doLocals cm cp (e:es) 
+    r = [CAssign nomExpr es e] -- do something 
+performCSELocal' cm cp x = [x] 
+
+-- HACKS IN PROGRESS 
+doLocals cm cp [] = ([],[]) 
+doLocals cm cp xs = ([],xs) 
