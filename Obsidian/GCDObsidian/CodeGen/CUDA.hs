@@ -28,6 +28,12 @@ import Obsidian.GCDObsidian.CodeGen.Liveness
 
 import Obsidian.GCDObsidian.CodeGen.SPMDC
 
+{- 
+   TODO: 
+    + phase out the old string based codegen 
+
+-} 
+
 ----------------------------------------------------------------------------
 -- 
 gc = genConfig "" ""
@@ -327,13 +333,14 @@ progToSPMDC nt Skip = []
 progToSPMDC nt (ProgramSeq p1 p2) = progToSPMDC nt p1 ++ progToSPMDC nt p2
 
 ----------------------------------------------------------------------------
--- Memory map the arrays in an SPMDC
+-- generate a sbase CExpr
 
 sbaseCExpr 0    = cVar "sbase" (CPointer CWord8) 
 sbaseCExpr addr = cBinOp CAdd (cVar "sbase" (CPointer CWord8)) 
                               (cLiteral (Word32Val addr) CWord32) 
                               (CPointer CWord8) 
-
+----------------------------------------------------------------------------
+-- Memory map the arrays in an SPMDC
 mmSPMDC :: MemMap -> [SPMDC] -> [SPMDC] 
 mmSPMDC mm [] = [] 
 mmSPMDC mm (x:xs) = mmSPMDC' mm x : mmSPMDC mm xs
