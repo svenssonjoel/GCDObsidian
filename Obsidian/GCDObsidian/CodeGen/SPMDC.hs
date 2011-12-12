@@ -83,7 +83,6 @@ data CBinOp = CAdd | CSub | CMul | CDiv | CMod
 data CUnOp = CBitwiseNeg                     
            deriving (Eq,Ord,Show)
 
-
 {-
    SPMDC and CKernel may turn more complicated if we 
    add features. 
@@ -100,7 +99,7 @@ data SPMDC = CAssign CExpr [CExpr] CExpr  -- array or scalar assign
            | CIf     CExpr [SPMDC] [SPMDC]
            deriving (Eq,Ord,Show)
                     
---                                ret_t          inputs       body
+--                                ret_t       param list     body
 data CKernel = CKernel CQualifyer CType Name [(CType,Name)] [SPMDC] 
              deriving (Eq,Show)
            
@@ -368,9 +367,11 @@ insertCM :: CSEMap -> CExpr -> CENode -> State NodeID (CSEMap,NodeID)
 insertCM cm expr node = 
   case Map.lookup expr cm of 
     (Just (i,n,m)) -> 
+      -- Already exists in map, just increment usage counter
       let cm' = Map.insert expr (i,n,m+1) cm
       in return (cm', i)
     Nothing  -> do
+      -- does not exist in map, add it. 
       i <- newNodeID 
       let cm' = Map.insert expr (i,node,1) cm 
       return (cm',i)
@@ -390,7 +391,8 @@ isGlobal (CExpr (CCast e _)) = isGlobal e
 isGlobal (CExpr (CCond e1 e2 e3 _)) = isGlobal e1 && isGlobal e2 && isGlobal e3 -- ?? 
 
 isGlobal (CExpr (CIndex (e,es) _)) = isGlobal e -- False -- isGlobal e && (all isGlobal es) 
-
+  -- Currently the es's will be "global".  
+  -- This may change once indexing start depend on "data". (such as in a filter op)  
 isGlobal (CExpr (CBinOp _ e1 e2 _)) = isGlobal e1 && isGlobal e2
 isGlobal (CExpr (CUnOp _ e _)) = isGlobal e
 isGlobal (CExpr (CFuncExpr nom es _)) = all isGlobal es
@@ -609,12 +611,14 @@ collectCSE cm n (CFunc nom es) = (n1,cm1)
     ((cm1,nids),n1) = buildDagList cm es n
 
 
+----------------------------------------------------------------------------
+-- 2nd performCSE experiment
 performCSE2 :: [SPMDC] -> [SPMDC] 
-performCSE2 sps = test ++ r
+performCSE2 sps = globDecls ++ r
   where 
     cseMap = buildCSEMap sps -- map containing all expressions 
-    -- globs  = getGlobals cseMap
-    (cp,test)   = declareGlobals cseMap
+   
+    (cp,globDecls) = declareGlobals cseMap
     
     r = performCSEPass cseMap cp sps 
         
