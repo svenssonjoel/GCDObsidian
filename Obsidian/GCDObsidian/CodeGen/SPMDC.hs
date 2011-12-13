@@ -137,6 +137,8 @@ cCast     = cexpr2 CCast
 
 cAssign = CAssign 
 cFunc = CFunc  
+cDecl = CDecl
+cSync = CSync 
 cDeclAssign = CDeclAssign 
 cIf = CIf 
 
@@ -180,7 +182,8 @@ ppCType ppc CWord64  = line "uint64_t"
 ppCType ppc (CPointer t) = ppCType ppc t >> line "*"
 ppCType ppc (CQualified q t) = ppCQual ppc q >> space >> ppCType ppc t
 
---  a hack (whats the correct way to handle C's t[] ?)
+-- a hack (whats the correct way to handle C's t[] ?)
+-- Breaks down already for a[][], i think.
 ppCTypedName ppc CVoid   nom = line "void" >> space >> line nom
 ppCTypedName ppc CInt    nom = line "int" >> space >> line nom
 ppCTypedName ppc CFloat  nom = line "float" >> space >> line nom
@@ -451,14 +454,12 @@ cExprListToDag cm (x:xs) = do
 type DoneMap = Map.Map CExpr NodeID
 
 ----------------------------------------------------------------------------
-{-
-performCSE :: [SPMDC] -> [SPMDC] 
+performCSE :: [SPMDC] -> [SPMDC]
 performCSE sp = let (_,_,_,r) = performCSEGlobal Map.empty 0 Map.empty sp
                 in r
-  -}
 ----------------------------------------------------------------------------
+strip = map (\(x,y,_) -> (x,y)) 
 
-{-
 performCSEGlobal :: CSEMap 
                     -> NodeID 
                     -> Computed 
@@ -477,22 +478,22 @@ performCSE' (CAssign nom es e) = do
   (n,cm,cp) <- get
   let ((cm',nid),n') = runState (cExprToDag cm e) n 
       ((cm'',nids),n'') = buildDagList cm' es n'
-      elemList = Map.elems cm'' -- pay attention
-      (cp',decls,newExp) = dagToSPMDC  elemList cp nid   
+      elemList = strip (Map.elems cm'') -- pay attention
+      (cp',decls,newExp) = dagToSPMDC   elemList cp nid   
       (cp'',moredecls,exps) = dagListToSPMDC elemList cp' nids
   put (nid+1,cm',cp') 
   return (decls ++ moredecls ++ [CAssign nom exps newExp])
 performCSE' (CIf b sp1 sp2) = do 
   (n,cm,cp) <- get
   let ((cm',nid),n') = runState (cExprToDag cm b) n 
-      elemList = Map.elems cm'
+      elemList = strip$ Map.elems cm'
       (cp',decls,newExp) = dagToSPMDC elemList cp nid
   put (nid+1,cm',cp') 
   sp1' <- mapM performCSE' sp1 
   sp2' <- mapM performCSE' sp2 
   return$ decls ++ [CIf newExp (concat sp1') (concat sp2')]
 performCSE' a@(CFunc nom es) = return [a]
--} 
+
 ----------------------------------------------------------------------------
 -- 
 
@@ -623,8 +624,9 @@ performCSE2 sps = globDecls ++ r'
     r = performCSEPass cseMap cp sps 
         
         
-    r' = performCSELocal cseMap Map.empty r 
+    r' = performCSE r 
     
+
     -- (_,_,_,r) = performCSEGlobal cseMap 0 cp apa
                 
 -- Extract things that can be computed early
@@ -741,15 +743,20 @@ cseReplace cm cp exp =
     Nothing -> error "cseReplace: expression missing from CSEMap"                                        
     
 ----------------------------------------------------------------------------
+
+
+{-  This idea is not working. 
 performCSELocal cm cp [] = [] 
-performCSELocal cm cp (x:xs) = performCSELocal' cm cp x ++ performCSELocal cm cp xs -- but what to do 
+performCSELocal cm cp (x:xs) = r ++ performCSELocal cm cp' xs 
+  where 
+    (cp',r) = performCSELocal' cm cp x 
 
 
-perfromCSELocal' cm cp CSync = [CSync]
-performCSELocal' cm cp c@(CDecl _ _) = [c] -- should not appear
-performCSELocal' cm cp c@(CDeclAssign _ _ _) = [c] -- appears only as result of previous CSE phase
-performCSELocal' cm cp c@(CFunc _ _) = [c] -- Skipping these for now (they dont appear in reality) 
-performCSELocal' cm cp (CIf e1 s1 s2) = r
+perfromCSELocal' cm cp CSync = (cp,[CSync])
+performCSELocal' cm cp c@(CDecl _ _) = (cp,[c]) -- should not appear
+performCSELocal' cm cp c@(CDeclAssign _ _ _) = (cp,[c]) -- appears only as result of previous CSE phase
+performCSELocal' cm cp c@(CFunc _ _) = (cp,[c]) -- Skipping these for now (they dont appear in reality) 
+performCSELocal' cm cp (CIf e1 s1 s2) = (cp,r) -- notice: old cp 
   where 
     ss1 = performCSELocal cm (Map.empty) s1 -- local cse in then branch, consider nothing computed.  
     ss2 = performCSELocal cm (Map.empty) s2 -- local cse else branch
@@ -758,12 +765,35 @@ performCSELocal' cm cp (CIf e1 s1 s2) = r
       (Just (nid,node,count)) -> undefined
       Nothing -> e1 -- will most likely mean that this exp is the result of global cse
     r   = [CIf e1 ss1 ss2] 
-performCSELocal' cm cp (CAssign nomExpr es e) = defs ++ r
+performCSELocal' cm cp (CAssign nomExpr es e) = (cp',defs ++ r)
   where
-    (defs,(x:xs)) = doLocals cm cp (e:es) 
+    (cp',defs,(x:xs)) = doLocals cm cp (e:es) 
     r = [CAssign nomExpr es e] -- do something 
-performCSELocal' cm cp x = [x] 
+performCSELocal' cm cp x = (cp,[x]) 
 
 -- HACKS IN PROGRESS 
-doLocals cm cp [] = ([],[]) 
-doLocals cm cp xs = ([],xs) 
+doLocals :: CSEMap -> Computed -> [CExpr] -> (Computed,[SPMDC],[CExpr])
+doLocals cm cp [] = (cp,[],[]) 
+doLocals cm cp (e:es) = 
+  case Map.lookup e cm of 
+    -- Does e exist in CSEMap 
+    (Just (nid,node,uses)) -> (cp'',decls++decls',expr:es')
+      where 
+        (cp',decls,expr) = dagToSPMDC elemList cp nid
+        (cp'',decls',es') = doLocals cm cp' es
+        elemList = map (\(x,y,_) -> (x,y)) (Map.elems cm)
+    Nothing -> (cp',decls,e:es')   
+      where 
+        (cp',decls,es') = doLocals cm cp es
+          
+        
+  {- 
+         case Map.lookup e cp of 
+    -- Is it already declared "locally" 
+    (Just expr) -> (cp',decls,expr:es')
+      where 
+        (cp',decls,es') = doLocals cm cp es
+    Nothing -> 
+ -} 
+-- dagToSPMDC :: [(NodeID,CENode)] -> Computed -> NodeID -> (Computed,[SPMDC],CExpr)
+-} 
