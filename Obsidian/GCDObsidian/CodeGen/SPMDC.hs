@@ -669,7 +669,7 @@ declareGlobals cm = declareGlobals' (Map.empty) globs
         cm'   = Map.filterWithKey (\k e -> isGlobal k) cm
     -- Alternative approach to getting globals would be 
     -- to look at the expressions in the program (not the map).
-    -- only adding "topmost level" expressions. (that is 
+    -- only adding "topmost level" expressions. that is 
     -- only stepping into an expression if the isGlobal evaluates
     -- to false on it and potentially add subexpressions. 
         
