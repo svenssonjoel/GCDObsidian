@@ -122,25 +122,25 @@ cexpr2 exp a b     = CExpr $ exp a b
 cexpr3 exp a b c   = CExpr $ exp a b c 
 cexpr4 exp a b c d = CExpr $ exp a b c d  
 
-cBlockIdx = cexpr1 CBlockIdx
+cBlockIdx  = cexpr1 CBlockIdx
 cThreadIdx = cexpr1 CThreadIdx
 cBlockDim  = cexpr1 CBlockDim
-cGridDim  = cexpr1 CGridDim 
-cVar      = cexpr2 CVar 
-cLiteral  = cexpr2 CLiteral 
-cIndex    = cexpr2 CIndex 
-cCond     = cexpr4 CCond   
-cFuncExpr = cexpr3 CFuncExpr 
-cBinOp    = cexpr4 CBinOp 
-cUnOp     = cexpr3 CUnOp 
-cCast     = cexpr2 CCast 
+cGridDim   = cexpr1 CGridDim 
+cVar       = cexpr2 CVar 
+cLiteral   = cexpr2 CLiteral 
+cIndex     = cexpr2 CIndex 
+cCond      = cexpr4 CCond   
+cFuncExpr  = cexpr3 CFuncExpr 
+cBinOp     = cexpr4 CBinOp 
+cUnOp      = cexpr3 CUnOp 
+cCast      = cexpr2 CCast 
 
-cAssign = CAssign 
-cFunc = CFunc  
-cDecl = CDecl
-cSync = CSync 
+cAssign     = CAssign 
+cFunc       = CFunc  
+cDecl       = CDecl
+cSync       = CSync 
 cDeclAssign = CDeclAssign 
-cIf = CIf 
+cIf         = CIf 
 
 --------------------------------------------------------------------------
 -- Printing 
@@ -197,8 +197,8 @@ ppCTypedName ppc (CArray [] t) nom = ppCType ppc t >> space >> line nom >> line 
 ppCTypedName ppc (CQualified q t) nom = ppCQual ppc q >> space >> ppCTypedName ppc t nom 
 
 ----------------------------------------------------------------------------
-ppValue (IntVal i) = line$ show i
-ppValue (FloatVal f) = line$ show f 
+ppValue (IntVal i)    = line$ show i
+ppValue (FloatVal f)  = line$ show f 
 ppValue (DoubleVal d) = line$ show d
 ppValue (Word8Val  w) = line$ show w 
 ppValue (Word16Val w) = line$ show w
@@ -355,7 +355,7 @@ ppCExpr ppc (CExpr (CCast e t)) = line "((" >>
 ---------------------------------------------------------------------------- 
 -- 
 type CSEMap = Map.Map CExpr (NodeID,CENode,Integer)
--- type CSEMap = Map.Map CExpr (NodeID,CENode)
+
 type Computed = Map.Map NodeID CExpr 
 
 
@@ -391,9 +391,9 @@ isGlobal (CExpr (CGridDim a)) = True
 isGlobal (CExpr (CVar nom _)) = globalName nom
 isGlobal (CExpr (CLiteral l _)) = True 
 isGlobal (CExpr (CCast e _)) = isGlobal e
-isGlobal (CExpr (CCond e1 e2 e3 _)) = isGlobal e1 && isGlobal e2 && isGlobal e3 -- ?? 
+isGlobal (CExpr (CCond e1 e2 e3 _)) = isGlobal e1 && isGlobal e2 && isGlobal e3 
 
-isGlobal (CExpr (CIndex (e,es) _)) = isGlobal e -- False -- isGlobal e && (all isGlobal es) 
+isGlobal (CExpr (CIndex (e,es) _)) = isGlobal e 
   -- Currently the es's will be "global".  
   -- This may change once indexing start depend on "data". (such as in a filter op)  
 isGlobal (CExpr (CBinOp _ e1 e2 _)) = isGlobal e1 && isGlobal e2
@@ -454,21 +454,24 @@ cExprListToDag cm (x:xs) = do
 type DoneMap = Map.Map CExpr NodeID
 
 ----------------------------------------------------------------------------
+{-
 performCSE :: [SPMDC] -> [SPMDC]
 performCSE sp = let (_,_,_,r) = performCSEGlobal Map.empty 0 Map.empty sp
                 in r
+-}
 ----------------------------------------------------------------------------
 strip = map (\(x,y,_) -> (x,y)) 
 
+{- 
 performCSEGlobal :: CSEMap 
                     -> NodeID 
                     -> Computed 
                     -> [SPMDC] 
                     -> (CSEMap,NodeID,Computed,[SPMDC])
 performCSEGlobal cm n cp [] = (cm,n,cp,[]) 
-performCSEGlobal cm n cp (p:ps) = (cma,nid,cpn,spcmds ++ prg)
+performCSEGlobal cm n cp (p:ps) = (cma,nid,cpn,spmdcs ++ prg)
   where 
-    (spcmds,(newnid,cm',cp')) = runState (performCSE' p) (n,cm,cp)
+    (spmdcs,(newnid,cm',cp')) = runState (performCSE' p) (n,cm,cp)
     (cma,nid,cpn,prg) = performCSEGlobal cm' newnid cp' ps
                             
 performCSE' :: SPMDC -> State (NodeID,CSEMap,Computed) [SPMDC]
@@ -478,8 +481,8 @@ performCSE' (CAssign nom es e) = do
   (n,cm,cp) <- get
   let ((cm',nid),n') = runState (cExprToDag cm e) n 
       ((cm'',nids),n'') = buildDagList cm' es n'
-      elemList = strip (Map.elems cm'') -- pay attention
-      (cp',decls,newExp) = dagToSPMDC   elemList cp nid   
+      elemList = strip (Map.elems cm'') 
+      (cp',decls,newExp) = dagToSPMDC elemList cp nid    
       (cp'',moredecls,exps) = dagListToSPMDC elemList cp' nids
   put (nid+1,cm',cp') 
   return (decls ++ moredecls ++ [CAssign nom exps newExp])
@@ -493,7 +496,7 @@ performCSE' (CIf b sp1 sp2) = do
   sp2' <- mapM performCSE' sp2 
   return$ decls ++ [CIf newExp (concat sp1') (concat sp2')]
 performCSE' a@(CFunc nom es) = return [a]
-
+-} 
 ----------------------------------------------------------------------------
 -- 
 
@@ -505,84 +508,110 @@ buildDagList cm (e:es) n = ((cm'', nid:nids), n'')
     ((cm',nid),n') = buildDag cm e n
     ((cm'',nids), n'') = buildDagList cm' es n'  
 
-dagToSPMDC :: [(NodeID,CENode)] -> Computed -> NodeID -> (Computed,[SPMDC],CExpr)
-dagToSPMDC idl cp nid =
+
+-- TODO: IMPROVE AND CLEAN UP 
+dagToSPMDC :: [(NodeID,(CENode,Integer))] 
+              -> Computed 
+              -> NodeID 
+              -> Integer 
+              -> Bool 
+              -> (Computed,[SPMDC],CExpr)
+dagToSPMDC idl cp nid thld b =
   case Map.lookup nid cp of 
     (Just expr) -> (cp,[],expr)
     Nothing -> 
       case lookup nid idl of 
-        (Just (CENode (CBlockIdx a))) -> (cp, [], cBlockIdx a)
-        (Just (CENode (CThreadIdx a))) -> (cp, [], cThreadIdx a)
-        (Just (CENode (CBlockDim a))) -> (cp, [], cBlockDim a)
-        (Just (CENode (CGridDim a))) -> (cp, [], cGridDim a)
+        (Just (CENode (CBlockIdx a),_)) -> (cp, [], cBlockIdx a)
+        (Just (CENode (CThreadIdx a),_)) -> (cp, [], cThreadIdx a)
+        (Just (CENode (CBlockDim a),_)) -> (cp, [], cBlockDim a)
+        (Just (CENode (CGridDim a),_)) -> (cp, [], cGridDim a)
         
-        (Just (CENode (CVar nom t))) -> (cp,[], cVar nom t)
-        (Just (CENode (CLiteral l t))) -> (cp,[], cLiteral l t) 
-        (Just (CENode (CFuncExpr nom args t))) -> 
-          (Map.insert nid newExpr cp1,decs++[newDecl],newExpr )
+        (Just (CENode (CVar nom t),_)) -> (cp,[], cVar nom t)
+        (Just (CENode (CLiteral l t),_)) -> (cp,[], cLiteral l t) 
+        (Just (CENode (CFuncExpr nom args t),i)) -> 
+          if (i > thld || not b)
+          then 
+            (Map.insert nid newExpr cp1,decs++[newDecl],newExpr )
+          else 
+            (cp1,decs,inlineExpr) 
           where 
             newExpr = cVar ("imm" ++show nid ) t
+            inlineExpr = cFuncExpr nom args' t   -- inline it if its count is not high enough 
             newDecl = cDeclAssign t ("imm" ++ show nid) (cFuncExpr nom args' t) 
-            (cp1,decs,args') = dagListToSPMDC idl cp args
+            (cp1,decs,args') = dagListToSPMDC idl cp args (max i thld) b -- max is new thld
          
-        (Just (CENode (CBinOp op e1 e2 t))) -> 
-          (Map.insert nid newExpr cp2,decs++[newDecl],newExpr)
+        (Just (CENode (CBinOp op e1 e2 t),i)) -> 
+          if ( i > thld || not b) 
+          then 
+            (Map.insert nid newExpr cp2,decs++[newDecl],newExpr)
+          else 
+            (cp2, decs, inlineExpr) 
           where 
             newExpr = cVar ("imm" ++ show nid) t
+            inlineExpr = cBinOp op e1' e2' t
+            newthld = max i thld
             newDecl = cDeclAssign t ("imm" ++ show nid) (cBinOp op e1' e2' t)
-            (cp1,d1',e1') = dagToSPMDC idl cp e1 
-            (cp2,d2',e2') = dagToSPMDC idl cp1 e2 
+            (cp1,d1',e1') = dagToSPMDC idl cp e1  newthld b 
+            (cp2,d2',e2') = dagToSPMDC idl cp1 e2 newthld b
             decs = d1' ++ d2'
-        (Just (CENode (CUnOp op e t))) -> 
-          (Map.insert nid newExpr cp1,decs++[newDecl],newExpr)
+        (Just (CENode (CUnOp op e t),i)) -> 
+          if ( i > thld || not b) 
+          then 
+            (Map.insert nid newExpr cp1,decs++[newDecl],newExpr)
+          else 
+            (cp1,decs,inlineExpr) 
           where 
             newExpr = cVar ("imm" ++ show nid) t
+            inlineExpr = cUnOp op e' t
             newDecl = cDeclAssign t ("imm" ++ show nid) (cUnOp op e'  t)
-            (cp1,d',e') = dagToSPMDC idl cp e
+            (cp1,d',e') = dagToSPMDC idl cp e (max i thld) b
             decs = d'
        
         -- Do not waste register space for stuff already in shared mem
-        (Just (CENode (CIndex (e1,es) t))) ->         
+        (Just (CENode (CIndex (e1,es) t),i)) ->         
           (cp2,decs,cIndex (e1',es') t)
           where 
             --newExpr = cVar ("imm" ++ show nid) t
             --newDecl = cDeclAssign t ("imm" ++ show nid) (cIndex (e1',es') t)
-            (cp1,d1',e1') = dagToSPMDC idl cp e1
-            (cp2,d2',es')  = dagListToSPMDC idl cp1 es -- map (dagToSPMDC idl cp1) es 
+            (cp1,d1',e1') = dagToSPMDC idl cp e1 i b
+            (cp2,d2',es')  = dagListToSPMDC idl cp1 es i b 
          
             decs =     d1' ++ d2' 
 
-        (Just (CENode (CCast e t))) -> 
+        (Just (CENode (CCast e t),i)) -> 
           -- Does this do what I hope ?
           (cp',d',newExpr) 
           where 
             newExpr = cCast e' t
-            (cp',d',e') = dagToSPMDC idl cp e
-        (Just (CENode (CCond e1 e2 e3 t))) -> 
-          (Map.insert nid newExpr cp3,d1' ++ d2' ++ d3' ++ [newDecl],newExpr)
+            (cp',d',e') = dagToSPMDC idl cp e i b 
+        (Just (CENode (CCond e1 e2 e3 t),i)) -> 
+          if ( i > thld || not b)
+          then
+            (Map.insert nid newExpr cp3,decls ++ [newDecl],newExpr)
+          else 
+            (cp3,decls,inlineExpr) 
           where 
             newExpr = cVar ("imm" ++ show nid) t 
+            inlineExpr = cCond e1' e2' e3' t
             newDecl = cDeclAssign t ("imm" ++ show nid) (cCond e1' e2' e3' t)
-            (cp1,d1',e1') = dagToSPMDC idl cp e1
-            (cp2,d2',e2') = dagToSPMDC idl cp1 e2
-            (cp3,d3',e3') = dagToSPMDC idl cp2 e3
+            (cp1,d1',e1') = dagToSPMDC idl cp e1  i b 
+            (cp2,d2',e2') = dagToSPMDC idl cp1 e2 i b
+            (cp3,d3',e3') = dagToSPMDC idl cp2 e3 i b
+            decls = d1'++d2'++d3'
         Nothing -> error$ "\n" ++ show nid ++ "\n"  ++ show (map fst idl)
           
 
-dagListToSPMDC idl cp [] = (cp,[],[])
-dagListToSPMDC idl cp (x:xs) = (cp'',decs ++ moredecs, exp:exps)
+dagListToSPMDC idl cp [] i b = (cp,[],[])
+dagListToSPMDC idl cp (x:xs) i b = (cp'',decs ++ moredecs, exp:exps)
   where 
-    (cp',decs,exp) = dagToSPMDC idl cp x 
-    (cp'',moredecs, exps) = dagListToSPMDC idl cp' xs 
+    (cp',decs,exp) = dagToSPMDC idl cp x i b 
+    (cp'',moredecs, exps) = dagListToSPMDC idl cp' xs i b
 
 snd3 (_,y,_) = y
 trd3 (_,_,z) = z
 
 ----------------------------------------------------------------------------
 -- 
-----------------------------------------------------------------------------
--- 
-
 
 buildCSEMap :: [SPMDC] -> CSEMap 
 buildCSEMap sps = snd$  buildCSEMap' (Map.empty) 0 sps 
@@ -615,7 +644,7 @@ collectCSE cm n (CFunc nom es) = (n1,cm1)
 ----------------------------------------------------------------------------
 -- 2nd performCSE experiment
 performCSE2 :: [SPMDC] -> [SPMDC] 
-performCSE2 sps = globDecls ++ r' 
+performCSE2 sps = globDecls ++ r
   where 
     cseMap = buildCSEMap sps -- map containing all expressions 
    
@@ -623,13 +652,10 @@ performCSE2 sps = globDecls ++ r'
     
     r = performCSEPass cseMap cp sps 
         
+   
         
-    r' = performCSE r 
+    -- r' = performCSE r 
     
-
-    -- (_,_,_,r) = performCSEGlobal cseMap 0 cp apa
-                
--- Extract things that can be computed early
     
 ---------------------------------------------------------------------------- 
 -- 
@@ -641,7 +667,12 @@ declareGlobals cm = declareGlobals' (Map.empty) globs
       where 
         globs = Map.elems cm' 
         cm'   = Map.filterWithKey (\k e -> isGlobal k) cm
-
+    -- Alternative approach to getting globals would be 
+    -- to look at the expressions in the program (not the map).
+    -- only adding "topmost level" expressions. (that is 
+    -- only stepping into an expression if the isGlobal evaluates
+    -- to false on it and potentially add subexpressions. 
+        
     globs = getGlobals cm 
     strip = map (\(x,y,z) -> (x,y))
     declareGlobals' cp []  = (cp,[]) 
@@ -651,10 +682,12 @@ declareGlobals cm = declareGlobals' (Map.empty) globs
         case Map.lookup nid cp of
           (Just e) -> declareGlobals' cp xs          
           Nothing -> 
-            let (cp',sps,e) = dagToSPMDC (strip globs) cp nid 
+            let (cp',sps,e) = dagToSPMDC (pairup globs) cp nid  0 False
                 (cp'',sps2) = declareGlobals' cp' xs
             in (cp'',sps ++ sps2)
       else declareGlobals' cp xs          
+      where 
+        pairup = map (\(x,y,z) -> (x,(y,z)))
            
            
       
@@ -744,56 +777,3 @@ cseReplace cm cp exp =
     
 ----------------------------------------------------------------------------
 
-
-{-  This idea is not working. 
-performCSELocal cm cp [] = [] 
-performCSELocal cm cp (x:xs) = r ++ performCSELocal cm cp' xs 
-  where 
-    (cp',r) = performCSELocal' cm cp x 
-
-
-perfromCSELocal' cm cp CSync = (cp,[CSync])
-performCSELocal' cm cp c@(CDecl _ _) = (cp,[c]) -- should not appear
-performCSELocal' cm cp c@(CDeclAssign _ _ _) = (cp,[c]) -- appears only as result of previous CSE phase
-performCSELocal' cm cp c@(CFunc _ _) = (cp,[c]) -- Skipping these for now (they dont appear in reality) 
-performCSELocal' cm cp (CIf e1 s1 s2) = (cp,r) -- notice: old cp 
-  where 
-    ss1 = performCSELocal cm (Map.empty) s1 -- local cse in then branch, consider nothing computed.  
-    ss2 = performCSELocal cm (Map.empty) s2 -- local cse else branch
-    e1' = case Map.lookup e1 cm of 
-       -- What about the Just case here... what makes sence to do. 
-      (Just (nid,node,count)) -> undefined
-      Nothing -> e1 -- will most likely mean that this exp is the result of global cse
-    r   = [CIf e1 ss1 ss2] 
-performCSELocal' cm cp (CAssign nomExpr es e) = (cp',defs ++ r)
-  where
-    (cp',defs,(x:xs)) = doLocals cm cp (e:es) 
-    r = [CAssign nomExpr es e] -- do something 
-performCSELocal' cm cp x = (cp,[x]) 
-
--- HACKS IN PROGRESS 
-doLocals :: CSEMap -> Computed -> [CExpr] -> (Computed,[SPMDC],[CExpr])
-doLocals cm cp [] = (cp,[],[]) 
-doLocals cm cp (e:es) = 
-  case Map.lookup e cm of 
-    -- Does e exist in CSEMap 
-    (Just (nid,node,uses)) -> (cp'',decls++decls',expr:es')
-      where 
-        (cp',decls,expr) = dagToSPMDC elemList cp nid
-        (cp'',decls',es') = doLocals cm cp' es
-        elemList = map (\(x,y,_) -> (x,y)) (Map.elems cm)
-    Nothing -> (cp',decls,e:es')   
-      where 
-        (cp',decls,es') = doLocals cm cp es
-          
-        
-  {- 
-         case Map.lookup e cp of 
-    -- Is it already declared "locally" 
-    (Just expr) -> (cp',decls,expr:es')
-      where 
-        (cp',decls,es') = doLocals cm cp es
-    Nothing -> 
- -} 
--- dagToSPMDC :: [(NodeID,CENode)] -> Computed -> NodeID -> (Computed,[SPMDC],CExpr)
--} 
