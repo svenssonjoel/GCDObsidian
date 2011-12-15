@@ -15,11 +15,9 @@ module Obsidian.GCDObsidian.Array ((!) -- pull array apply (index into)
                                   , Array(..)  
                                   , Pushy
                                   , PushyInternal
-                                 -- , pushApp
                                   , push
                                   , push' -- this is for "internal" use
                                   , push'' -- this is for "internal" use
-                                 -- , ArrayP(..)
                                   , P(..)
                                   , block
                                   , unblock
@@ -28,7 +26,6 @@ module Obsidian.GCDObsidian.Array ((!) -- pull array apply (index into)
                                   , mkGlobalPullArray
                                   , Pull(..)
                                   , Push(..)
-                                  -- , pushGlobal
                                   )where 
 
 import Obsidian.GCDObsidian.Exp 
@@ -153,9 +150,7 @@ instance PushyInternal (Array Pull)  where
                                      let ix = (i+((fromIntegral ((n `div` m) * j)))),
                                      let a  = ixf ix
                                    ]) (n `div` m))) n
-    
-
-         
+             
 class Pushy a where 
   push :: a e -> Array Push e 
 
@@ -164,6 +159,7 @@ instance Pushy (Array Push) where
   
 instance Pushy (Array Pull)  where   
   push (Array (Pull ixf) n) = Array (Push (\func -> ForAll (\i -> func (i,(ixf i))) n)) n 
+
 
 ----------------------------------------------------------------------------
 --

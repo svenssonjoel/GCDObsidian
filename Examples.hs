@@ -223,14 +223,10 @@ getvSwap'_ = putStrLn$ CUDA.genKernelGlob_ "vSwap" vSwap' (GlobalArray undefined
 
 ----------------------------------------------------------------------------
 --
-reduceAddBlocks :: GlobalArray Pull (Exp Int) -> Kernel (GlobalArray Push (Exp Int)) 
-reduceAddBlocks  = withBlockSize 64 (reduce (+)) 
-
-withBlockSize n p = pure (block n) ->- p ->- pure (unblock . push) 
+reduceAddBlocks :: GlobalArray Pull (Exp Int) -> Kernel (GlobalArray Push (Exp Int)) ck . push) 
 
 getR = putStrLn$ CUDA.genKernelGlob "reduce" reduceAddBlocks (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
 getR_ = putStrLn$ CUDA.genKernelGlob_ "reduce" reduceAddBlocks (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
-
 
 
 ----------------------------------------------------------------------------
@@ -244,8 +240,6 @@ getApa = putStrLn$ CUDA.genKernel "apa" apa (namedArray "hej" 128 :: Array Pull 
 
 ----------------------------------------------------------------------------
 -- Preloading examples (Breaks because of poor state of Sync.hs) 
-
-
 
 -- puts two elements per thread in shared memory
 preload2Test :: Array Pull (Exp Int) -> Kernel (Array Pull (Exp Int))
@@ -269,10 +263,6 @@ preload4Test = Help.preload4
 
 getpreload4Test = putStrLn$ CUDA.genKernel "preload4" preload4Test (namedArray "hej" (4*100) :: Array Pull (Exp Int))
 
-
-
-
-
 ----------------------------------------------------------------------------
 -- 
 preload2'Test :: Array Pull (Exp Int) -> Kernel (Array Pull (Exp Int))
@@ -289,10 +279,27 @@ getpreload3'Test = putStrLn$ CUDA.genKernel "preload3" preload3'Test (namedArray
 
 
 ----------------------------------------------------------------------------
--- I'm not sure why this outputs any code right now. 
+-- 
 
 preload4'Test :: Array Pull (Exp Int) -> Kernel (Array Pull (Exp Int))
 preload4'Test = Help.preload4' 
 
 getpreload4'Test = putStrLn$ CUDA.genKernel "preload4" preload4'Test (namedArray "hej" (4*100) :: Array Pull (Exp Int))
 
+
+
+----------------------------------------------------------------------------
+-- GlobalArrays and preloading 
+
+-- exhibits a problem. To many threads used for writing result. 
+-- in this case 64 threads, when 16 would be more proper
+globalPreloadTest :: GlobalArray Pull (Exp Int) -> Kernel (GlobalArray Push (Exp Int)) 
+globalPreloadTest = 
+  withBlockSize 64  
+    ( 
+      Help.preload4' {- ->- compute_stuff -}
+    ) 
+
+
+getGlobalPreload = putStrLn$ CUDA.genKernelGlob "globalPreload" globalPreloadTest (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
+getGlobalPreload_ = putStrLn$ CUDA.genKernelGlob_ "globalPreload" globalPreloadTest (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
