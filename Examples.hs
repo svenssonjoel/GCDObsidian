@@ -273,3 +273,26 @@ getpreload4Test = putStrLn$ CUDA.genKernel "preload4" preload4Test (namedArray "
 
 
 
+----------------------------------------------------------------------------
+-- 
+preload2'Test :: Array Pull (Exp Int) -> Kernel (Array Pull (Exp Int))
+preload2'Test = Help.preload2' 
+
+getpreload2'Test = putStrLn$ CUDA.genKernel "preload2" preload2'Test (namedArray "hej" 128 :: Array Pull (Exp Int))
+
+----------------------------------------------------------------------------
+--
+preload3'Test :: Array Pull (Exp Int) -> Kernel (Array Pull (Exp Int))
+preload3'Test = Help.preload3' 
+
+getpreload3'Test = putStrLn$ CUDA.genKernel "preload3" preload3'Test (namedArray "hej" (3*100) :: Array Pull (Exp Int))
+
+
+----------------------------------------------------------------------------
+-- I'm not sure why this outputs any code right now. 
+
+preload4'Test :: Array Pull (Exp Int) -> Kernel (Array Pull (Exp Int))
+preload4'Test = Help.preload4' 
+
+getpreload4'Test = putStrLn$ CUDA.genKernel "preload4" preload4'Test (namedArray "hej" (4*100) :: Array Pull (Exp Int))
+
