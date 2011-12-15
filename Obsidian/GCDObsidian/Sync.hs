@@ -3,9 +3,7 @@
              MultiParamTypeClasses,  
              UndecidableInstances, 
              TypeFamilies,  
-             RankNTypes, 
-             GADTs, 
-             ScopedTypeVariables #-}  
+             GADTs  #-}  
 module Obsidian.GCDObsidian.Sync where 
 
 import Obsidian.GCDObsidian.Kernel
