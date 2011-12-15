@@ -223,10 +223,15 @@ getvSwap'_ = putStrLn$ CUDA.genKernelGlob_ "vSwap" vSwap' (GlobalArray undefined
 
 ----------------------------------------------------------------------------
 --
-reduceAddBlocks :: GlobalArray Pull (Exp Int) -> Kernel (GlobalArray Push (Exp Int)) ck . push) 
+reduceAddBlocks :: GlobalArray Pull (Exp Int) -> Kernel (GlobalArray Push (Exp Int)) 
+reduceAddBlocks  = withBlockSize 64 (reduce (+)) 
+
+
+withBlockSize n p = pure (block n) ->- p ->- pure (unblock . push) 
 
 getR = putStrLn$ CUDA.genKernelGlob "reduce" reduceAddBlocks (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
 getR_ = putStrLn$ CUDA.genKernelGlob_ "reduce" reduceAddBlocks (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
+
 
 
 ----------------------------------------------------------------------------
@@ -240,6 +245,8 @@ getApa = putStrLn$ CUDA.genKernel "apa" apa (namedArray "hej" 128 :: Array Pull 
 
 ----------------------------------------------------------------------------
 -- Preloading examples (Breaks because of poor state of Sync.hs) 
+
+
 
 -- puts two elements per thread in shared memory
 preload2Test :: Array Pull (Exp Int) -> Kernel (Array Pull (Exp Int))
@@ -292,13 +299,22 @@ getpreload4'Test = putStrLn$ CUDA.genKernel "preload4" preload4'Test (namedArray
 -- GlobalArrays and preloading 
 
 -- exhibits a problem. To many threads used for writing result. 
--- in this case 64 threads, when 16 would be more proper
 globalPreloadTest :: GlobalArray Pull (Exp Int) -> Kernel (GlobalArray Push (Exp Int)) 
 globalPreloadTest = 
-  withBlockSize 64  
+  -- 128 elements per block. 
+  withBlockSizeS 128 (pure (unblock . push))
     ( 
-      Help.preload4' {- ->- compute_stuff -}
+      Help.preload4' ->- 
+      reduceSeqSteps 2 (+) ->- sync ->- 
+      reduce (+) 
     ) 
+
+reduceSeqSteps :: Int -> (a -> a -> a) -> Array Pull a -> Kernel (Array Pull a)
+reduceSeqSteps 0 op = pure id
+reduceSeqSteps n op = pure (uncurry (zipWith op) . halve) ->- reduceSeqSteps (n-1) op
+
+-- store describes how to put element back into global array 
+withBlockSizeS n store p = pure (block n) ->- p ->- store 
 
 
 getGlobalPreload = putStrLn$ CUDA.genKernelGlob "globalPreload" globalPreloadTest (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
