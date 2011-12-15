@@ -267,7 +267,7 @@ getpreload3Test = putStrLn$ CUDA.genKernel "preload3" preload3Test (namedArray "
 preload4Test :: Array Pull (Exp Int) -> Kernel (Array Pull (Exp Int))
 preload4Test = Help.preload4 
 
-getpreload4Test = putStrLn$ CUDA.genKernel "preload4" preload4Test (namedArray "hej" (3*100) :: Array Pull (Exp Int))
+getpreload4Test = putStrLn$ CUDA.genKernel "preload4" preload4Test (namedArray "hej" (4*100) :: Array Pull (Exp Int))
 
 
 
