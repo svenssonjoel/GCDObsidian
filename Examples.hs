@@ -9,6 +9,7 @@ import qualified Obsidian.GCDObsidian.CodeGen.C as C
 import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
 import Obsidian.GCDObsidian.Program
+import qualified Obsidian.GCDObsidian.Helpers as Help
 
 import Data.Word
 import Data.Bits
@@ -229,3 +230,46 @@ withBlockSize n p = pure (block n) ->- p ->- pure (unblock . push)
 
 getR = putStrLn$ CUDA.genKernelGlob "reduce" reduceAddBlocks (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
 getR_ = putStrLn$ CUDA.genKernelGlob_ "reduce" reduceAddBlocks (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
+
+
+
+----------------------------------------------------------------------------
+-- 
+apa :: Array Pull (Exp Int) -> Kernel (Array Push (Exp Int))
+apa = sync  ->- pure push 
+
+
+getApa = putStrLn$ CUDA.genKernel "apa" apa (namedArray "hej" 128 :: Array Pull (Exp Int))
+
+
+----------------------------------------------------------------------------
+-- Preloading examples (Breaks because of poor state of Sync.hs) 
+
+
+
+-- puts two elements per thread in shared memory
+preload2Test :: Array Pull (Exp Int) -> Kernel (Array Pull (Exp Int))
+preload2Test = Help.preload2 
+
+getpreload2Test = putStrLn$ CUDA.genKernel "preload2" preload2Test (namedArray "hej" 128 :: Array Pull (Exp Int))
+
+----------------------------------------------------------------------------
+--
+preload3Test :: Array Pull (Exp Int) -> Kernel (Array Pull (Exp Int))
+preload3Test = Help.preload3 
+
+getpreload3Test = putStrLn$ CUDA.genKernel "preload3" preload3Test (namedArray "hej" (3*100) :: Array Pull (Exp Int))
+
+
+----------------------------------------------------------------------------
+-- I'm not sure why this outputs any code right now. 
+
+preload4Test :: Array Pull (Exp Int) -> Kernel (Array Pull (Exp Int))
+preload4Test = Help.preload4 
+
+getpreload4Test = putStrLn$ CUDA.genKernel "preload4" preload4Test (namedArray "hej" (3*100) :: Array Pull (Exp Int))
+
+
+
+
+
