@@ -169,6 +169,7 @@ unquad' arr =  mkPushArray (\k -> parr !* (everyfth k))
 
 ----------------------------------------------------------------------------
 -- 
+    
 --ftof4 :: Array Pull (Exp Float) -> Array Push (Exp Float4) 
 --ftof2 :: Array Pull (Exp Float) -> Array Push (Exp Float2) 
 --f4tof :: Array Pull (Exp Float4) -> Array Pull (Exp Float)     

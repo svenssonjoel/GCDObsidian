@@ -323,10 +323,13 @@ globalPreloadSimple =
   -- 128 elements per block. 
   withBlockSize 128 
     ( 
-      Help.preload4' ->-
-      Help.push4
+      Help.preload4' ->-   --load 4 elements per thread from GlobArray
+      Help.push4           --push 4 elements per threads
     ) 
 
 getGlobalPreloadSimple = putStrLn$ CUDA.genKernelGlob "globalPreloadS" globalPreloadSimple (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
 getGlobalPreloadSimple_ = putStrLn$ CUDA.genKernelGlob_ "globalPreloadS" globalPreloadSimple (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
 
+
+----------------------------------------------------------------------------
+-- 

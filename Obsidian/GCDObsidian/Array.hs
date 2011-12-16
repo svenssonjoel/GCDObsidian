@@ -1,7 +1,8 @@
 {-# LANGUAGE MultiParamTypeClasses, 
              FlexibleInstances,
              FlexibleContexts, 
-             UndecidableInstances  #-} 
+             UndecidableInstances,  
+             GADTs #-} 
 
 module Obsidian.GCDObsidian.Array ((!) -- pull array apply (index into)
                                   ,(!*) -- push array apply 
@@ -37,8 +38,14 @@ import Obsidian.GCDObsidian.Program
 import Data.List
 import Data.Word
 
-------------------------------------------------------------------------------
 
+----------------------------------------------------------------------------
+-- 
+
+
+
+
+------------------------------------------------------------------------------
 data Push a = Push {pushFun :: P (Exp Word32,a)}
 data Pull a = Pull {pullFun :: Exp Word32 -> a}
 
@@ -59,7 +66,7 @@ data Pull a = Pull {pullFun :: Exp Word32 -> a}
   
    type PushArray   a = Array (Push Ix1D a) Dim1 
    type PushArray2D a = Array (Push Ix2D a) Dim2
-   type PushArray3D a = Array (Push Ix3d a) Dim3 
+   type PushArray3D a = Array (Push Ix3D a) Dim3 
    
 
    What happens once someone tries to nest these.. 

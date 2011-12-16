@@ -122,7 +122,7 @@ data Exp a where
              -> Exp a 
              -> Exp a 
              -> Exp a 
-             
+                          
   BinOp   :: (Scalar a,
               Scalar b, 
               Scalar c) 

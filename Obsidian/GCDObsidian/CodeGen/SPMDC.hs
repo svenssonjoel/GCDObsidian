@@ -765,7 +765,9 @@ cseReplace cm cp exp@(CExpr (CCond e1 e2 e3 t)) =
     (Just (nid,node,_)) -> 
       case Map.lookup nid cp of 
         (Just exp') -> exp'
-        Nothing -> CExpr (CCond (cseReplace cm cp e1) (cseReplace cm cp e2) (cseReplace cm cp e3) t)
+        Nothing -> CExpr (CCond (cseReplace cm cp e1) 
+                                (cseReplace cm cp e2) 
+                                (cseReplace cm cp e3) t)
 -- dont know what to do so just put expression back...     
 cseReplace cm cp exp = 
   case Map.lookup exp cm of 
