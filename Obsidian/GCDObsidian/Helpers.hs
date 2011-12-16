@@ -159,5 +159,17 @@ unquad' arr =  mkPushArray (\k -> parr !* (everyfth k))
   where 
     parr = push arr 
     n    = len parr
-    everyfth f  = \(ix,(a,b,c,d)) -> f (ix * 4,a) *>* f (ix * 4 + 1,b) *>* f (ix * 4+2, c) *>* f (ix * 4+3,d)  
+    everyfth f  = \(ix,(a,b,c,d)) -> f (ix,a) *>* 
+                                     f (ix + fromIntegral n,b) *>* 
+                                     f (ix + fromIntegral (2*n),c) *>* 
+                                     f (ix + fromIntegral (3*n),d)  
 
+
+
+
+----------------------------------------------------------------------------
+-- 
+--ftof4 :: Array Pull (Exp Float) -> Array Push (Exp Float4) 
+--ftof2 :: Array Pull (Exp Float) -> Array Push (Exp Float2) 
+--f4tof :: Array Pull (Exp Float4) -> Array Pull (Exp Float)     
+--f2tof :: Array Pull (Exp Float2) -> Array Pull (Exp Float) 
