@@ -302,20 +302,17 @@ getpreload4'Test = putStrLn$ CUDA.genKernel "preload4" preload4'Test (namedArray
 globalPreloadTest :: GlobalArray Pull (Exp Int) -> Kernel (GlobalArray Push (Exp Int)) 
 globalPreloadTest = 
   -- 128 elements per block. 
-  withBlockSizeS 128 (pure (unblock . push))
+  withBlockSize 128 
     ( 
       Help.preload4' ->- 
       reduceSeqSteps 2 (+) ->- sync ->- 
-      reduce (+) 
+      reduce (+) ->- 
+      Help.push1 
     ) 
 
 reduceSeqSteps :: Int -> (a -> a -> a) -> Array Pull a -> Kernel (Array Pull a)
 reduceSeqSteps 0 op = pure id
 reduceSeqSteps n op = pure (uncurry (zipWith op) . halve) ->- reduceSeqSteps (n-1) op
-
--- store describes how to put element back into global array 
-withBlockSizeS n store p = pure (block n) ->- p ->- store 
-
 
 getGlobalPreload = putStrLn$ CUDA.genKernelGlob "globalPreload" globalPreloadTest (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
 getGlobalPreload_ = putStrLn$ CUDA.genKernelGlob_ "globalPreload" globalPreloadTest (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     

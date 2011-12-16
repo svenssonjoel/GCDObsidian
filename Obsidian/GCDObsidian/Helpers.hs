@@ -95,7 +95,19 @@ preload3' = pure tripple' ->- pure untripple' ->- sync
 preload4' ::(Syncable (Array Push) a) => Array Pull a -> Kernel (Array Pull a) 
 preload4' = pure quad' ->- pure unquad' ->- sync 
 
+----------------------------------------------------------------------------
+--
+push1, push2, push3, push4 :: Array Pull a -> Kernel (Array Push a)
+push1 = pure push
 
+push2 arr | len arr `mod` 2 /= 0 = error "push2: Array length is not multiple of two" 
+          | otherwise            = pure (unpair' . pair') arr
+
+push3 arr | len arr `mod` 3 /= 0 = error "push3: Array length is not multiple of three" 
+          | otherwise            = pure (untripple' . tripple') arr 
+
+push4 arr | len arr `mod` 4 /= 0 = error "push4: Array length is not multiple of four" 
+          | otherwise            = pure (unquad' . quad') arr
 ---------------------------------------------------------------------------- 
 -- 
 pair' :: Array Pull a -> Array Pull (a,a) 
@@ -142,10 +154,10 @@ quad' arr = mkPullArray (\ix -> (arr ! (ix),
     n' = n `div` 4 
 
 unquad' :: Array Pull (a,a,a,a) -> Array Push a 
-unquad' arr =  mkPushArray (\k -> parr !* (everythrd k))
+unquad' arr =  mkPushArray (\k -> parr !* (everyfth k))
          (4 * n)
   where 
     parr = push arr 
     n    = len parr
-    everythrd f  = \(ix,(a,b,c,d)) -> f (ix * 4,a) *>* f (ix * 4 + 1,b) *>* f (ix * 4+2, c) *>* f (ix * 4+3,d)  
+    everyfth f  = \(ix,(a,b,c,d)) -> f (ix * 4,a) *>* f (ix * 4 + 1,b) *>* f (ix * 4+2, c) *>* f (ix * 4+3,d)  
 
