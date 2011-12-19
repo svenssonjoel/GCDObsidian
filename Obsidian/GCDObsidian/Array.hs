@@ -43,8 +43,6 @@ import Data.Word
 -- 
 
 
-
-
 ------------------------------------------------------------------------------
 data Push a = Push {pushFun :: P (Exp Word32,a)}
 data Pull a = Pull {pullFun :: Exp Word32 -> a}
@@ -237,8 +235,10 @@ instance Indexible (GlobalArray Pull) a where
 globLen (GlobalArray _ n) = n
 
 
+---------------------------------------------------------------------------- 
+--  Block and unblock
 
- -- TODO: These should be somewhere else !!! 
+-- TODO: These should be somewhere else !!! 
 block :: Word32 -> GlobalArray Pull a -> Array Pull a   
 block blockSize glob = Array (Pull newFun) blockSize 
   where 
