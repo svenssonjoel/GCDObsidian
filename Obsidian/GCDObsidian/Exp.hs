@@ -86,6 +86,7 @@ instance Scalar Word64 where
   typeOf _ = Word64
 
 
+
 ----------------------------------------------------------------------------
 -- Expressions 
 data Exp a where
@@ -178,7 +179,6 @@ data Op a where
   -- built-ins
   Min        :: Ord a => Op ((a,a) -> a) 
   Max        :: Ord a => Op ((a,a) -> a) 
-
 
   -- Floating (different CUDA functions for float and double, issue maybe?) 
   Exp :: Floating a => Op (a -> a) -- "expf" 

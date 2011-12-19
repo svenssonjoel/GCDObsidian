@@ -330,6 +330,3 @@ globalPreloadSimple =
 getGlobalPreloadSimple = putStrLn$ CUDA.genKernelGlob "globalPreloadS" globalPreloadSimple (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
 getGlobalPreloadSimple_ = putStrLn$ CUDA.genKernelGlob_ "globalPreloadS" globalPreloadSimple (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
 
-
-----------------------------------------------------------------------------
--- 
