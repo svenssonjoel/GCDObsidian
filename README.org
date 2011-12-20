@@ -39,11 +39,11 @@
     a CUDA int is 64bit on 64bit architectures?
 
 * TODO and to look into:
-  + Detect if output is computed directly from input. 
+  + PRIO => Detect if output is computed directly from input. 
     If that happens store result fist in a variable and 
     then to output array from there. 
   + Many-in -> Many-out operations 
-  + Coordination 
+  + PRIO => Coordination 
   + Improve upon the things in Sync.hs 
     Syncing needs to be improved. (work on more kinds of arrays, needs type class magic)
   + Fix SyncAnalysis
@@ -52,7 +52,7 @@
   + DONE: Generate the vSwap/iSwap kind of kernels. That is Kernels that operate 
           on an array based on its global tid instead of local tid.
   + DONE: Generate Kernels that take scalar parameters
-  + Filters and unsafe operations that lead to nondeterminism
+  + PRIO => Filters and unsafe operations that lead to nondeterminism
   + 2D and 3D Arrays. Add in some form.  
   + clean up
   + Sequential arrays
