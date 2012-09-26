@@ -292,7 +292,7 @@ genProg mm nt (ForAll f n) = potentialCond gc mm n nt $
 -- TODO: The following line is a HACK to make code generation 
 ---      for the histo function in Counting sort "work". 
 --       More thought needed here. 
-genProg mm nt (ForAllGlobal f n) = genProg mm nt (f (BlockIdx X * ThreadIdx X))
+genProg mm nt (ForAllGlobal f n) = genProg mm nt (f ((BlockIdx X * BlockDim X) + ThreadIdx X))
 -- error "hello world"                                
 --genProg mm nt (f (variable "gtid"))
   
