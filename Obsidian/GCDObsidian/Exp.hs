@@ -268,8 +268,10 @@ instance Num (Exp Int) where
   abs = undefined
   fromInteger a = Literal (fromInteger a) 
   
-  
-instance Bits (Exp Int) where 
+-- Added new cases for literal 0 (2012/09/25)
+instance Bits (Exp Int) where  
+  (.&.) x (Literal 0) = Literal 0
+  (.&.) (Literal 0) x = Literal 0 
   (.&.) (Literal a) (Literal b) = Literal (a .&. b) 
   (.&.) a b = BinOp BitwiseAnd a b
   (.|.) (Literal a) (Literal b) = Literal (a .|. b)
@@ -306,8 +308,10 @@ instance Num (Exp Word32) where
   abs = undefined
   fromInteger a = Literal (fromInteger a) 
   
-  
+ -- Added new cases for literal 0 (2012/09/25)
 instance Bits (Exp Word32) where 
+  (.&.) x (Literal 0) = Literal 0
+  (.&.) (Literal 0) x = Literal 0 
   (.&.) (Literal a) (Literal b) = Literal (a .&. b) 
   (.&.) a b = BinOp BitwiseAnd a b   
   (.|.) (Literal a) (Literal b) = Literal (a .|. b) 
