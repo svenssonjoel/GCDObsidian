@@ -289,8 +289,11 @@ genProg mm nt (Assign name ix a) =
         
 genProg mm nt (ForAll f n) = potentialCond gc mm n nt $ 
                                genProg mm nt (f (ThreadIdx X) {- (variable "tid") -} )
--- Investigate why this line is not used. 
-genProg mm nt (ForAllGlobal f n) = error "hello world"                                
+-- TODO: The following line is a HACK to make code generation 
+---      for the histo function in Counting sort "work". 
+--       More thought needed here. 
+genProg mm nt (ForAllGlobal f n) = genProg mm nt (f (BlockIdx X * ThreadIdx X))
+-- error "hello world"                                
 --genProg mm nt (f (variable "gtid"))
   
   -- TODO: Many details missing here, think about nested ForAlls 
