@@ -39,6 +39,8 @@
     a CUDA int is 64bit on 64bit architectures?
 
 * TODO and to look into:
+  + Break out SPMDC into its own library and try to abstract this 
+    from any OpenCL, CUDA Specifics. 
   + Update the Cabal file. Or fix whatever the problem with that is. 
   + PRIO => Detect if output is computed directly from input. 
     If that happens store result fist in a variable and 
