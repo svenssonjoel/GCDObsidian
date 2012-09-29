@@ -16,6 +16,7 @@ module Obsidian.GCDObsidian.Array ((!) -- pull array apply (index into)
                                   , Array(..)  
                                   , Pushy
                                   , PushyInternal
+                                  , pushGlobal
                                   , push
                                   , push' -- this is for "internal" use
                                   , push'' -- this is for "internal" use
@@ -163,9 +164,15 @@ instance Pushy (Array Push) where
   push = id 
   
 instance Pushy (Array Pull)  where   
-  push (Array (Pull ixf) n) = Array (Push (\func -> ForAll (\i -> func (i,(ixf i))) n)) n 
+  push (Array (Pull ixf) n) = Array (Push (\func -> ForAll (\i -> func (i,ixf i)) n)) n 
 
 
+class PushGlobal a where 
+  pushGlobal :: a e -> GlobalArray Push e 
+
+instance PushGlobal (GlobalArray Pull) where 
+  pushGlobal (GlobalArray (Pull ixf) n) = 
+      GlobalArray (Push (\func -> ForAllGlobal (\i -> func (i,ixf i)) n )) n
 ----------------------------------------------------------------------------
 --
 
@@ -239,6 +246,7 @@ globLen (GlobalArray _ n) = n
 --  Block and unblock
 
 -- TODO: These should be somewhere else !!! 
+-- TODO: Should these "Be" at all ?
 block :: Word32 -> GlobalArray Pull a -> Array Pull a   
 block blockSize glob = Array (Pull newFun) blockSize 
   where 
