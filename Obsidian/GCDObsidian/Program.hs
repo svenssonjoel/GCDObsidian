@@ -7,6 +7,8 @@ module Obsidian.GCDObsidian.Program
        ,(*>*)
        ,targetArray
        ,targetPair
+       ,Atomic(..)
+       ,printAtomic  
        )where 
 
 import Data.Word
@@ -41,7 +43,9 @@ data Program extra
 --       introduces a Synchronize nested in anything.     
   | ProgramSeq (Program extra) 
                (Program extra) 
-  
+
+  | forall a. Scalar a => AtomicOp Name Name (Exp Word32) (Atomic (Data a))
+
 -- took same as precedence as for ++ for *>*
 infixr 5 *>* 
 
@@ -58,7 +62,8 @@ programThreads (ForAll f n) = n -- inner ForAlls are sequential
 programThreads (Allocate _ _ _ _) = 0 -- programThreads p 
 -- programThreads (Cond b p ) = programThreads p
 programThreads (p1 `ProgramSeq` p2) = max (programThreads p1) (programThreads p2)
-    
+programThreads (AtomicOp _ _ _ _) = 1
+
                                       
 printProgram :: Show extra => Program extra -> String 
 printProgram Skip = ";" 
@@ -69,7 +74,10 @@ printProgram (ForAll f n)   = "par i " ++ show n ++ " {\n" ++ printProgram (f (v
 printProgram (Allocate name n t e) = name ++ " = malloc(" ++ show n ++ ")\n" ++ 
                                      "[*** " ++ show e ++ " ***]\n" 
 printProgram (ProgramSeq p1 p2) = printProgram p1 ++ printProgram p2
-    
+-- Needs fresh name generations to be correct
+printProgram (AtomicOp name n i e) = name ++ " = " ++ printAtomic e ++
+                                     "(" ++ n ++ "[" ++ show i ++ "])"
+
 instance Show extra => Show (Program extra) where 
   show = printProgram 
 
@@ -81,3 +89,10 @@ targetArray n (i,a) = Assign n i a
 targetPair :: (Scalar a, Scalar b) => Name -> Name -> (Exp Word32,(Exp a,Exp b)) -> Program ()
 targetPair n1 n2  (i,(a,b)) = Assign n1 i a *>*
                               Assign n2 i b
+
+-- Atomic operations
+
+data Atomic a where
+  AtomicInc :: Atomic (Data Int)
+
+printAtomic AtomicInc = "atomicInc"
