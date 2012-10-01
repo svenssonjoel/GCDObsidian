@@ -18,6 +18,7 @@ import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs 
 import Obsidian.GCDObsidian.Program
+import Obsidian.GCDObsidian.ModifyArray
 
 import Prelude hiding (splitAt)
 import Obsidian.GCDObsidian.Library (splitAt,concP,unzipp,zipp)
@@ -45,8 +46,8 @@ globalTargetAgain :: Scalar a => Name -> (Exp Word32, Exp a) -> Program ()
 globalTargetAgain nom (i,a) = Assign nom i a 
 
 class BasePush a where 
-  cType :: Array Push (Exp a) -> Type 
-  cTypeGlob :: GlobalArray Push (Exp a) -> Type
+  cType :: Array p (Exp a) -> Type 
+  cTypeGlob :: GlobalArray p (Exp a) -> Type
   
 instance BasePush (Int) where 
   cType arr = Pointer Int 
@@ -203,8 +204,24 @@ instance (InOut (Array Pull a), InOut (Array Pull b)) => InOut (Array Pull (a,b)
     let (a0,a1) = unzipp arr
     in  gcd (gcdThreads a0) (gcdThreads a1)
         
-        
-        
+instance (BasePush a, Scalar a) => InOut (Array Modify (Exp a)) where
+  createInputs arr  = error "Modify arrays cannot be inputs"
+    
+  writeOutputs threadBudget parr@(Array (Modify pfun op) _) = do   
+    
+    name <- newInOut "result" (cType parr) (len parr)
+   
+    return$ pfun (globalTargetModify op name (fromIntegral (len parr))) 
+  
+         
+   -- HACK HACK HACK    
+  gcdThreads (Array (Modify parr op) n) = programThreads prg
+    where prg = parr (globalTargetModify op "dummy" (fromIntegral n)) 
+
+globalTargetModify :: Scalar a => Atomic (Exp a) -> Name -> Exp Word32 -> Exp Word32 -> Program ()
+globalTargetModify op nom blockSize i =
+  AtomicOp "dummy" nom ((bid * blockSize) + i) op
+
         
 --------------------------------------------------------------------------        
 -- New approach to input output
