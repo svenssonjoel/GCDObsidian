@@ -19,7 +19,7 @@ import Obsidian.GCDObsidian.Globs
 
 ----------------------------------------------------------------------------
 -- 
-
+-- TODO: Data a and Exp a is the same. (look at this!) 
 data Program extra 
   = Skip
     
