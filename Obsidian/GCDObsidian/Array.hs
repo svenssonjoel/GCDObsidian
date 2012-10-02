@@ -48,6 +48,12 @@ import Data.Word
 data Push a = Push {pushFun :: P (Exp Word32,a)}
 data Pull a = Pull {pullFun :: Exp Word32 -> a}
 
+--What about
+data PushG a = PushG {pushGFun :: P (Exp Word32,Exp Word32, a)}
+data PullG a = PullG {pullGFun :: Exp Word32 -> Exp Word32 -> a 
+
+
+
 {- 
    data Push ix a = Push {pushFun :: P (ix,a))
    data Pull ix a = Pull {pullFun :: ix -> a)) 

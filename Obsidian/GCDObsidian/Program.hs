@@ -28,7 +28,16 @@ data Program extra
   | ForAll (Data Word32 -> (Program extra)) Word32   
 
 -- Could this be improved ? 
-  | ForAllGlobal (Data Word32 -> (Program extra)) (Exp Word32)
+--  | ForAllGlobal (Data Word32 -> (Program extra)) (Exp Word32)
+-- TODO: Maybe the (Exp Word32, Exp Word32) should be (Word32,Word32)
+--                   Blocks      blocksize 
+  | ForAllGlobal (Exp Word32, Exp Word32)
+                 (Exp Word32 -> Exp Word32 -> Program extra)
+
+-- Alternative (but I dont know... this implies there
+--              can be things such as Allocate inside a ForAllBlocks..
+--              Maybe that is ok, just need to think a bit more about it) 
+  | ForAllBlocks (Exp Word32) (Exp Word32 -> Program extra)    
     
 -- DONE: I Think Allocate should not introduce nesting
   | Allocate Name Word32 Type extra
