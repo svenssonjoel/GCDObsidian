@@ -19,6 +19,13 @@ instance Functor (Array Pull) where
 
 
 ------------------------------------------------------------------------------
+-- ForAll 
+
+forAll = flip ForAll
+forAllGlobal = flip ForAllGlobal
+
+
+------------------------------------------------------------------------------
 -- Reverse an array by indexing in it backwards
 rev :: Array Pull a -> Array Pull a 
 rev arr = mkPullArray (\ix -> arr ! (m - ix)) n 

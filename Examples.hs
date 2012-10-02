@@ -170,8 +170,8 @@ vSwap (arr,stride) = return p5
     arr2  = mkGlobalPullArray (\ix -> arr ! t2 ix) (globLen arr `div` 2)
     arr1' = zipWithG min arr1 arr2
     arr2' = zipWithG max arr1 arr2
-    p1    = pushGlobal 512 arr1'
-    p2    = pushGlobal 512 arr2'
+    p1    = pushGlobalB 512 arr1'
+    p2    = pushGlobalB 512 arr2'
     p3    = ixMap t1 p1 
     p4    = ixMap t2 p2 
     p5    = GlobalArray (Push (\k -> p3 !* k *>* p4 !* k)) (globLen arr)
@@ -208,7 +208,7 @@ zipWithG op a1 a2 =
 
 -- a global array is "pushed" by dividing 
 -- it up into short pieces that are pushed blockwise. 
-pushGlobal blocksize = 
+pushGlobalB blocksize = 
    unblock . push . block blocksize   
   
 pushGlobal' blocksize = 

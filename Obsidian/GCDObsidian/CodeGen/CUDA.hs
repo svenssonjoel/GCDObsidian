@@ -166,7 +166,7 @@ genKernel_ name kernel a = cuda
     cuda = printCKernel (PPConfig "__global__" "" "" "__syncthreads()") ckernel 
   
     
-    -- cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
+    -- cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs) 
 
 
 ----------------------------------------------------------------------------
@@ -285,6 +285,11 @@ genProg mm nt (Assign name ix a) =
         line$  name ++ "[" ++ concat (genExp gc mm ix) ++ "] = " ++ 
           concat (genExp gc mm a) ++ ";"
         newline
+-- TODO: Add Similar AtomicOp case
+--       Also see where else it needs to go!
+--        # CSE
+--        # Liveness
+--
         
         
 genProg mm nt (ForAll f n) = potentialCond gc mm n nt $ 
