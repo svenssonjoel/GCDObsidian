@@ -254,6 +254,9 @@ instance Num (Exp Int) where
   (+) a (Literal 0) = a
   (+) (Literal 0) a = a
   (+) (Literal a) (Literal b) = Literal (a+b)
+  -- Added 2 Oct 2012
+  (+) (BinOp Sub b (Literal a)) (Literal c) | a == c  = b 
+  (+) (Literal b) (BinOp Sub a (Literal c)) | b == c  = a 
   (+) a b = BinOp Add a b  
   
   (-) a (Literal 0) = a 
@@ -294,6 +297,11 @@ instance Num (Exp Word32) where
   (+) a (Literal 0) = a
   (+) (Literal 0) a = a
   (+) (Literal a) (Literal b) = Literal (a+b)
+
+  -- Added 2 oct 2012
+  (+) (BinOp Sub b (Literal a)) (Literal c) | a == c  = b 
+  (+) (Literal b) (BinOp Sub a (Literal c)) | b == c  = a 
+ 
   (+) a b = BinOp Add a b  
   
   (-) a (Literal 0) = a 
