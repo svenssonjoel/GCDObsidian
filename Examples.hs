@@ -5,6 +5,7 @@ module Examples where
 import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Kernel
 import Obsidian.GCDObsidian.Exp
+import Obsidian.GCDObsidian.Program
 
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 -- import qualified Obsidian.GCDObsidian.CodeGen.C as C
@@ -17,7 +18,7 @@ import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 --import Data.Bits
 
 
-import Prelude hiding (zipWith,sum )
+import Prelude hiding (zipWith,sum, reverse)
 
 
 mapFusion :: Array Pull IntE -> Kernel (Array Pull IntE) 
@@ -29,6 +30,19 @@ input1 = namedArray "apa" 32
 
 getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 getMapFusion_  = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusion input1
+
+
+reverse :: Array Pull IntE -> Array Push IntE 
+reverse arr = mkPushArray 
+              (\k ->
+                ForAll n
+                (\i -> k (m - 1 - i,arr ! i))) n
+  where
+    n = len arr
+    m = fromIntegral n
+    
+getReverse   = putStrLn$ CUDA.genKernel "reverse" (pure reverse) input1
+getReverse_  = putStrLn$ CUDA.genKernel_ "reverse" (pure reverse) input1
 
 {- 
 ---------------------------------------------------------------------------

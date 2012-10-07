@@ -106,17 +106,12 @@ data PullG a = PullG {pullGFun :: Exp Word32 -> Exp Word32 -> a}
 
 -} 
 
--- Arrays!
---data Array a = Array (Exp Word32 -> a) Word32 
---data Array a = Array (Exp Word32 -> a)  Word32 
--- PUSHY ARRAYS! 
-
-type P a = (a -> Program ()) -> Program () 
+newtype P a = P {unP :: (a -> Program ()) -> Program ()}  
 
 data Array p a = Array (p a) Word32
 
 type PushArray a = Array Push a 
-type PullArray a = Array Pull a 
+type PullArray a = Array Pull a  
 
 mkPushArray p n = Array (Push p) n 
 mkPullArray p n = Array (Pull p) n 
@@ -124,25 +119,22 @@ mkPullArray p n = Array (Pull p) n
 resize (Array p n) m = Array p m 
 
 
-{- 
-To look at later !!!! (needs to be a newtype though!
+runP :: P a -> (a -> Program ()) -> Program ()
+runP p a = (unP p) a  
+
 instance Monad P where 
   return a = P $ \k -> k a 
-  (>>=) (P m) f = P $ \k -> m (\a -> runP (f a) k) 
+  (>>=) (P m) f = P $ \k -> m (\a -> runP  (f a) k) 
 
 instance Functor P where 
-  ... 
+  --fmap :: (a -> b) -> P a -> P b 
+  fmap f (P m) = P $ \k -> m (\a -> k (f a))  
 
-instance Applicative P where 
-  ...
 
--} 
-
--- data ArrayP a = ArrayP (P (Exp Word32, a)) Word32
-
--- data ArrayP a = ArrayP ((Exp Word32 -> a -> Program ()) -> Program ()) Word32
-
--- pushApp (ArrayP func n) a =  func a 
+    
+--instance Applicative P where 
+--  ...
+ 
 
 
 -- TODO: Do you need (Exp e) where there is only e ? 
@@ -170,13 +162,13 @@ instance PushyInternal (Array Pull)  where
                                   let a  = ixf ix
                                 ]) )) n
 
-class Pushy a p e where
+class Pushable a p e where
   push :: a p e -> a Push e
 
-instance Pushy Array Push e where 
+instance Pushable Array Push e where 
   push = id 
   
-instance Pushy Array Pull e  where   
+instance Pushable Array Pull e  where   
   push (Array (Pull ixf) n) =
     Array (Push (\k ->
                   ForAll n (\i -> k (i,ixf i)))) n 
@@ -216,10 +208,10 @@ class PushApp a where
   papp :: a e -> ((Exp Word32,e) -> Program ()) -> Program ()
 
 instance PushApp (Array Push) where 
-  papp (Array (Push f) n) a = f a 
+  papp (Array (Push f) n) a = (unP f) a 
 
-instance PushApp (GlobalArray Push) where 
-  papp (GlobalArray (Push f) n) a = f a 
+--instance PushApp (GlobalArray Push) where 
+--  papp (GlobalArray (Push f) n) a = f a 
   
 class Len a where 
   len :: a e -> Word32
@@ -254,7 +246,7 @@ instance Show  a => Show (Array Pull a) where
 -- Global array related stuff
 -- This is also quite directly influencing "coordination" 
 -- of kernels. 
-
+{- 
 data GlobalArray p a = GlobalArray (p a) (Exp Word32)
 
 mkGlobalPushArray p n = GlobalArray (Push p) n 
@@ -268,4 +260,4 @@ instance Indexible (GlobalArray Pull) a where
   
 globLen (GlobalArray _ n) = n
 
-
+-} 
