@@ -287,7 +287,7 @@ genProg mm nt (Assign name ix a) =
         newline
         
         
-genProg mm nt (ForAll f n) = potentialCond gc mm n nt $ 
+genProg mm nt (ForAll n f) = potentialCond gc mm n nt $ 
                                genProg mm nt (f (ThreadIdx X) {- (variable "tid") -} )
 -- TODO: The following line is a HACK to make code generation 
 ---      for the histo function in Counting sort "work". 
@@ -319,7 +319,7 @@ ctid = cVar "tid" CWord32
 progToSPMDC :: Word32 -> Program a -> [SPMDC] 
 progToSPMDC nt (Assign name ix a) = 
   [cAssign (cVar name CWord8)[expToCExp ix] (expToCExp a)] 
-progToSPMDC nt (ForAll f n) =         
+progToSPMDC nt (ForAll n f) =         
   if (n < nt) 
   then 
     [cIf (cBinOp CLt ctid (cLiteral (Word32Val n) CWord32) CInt)

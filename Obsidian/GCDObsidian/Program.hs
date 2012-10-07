@@ -25,14 +25,14 @@ data Program extra
     
   | forall a. Scalar a => Assign Name (Data Word32) (Data a) 
 -- Note: Writing of a scalar value into an array location.     
-  | ForAll (Data Word32 -> (Program extra)) Word32   
+  | ForAll Word32 (Data Word32 -> (Program extra))    
 
 -- Could this be improved ? 
---  | ForAllGlobal (Data Word32 -> (Program extra)) (Exp Word32)
+  | ForAllGlobal (Data Word32 -> (Program extra)) (Exp Word32) 
 -- TODO: Maybe the (Exp Word32, Exp Word32) should be (Word32,Word32)
 --                   Blocks      blocksize 
-  | ForAllGlobal (Exp Word32, Exp Word32)
-                 (Exp Word32 -> Exp Word32 -> Program extra)
+--  | ForAllGlobal (Exp Word32, Exp Word32)
+--                 (Exp Word32 -> Exp Word32 -> Program extra)
 
 -- Alternative (but I dont know... this implies there
 --              can be things such as Allocate inside a ForAllBlocks..
@@ -67,7 +67,7 @@ programThreads :: Program extra -> Word32
 programThreads Skip = 0
 programThreads (Synchronize _) = 0 
 programThreads (Assign _ _ _) = 1
-programThreads (ForAll f n) = n -- inner ForAlls are sequential
+programThreads (ForAll n f) = n -- inner ForAlls are sequential
 programThreads (Allocate _ _ _ _) = 0 -- programThreads p 
 -- programThreads (Cond b p ) = programThreads p
 programThreads (p1 `ProgramSeq` p2) = max (programThreads p1) (programThreads p2)
@@ -78,7 +78,7 @@ printProgram :: Show extra => Program extra -> String
 printProgram Skip = ";" 
 printProgram (Synchronize b) = "Sync " ++ show b ++ "\n" 
 printProgram (Assign n t e) = n ++ "[" ++ show t ++ "]" ++ " = " ++ show e ++ ";\n"  
-printProgram (ForAll f n)   = "par i " ++ show n ++ " {\n" ++ printProgram (f (variable "i")) ++ "\n}" 
+printProgram (ForAll n f)   = "par i " ++ show n ++ " {\n" ++ printProgram (f (variable "i")) ++ "\n}" 
 -- printProgram (Cond b p)     = "cond {\n" ++ printProgram p ++ "\n}"
 printProgram (Allocate name n t e) = name ++ " = malloc(" ++ show n ++ ")\n" ++ 
                                      "[*** " ++ show e ++ " ***]\n" 

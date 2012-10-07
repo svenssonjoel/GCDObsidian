@@ -4,7 +4,9 @@
              UndecidableInstances,  
              GADTs #-} 
 
-module Obsidian.GCDObsidian.Array ((!) -- pull array apply (index into)
+module Obsidian.GCDObsidian.Array
+{- 
+       ((!) -- pull array apply (index into)
                                   ,(!*) -- push array apply 
                                   , mkPullArray
                                   , mkPushArray
@@ -28,7 +30,8 @@ module Obsidian.GCDObsidian.Array ((!) -- pull array apply (index into)
                                   , mkGlobalPullArray
                                   , Pull(..)
                                   , Push(..)
-                                  )where 
+                                  )
+-}where 
 
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Types
@@ -50,7 +53,7 @@ data Pull a = Pull {pullFun :: Exp Word32 -> a}
 
 --What about
 data PushG a = PushG {pushGFun :: P (Exp Word32,Exp Word32, a)}
-data PullG a = PullG {pullGFun :: Exp Word32 -> Exp Word32 -> a 
+data PullG a = PullG {pullGFun :: Exp Word32 -> Exp Word32 -> a} 
 
 
 
@@ -149,20 +152,37 @@ class  PushyInternal a where
 
 instance PushyInternal (Array Pull)  where   
   push' m (Array (Pull ixf) n) = 
-    Array (Push (\func -> ForAll (\i -> foldr1 (*>*) 
-                                   [func (ix,a)
-                                   | j <-  [0..m-1],
-                                     let ix = (i*(fromIntegral m) + (fromIntegral j)),
-                                     let a  = ixf ix
-                                   ]) (n `div` m))) n
+    Array (Push (\k ->
+                  ForAll (n `div` m)
+                         (\i -> foldr1 (*>*) 
+                                [k (ix,a)
+                                | j <-  [0..m-1],
+                                  let ix = (i*(fromIntegral m) + (fromIntegral j)),
+                                  let a  = ixf ix
+                                ]) )) n
   push'' m (Array (Pull ixf) n) = 
-    Array (Push (\func -> ForAll (\i -> foldr1 (*>*) 
-                                   [func (ix,a)
-                                   | j <-  [0..m-1],
-                                     let ix = (i+((fromIntegral ((n `div` m) * j)))),
-                                     let a  = ixf ix
-                                   ]) (n `div` m))) n
-             
+    Array (Push (\k ->
+                  ForAll (n `div` m)
+                         (\i -> foldr1 (*>*) 
+                                [k (ix,a)
+                                | j <-  [0..m-1],
+                                  let ix = (i+((fromIntegral ((n `div` m) * j)))),
+                                  let a  = ixf ix
+                                ]) )) n
+
+class Pushy a p e where
+  push :: a p e -> a Push e
+
+instance Pushy Array Push e where 
+  push = id 
+  
+instance Pushy Array Pull e  where   
+  push (Array (Pull ixf) n) =
+    Array (Push (\k ->
+                  ForAll n (\i -> k (i,ixf i)))) n 
+
+  
+{-     
 class Pushy a where 
   push :: a e -> Array Push e 
 
@@ -171,14 +191,15 @@ instance Pushy (Array Push) where
   
 instance Pushy (Array Pull)  where   
   push (Array (Pull ixf) n) = Array (Push (\func -> ForAll (\i -> func (i,ixf i)) n)) n 
-
-
+-}
+{- 
 class PushGlobal a where 
   pushGlobal :: a e -> GlobalArray Push e 
 
 instance PushGlobal (GlobalArray Pull) where 
   pushGlobal (GlobalArray (Pull ixf) n) = 
       GlobalArray (Push (\func -> ForAllGlobal (\i -> func (i,ixf i)) n )) n
+-}
 ----------------------------------------------------------------------------
 --
 
@@ -246,28 +267,5 @@ instance Indexible (GlobalArray Pull) a where
   access (GlobalArray ixf _) ix = pullFun ixf ix
   
 globLen (GlobalArray _ n) = n
-
-
----------------------------------------------------------------------------- 
---  Block and unblock
-
--- TODO: These should be somewhere else !!! 
--- TODO: Should these "Be" at all ?
-block :: Word32 -> GlobalArray Pull a -> Array Pull a   
-block blockSize glob = Array (Pull newFun) blockSize 
-  where 
-    newFun ix = (pullFun pull) ((bid * (fromIntegral blockSize)) + ix)  
-    (GlobalArray pull n) = glob 
-
-bid   = BlockIdx X -- variable "bid"
-nblks = GridDim X -- variable "gridDim.x"
-
-unblock :: Array Push a -> GlobalArray Push a 
-unblock array = GlobalArray newFun (nblks * (fromIntegral n)) 
- -- from a kernel's point of view the arrays is (nblks * n) long
-  where 
-    (Array (Push fun) n) = array
-    newFun  = Push (\func -> fun (\(i,a) -> func (bid * (fromIntegral n)+i,a)))
-
 
 

@@ -1,23 +1,36 @@
-{-# LANGUAGE FlexibleContexts #-} 
+{-# LANGUAGE FlexibleInstances #-} 
 
 module Examples where 
 
-import Obsidian.GCDObsidian
+import Obsidian.GCDObsidian.Array
+import Obsidian.GCDObsidian.Kernel
+import Obsidian.GCDObsidian.Exp
 
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
-import qualified Obsidian.GCDObsidian.CodeGen.C as C
-import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
+-- import qualified Obsidian.GCDObsidian.CodeGen.C as C
+-- import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
-import Obsidian.GCDObsidian.Program
-import qualified Obsidian.GCDObsidian.Helpers as Help
+--import Obsidian.GCDObsidian.Program
+--import qualified Obsidian.GCDObsidian.Helpers as Help
 
-import Data.Word
-import Data.Bits
+--import Data.Word
+--import Data.Bits
 
 
 import Prelude hiding (zipWith,sum )
 
 
+mapFusion :: Array Pull IntE -> Kernel (Array Pull IntE) 
+mapFusion = pure (fmap (+1) . fmap (*2)) 
+
+
+input1 :: Array Pull IntE 
+input1 = namedArray "apa" 32
+
+getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
+getMapFusion_  = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusion input1
+
+{- 
 ---------------------------------------------------------------------------
 -- MapFusion example
 mapFusion :: Array Pull IntE -> Kernel (Array Pull IntE) 
@@ -330,3 +343,4 @@ globalPreloadSimple =
 getGlobalPreloadSimple = putStrLn$ CUDA.genKernelGlob "globalPreloadS" globalPreloadSimple (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
 getGlobalPreloadSimple_ = putStrLn$ CUDA.genKernelGlob_ "globalPreloadS" globalPreloadSimple (GlobalArray undefined (variable "n") :: GlobalArray Pull (Exp Int))     
 
+-}

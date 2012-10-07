@@ -1,5 +1,6 @@
 
-{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE FlexibleInstances,
+             FlexibleContexts #-}
 module Obsidian.GCDObsidian.Library where 
 
 import Obsidian.GCDObsidian.Array 
@@ -179,7 +180,7 @@ ivDiv i j (Array (Pull ixf) n) = (Array (Pull (ixf . left)) (n-n2),
 -- ***                          PUSHY LIBRARY                        *** ---
 ----------------------------------------------------------------------------
 
-revP :: Pushy arr => arr a -> Array Push a 
+revP :: Pushy Array p a => Array p a -> Array Push a 
 revP  arr = ixMap (\ix -> (fromIntegral (n-1)) - ix) parr 
   where
     parr = push arr
@@ -216,8 +217,8 @@ ixMap' f p = \g -> ( p) (\(i,a) -> g (f i,a))
 
 ----------------------------------------------------------------------------
 -- Concatenate on Push arrays
-concP :: (Pushy arr1,
-          Pushy arr2) => (arr1 a, arr2 a) -> Array Push a     
+concP :: (Pushy Array p1 a,
+          Pushy Array p2 a) => (Array p1 a, Array p2 a) -> Array Push a     
 concP (arr1,arr2) = 
   mkPushArray  (\func -> parr1 !* func
                          *>*  
@@ -231,7 +232,7 @@ concP (arr1,arr2) =
      
 ----------------------------------------------------------------------------
 --
-unpairP :: Pushy arr => arr (a,a) -> Array Push a 
+unpairP :: Pushy Array p (a,a) => Array p (a,a) -> Array Push a 
 unpairP arr =  mkPushArray (\k -> parr !* (everyOther k))
          (2 * n)
   where 
@@ -245,7 +246,7 @@ everyOther f  = \(ix,(a,b)) -> f (ix * 2,a) *>* f (ix * 2 + 1,b)
 ----------------------------------------------------------------------------
 -- 
     
-zipP :: Pushy arr  => arr a -> arr a -> Array Push a  
+zipP :: Pushy Array p a  => Array p a -> Array p a -> Array Push a  
 zipP arr1 arr2 =
   mkPushArray (\func -> p1 !* (\(i,a) -> func (2*i,a))
                         *>*
@@ -272,7 +273,9 @@ combine p1 p2 =
   
 ----------------------------------------------------------------------------  
 -- The oposite to ivDiv    
-ivMerge :: Pushy arr => Int -> Int -> arr a -> arr a -> Array Push a
+ivMerge :: Pushy Array p a
+           => Int
+           -> Int -> Array p a -> Array p a -> Array Push a
 ivMerge i j arr1 arr2 = mkPushArray (\k -> a1 !* k *>* a2 !* k) (len a1 + len a2) 
   where
     left ix = ix + (ix .&. complement (oneBits (i+j)))
