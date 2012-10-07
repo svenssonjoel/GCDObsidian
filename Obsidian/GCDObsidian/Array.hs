@@ -111,9 +111,9 @@ newtype P a = P {unP :: (a -> Program ()) -> Program ()}
 data Array p a = Array (p a) Word32
 
 type PushArray a = Array Push a 
-type PullArray a = Array Pull a  
+type PullArray a = Array Pull a
 
-mkPushArray p n = Array (Push p) n 
+mkPushArray p n = Array (Push (P p)) n 
 mkPullArray p n = Array (Pull p) n 
 
 resize (Array p n) m = Array p m 
@@ -127,7 +127,6 @@ instance Monad P where
   (>>=) (P m) f = P $ \k -> m (\a -> runP  (f a) k) 
 
 instance Functor P where 
-  --fmap :: (a -> b) -> P a -> P b 
   fmap f (P m) = P $ \k -> m (\a -> k (f a))  
 
 
@@ -144,34 +143,34 @@ class  PushyInternal a where
 
 instance PushyInternal (Array Pull)  where   
   push' m (Array (Pull ixf) n) = 
-    Array (Push (\k ->
+    Array (Push (P (\k ->
                   ForAll (n `div` m)
                          (\i -> foldr1 (*>*) 
                                 [k (ix,a)
                                 | j <-  [0..m-1],
                                   let ix = (i*(fromIntegral m) + (fromIntegral j)),
                                   let a  = ixf ix
-                                ]) )) n
+                                ])))) n
   push'' m (Array (Pull ixf) n) = 
-    Array (Push (\k ->
+    Array (Push ( P (\k ->
                   ForAll (n `div` m)
                          (\i -> foldr1 (*>*) 
                                 [k (ix,a)
                                 | j <-  [0..m-1],
                                   let ix = (i+((fromIntegral ((n `div` m) * j)))),
                                   let a  = ixf ix
-                                ]) )) n
+                                ])))) n
 
-class Pushable a p e where
+class Pushy a p e where
   push :: a p e -> a Push e
 
-instance Pushable Array Push e where 
+instance Pushy Array Push e where 
   push = id 
   
-instance Pushable Array Pull e  where   
+instance Pushy Array Pull e  where   
   push (Array (Pull ixf) n) =
-    Array (Push (\k ->
-                  ForAll n (\i -> k (i,ixf i)))) n 
+    Array (Push (P (\k ->
+                  ForAll n (\i -> k (i,ixf i))))) n 
 
   
 {-     

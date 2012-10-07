@@ -196,20 +196,20 @@ class IxMap a where
 instance IxMap (Array Push) where
   ixMap f (Array (Push p) n) = Array (Push (ixMap' f p)) n
 
-instance IxMap (GlobalArray Push) where 
-  ixMap f (GlobalArray (Push p) n) = 
-     GlobalArray (Push (ixMap' f p)) n
+-- instance IxMap (GlobalArray Push) where 
+--  ixMap f (GlobalArray (Push p) n) = 
+--     GlobalArray (Push (ixMap' f p)) n
 
 instance IxMap (Array Pull) where 
   ixMap f (Array (Pull ixf) n) = Array (Pull (ixf . f)) n 
 
-instance IxMap (GlobalArray Pull) where 
-  ixMap f (GlobalArray (Pull ixf) n) = GlobalArray (Pull (ixf . f)) n 
+-- instance IxMap (Array PullG) where 
+--   ixMap f (GlobalArray (Pull ixf) n) = GlobalArray (Pull (ixf . f)) n 
 
 ixMap' :: (Exp Word32 -> Exp Word32) 
          -> P (Exp Word32, a)
          -> P (Exp Word32, a) 
-ixMap' f p = \g -> ( p) (\(i,a) -> g (f i,a))
+ixMap' f p = P $ \g -> (unP p) (\(i,a) -> g (f i,a))
 
 
 

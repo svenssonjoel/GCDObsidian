@@ -36,8 +36,8 @@ bid = variable "blockIdx.x"
 cTypeOfArray :: Scalar a =>  Array Pull (Exp a) -> Type 
 cTypeOfArray arr = Pointer (typeOf (arr ! variable "X"))
 
-cTypeOfGlobalArray :: Scalar a =>  GlobalArray Pull (Exp a) -> Type 
-cTypeOfGlobalArray (GlobalArray arr _) = Pointer (typeOf (pullFun arr (variable "X")))
+--cTypeOfGlobalArray :: Scalar a =>  GlobalArray Pull (Exp a) -> Type 
+--cTypeOfGlobalArray (GlobalArray arr _) = Pointer (typeOf (pullFun arr (variable "X")))
 
 globalTarget :: Scalar a => Name -> Exp Word32 -> (Exp Word32, Exp a) -> Program ()
 globalTarget nom blockSize (i,a) = Assign nom ((bid * blockSize) + i)  a 
@@ -47,19 +47,19 @@ globalTargetAgain nom (i,a) = Assign nom i a
 
 class BasePush a where 
   cType :: Array p (Exp a) -> Type 
-  cTypeGlob :: GlobalArray p (Exp a) -> Type
+  --cTypeGlob :: GlobalArray p (Exp a) -> Type
   
 instance BasePush (Int) where 
   cType arr = Pointer Int 
-  cTypeGlob arr = Pointer Int
+  --cTypeGlob arr = Pointer Int
   
 instance BasePush (Float) where 
   cType arr = Pointer Float
-  cTypeGlob arr = Pointer Float
+  --cTypeGlob arr = Pointer Float
 
 instance BasePush (Word32) where 
   cType arr = Pointer Word32
-  cTypeGlob arr = Pointer Word32
+  --cTypeGlob arr = Pointer Word32
 
 
 -----------------------------------------------------------------------------
@@ -121,7 +121,7 @@ instance Scalar a => InOut (Array Pull (Exp a)) where
          let (Array (Push parr) n) = push arr
          --return$ SyncUnit (len arr) {-threadBudget-}  
          --  (pushApp parr (targetArray  name)) e
-         return$ parr (globalTarget name (fromIntegral (len arr))) 
+         return $ (unP parr) (globalTarget name (fromIntegral (len arr))) 
       else do 
          let n  = len arr
              tb = threadBudget 
@@ -140,7 +140,7 @@ instance Scalar a => InOut (Array Pull (Exp a)) where
                else concP (pa1,pa2)
          
          --return$ SyncUnit threadBudget (pushApp parr (targetArray  name)) e
-         return$ parr (globalTarget name (fromIntegral (len arr))) -- (targetArray  name)
+         return$ (unP parr) (globalTarget name (fromIntegral (len arr))) -- (targetArray  name)
          
          
                      
@@ -157,12 +157,12 @@ instance (BasePush a, Scalar a) => InOut (Array Push (Exp a)) where
     
     name <- newInOut "result" (cType parr) (len parr)
    
-    return$ pfun (globalTarget name (fromIntegral (len parr))) 
+    return$ (unP pfun) (globalTarget name (fromIntegral (len parr))) 
   
          
    -- HACK HACK HACK    
   gcdThreads (Array (Push parr) n) = programThreads prg
-    where prg = parr (globalTarget "dummy" (fromIntegral n)) 
+    where prg = (unP parr)  (globalTarget "dummy" (fromIntegral n)) 
 
 
 instance (InOut a, InOut b) => InOut (a, b) where 
@@ -211,12 +211,12 @@ instance (BasePush a, Scalar a) => InOut (Array Modify (Exp a)) where
     
     name <- newInOut "result" (cType parr) (len parr)
    
-    return$ pfun (globalTargetModify op name (fromIntegral (len parr))) 
+    return$ (unP pfun) (globalTargetModify op name (fromIntegral (len parr))) 
   
          
    -- HACK HACK HACK    
   gcdThreads (Array (Modify parr op) n) = programThreads prg
-    where prg = parr (globalTargetModify op "dummy" (fromIntegral n)) 
+    where prg = (unP parr) (globalTargetModify op "dummy" (fromIntegral n)) 
 
 globalTargetModify :: Scalar a => Atomic (Exp a) -> Name -> Exp Word32 -> Exp Word32 -> Program ()
 globalTargetModify op nom blockSize i =
@@ -239,6 +239,8 @@ class GlobalOutput a where
                        
 --------------------------------------------------------------------------                       
 -- Base
+
+{-   
 instance Scalar a => GlobalInput (GlobalArray Pull (Exp a)) where 
   createGlobalInput arr@(GlobalArray _ _) = do 
     (name,n) <- newGlobalInputArray (cTypeOfGlobalArray arr)
@@ -262,7 +264,7 @@ instance (BasePush a, Scalar a) => GlobalOutput (GlobalArray Push (Exp a)) where
     name <- newInOut "result" (cTypeGlob parr) undefined 
     return$ pfun (globalTargetAgain name)
     
-
+-}
 --------------------------------------------------------------------------
 -- complex inputs 
 
