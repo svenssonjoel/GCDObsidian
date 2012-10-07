@@ -12,5 +12,5 @@ data Modify a = Modify { modFun :: P (Exp Word32), atomicOp :: Atomic a }
 
 type ModArray a = Array Modify a
 
-mkModifyArray p op n = Array (Modify p op) n
+mkModifyArray n p op = Array n (Modify p op)
 

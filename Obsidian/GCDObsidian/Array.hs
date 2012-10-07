@@ -108,13 +108,15 @@ data PullG a = PullG {pullGFun :: Exp Word32 -> Exp Word32 -> a}
 
 newtype P a = P {unP :: (a -> Program ()) -> Program ()}  
 
-data Array p a = Array (p a) Word32
+-- TODO: Should index really be Word32 ?
+--       Maybe it should even be a parameter ? 
+data Array p a = Array Word32 (p a)
 
 type PushArray a = Array Push a 
 type PullArray a = Array Pull a
 
-mkPushArray p n = Array (Push (P p)) n 
-mkPullArray p n = Array (Pull p) n 
+mkPushArray n p = Array n (Push (P p)) 
+mkPullArray n p = Array n (Pull p)  
 
 resize (Array p n) m = Array p m 
 
@@ -130,28 +132,40 @@ instance Functor P where
   fmap f (P m) = P $ \k -> m (\a -> k (f a))  
 
 
-    
---instance Applicative P where 
---  ...
- 
-
-
 -- TODO: Do you need (Exp e) where there is only e ? 
 class  PushyInternal a where 
   push' :: Word32 -> a e -> Array Push e  
   push'' :: Word32 -> a e -> Array Push e 
 
 instance PushyInternal (Array Pull)  where   
-  push' m (Array (Pull ixf) n) = 
-    Array (Push (P (\k ->
-                  ForAll (n `div` m)
-                         (\i -> foldr1 (*>*) 
-                                [k (ix,a)
-                                | j <-  [0..m-1],
-                                  let ix = (i*(fromIntegral m) + (fromIntegral j)),
-                                  let a  = ixf ix
-                                ])))) n
-  push'' m (Array (Pull ixf) n) = 
+  push' m (Array n (Pull ixf)) =
+    mkPushArray n $ \k ->
+                    ForAll (n `div` m)
+                           (\i -> foldr1 (*>*)
+                                [ k (ix, a)
+                                | j <- [0..m-1]
+                                , let ix = (i * fromIntegral m +
+                                            fromIntegral j)
+                                      a  = ixf ix
+                                ])     
+                                --Array (Push (P (\k ->
+                  --ForAll (n `div` m)
+                  --       (\i -> foldr1 (*>*) 
+                  --              [k (ix,a)
+                  --              | j <-  [0..m-1],
+                  --                let ix = (i*(fromIntegral m) + (fromIntegral j)),
+                    --              let a  = ixf ix
+                    --            ])))) n
+  push'' m (Array n (Pull ixf)) =
+    mkPushArray n $ \k ->
+                    ForAll (n `div` m)
+                           (\i -> foldr1 (*>*)
+                                  [ k (ix,a)
+                                  | j <- [0..m-1]
+                                  , let ix = 1 + ((fromIntegral ((n `div` m) * j)))
+                                        a  = ixf ix
+                                  ])
+    {- 
     Array (Push ( P (\k ->
                   ForAll (n `div` m)
                          (\i -> foldr1 (*>*) 
@@ -160,7 +174,7 @@ instance PushyInternal (Array Pull)  where
                                   let ix = (i+((fromIntegral ((n `div` m) * j)))),
                                   let a  = ixf ix
                                 ])))) n
-
+-}
 class Pushy a p e where
   push :: a p e -> a Push e
 
@@ -168,9 +182,12 @@ instance Pushy Array Push e where
   push = id 
   
 instance Pushy Array Pull e  where   
-  push (Array (Pull ixf) n) =
-    Array (Push (P (\k ->
-                  ForAll n (\i -> k (i,ixf i))))) n 
+  push (Array n (Pull ixf)) =
+    mkPushArray n $ \k ->
+                    ForAll n (\i -> k (i, ixf i))
+                    
+    -- Array (Push (P (\k ->
+    --              ForAll n (\i -> k (i,ixf i))))) n 
 
   
 {-     
@@ -194,20 +211,20 @@ instance PushGlobal (GlobalArray Pull) where
 ----------------------------------------------------------------------------
 --
 
-namedArray name n = mkPullArray (\ix -> index name ix) n 
-indexArray n      = mkPullArray (\ix -> ix) n 
+namedArray name n = mkPullArray n (\ix -> index name ix) 
+indexArray n      = mkPullArray n (\ix -> ix) 
 
 class Indexible a e where 
   access :: a e -> Exp Word32 -> e 
   
 instance Indexible (Array Pull) a where
-  access (Array ixf _) ix = pullFun ixf ix
+  access (Array _ ixf) ix = pullFun ixf ix
 
 class PushApp a where 
   papp :: a e -> ((Exp Word32,e) -> Program ()) -> Program ()
 
 instance PushApp (Array Push) where 
-  papp (Array (Push f) n) a = (unP f) a 
+  papp (Array n (Push f)) a = (unP f) a 
 
 --instance PushApp (GlobalArray Push) where 
 --  papp (GlobalArray (Push f) n) a = f a 
@@ -216,7 +233,7 @@ class Len a where
   len :: a e -> Word32
 
 instance Len (Array p) where 
-  len (Array _ n) = n 
+  len (Array n _) = n 
   
 infixl 9 ! 
 (!) :: Indexible a e => a e -> Exp Word32 -> e 
