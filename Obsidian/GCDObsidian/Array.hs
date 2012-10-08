@@ -112,13 +112,18 @@ newtype P a = P {unP :: (a -> Program ()) -> Program ()}
 --       Maybe it should even be a parameter ? 
 data Array p a = Array Word32 (p a)
 
+-- A blocked array indexible via a blockIdx and a threadIdx
+-- It has a dynamic block size tweak blocksize during kernel execution
+-- and a static length (known between kernel launches) 
+data BArray p a = BArray (Word32,Exp Word32) (p a)
+
 type PushArray a = Array Push a 
 type PullArray a = Array Pull a
 
 mkPushArray n p = Array n (Push (P p)) 
 mkPullArray n p = Array n (Pull p)  
 
-resize (Array p n) m = Array p m 
+resize (Array n p) m = Array m p 
 
 
 runP :: P a -> (a -> Program ()) -> Program ()
@@ -185,10 +190,6 @@ instance Pushy Array Pull e  where
   push (Array n (Pull ixf)) =
     mkPushArray n $ \k ->
                     ForAll n (\i -> k (i, ixf i))
-                    
-    -- Array (Push (P (\k ->
-    --              ForAll n (\i -> k (i,ixf i))))) n 
-
   
 {-     
 class Pushy a where 

@@ -33,10 +33,10 @@ getMapFusion_  = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusion input1
 
 
 reverse :: Array Pull IntE -> Array Push IntE 
-reverse arr = mkPushArray 
-              (\k ->
-                ForAll n
-                (\i -> k (m - 1 - i,arr ! i))) n
+reverse arr = mkPushArray n $ 
+                \k ->
+                  ForAll n
+                  (\i -> k (m - 1 - i,arr ! i))
   where
     n = len arr
     m = fromIntegral n

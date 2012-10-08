@@ -110,7 +110,7 @@ instance Scalar a => InOut (Array Pull (Exp a)) where
   createInputs arr  = do 
     name <- newInOut "input" (cTypeOfArray arr) (len arr)
     let n = fromIntegral (len arr) 
-    return$ Array (Pull (\ix -> index name (bid * n + ix)))  (len arr)
+    return$ Array (len arr) (Pull (\ix -> index name (bid * n + ix)))  
     
   writeOutputs threadBudget arr {-e-} = do   
     
@@ -118,7 +118,7 @@ instance Scalar a => InOut (Array Pull (Exp a)) where
     
     if ( len arr <= threadBudget ) 
       then do 
-         let (Array (Push parr) n) = push arr
+         let (Array n (Push parr)) = push arr
          --return$ SyncUnit (len arr) {-threadBudget-}  
          --  (pushApp parr (targetArray  name)) e
          return $ (unP parr) (globalTarget name (fromIntegral (len arr))) 
@@ -135,7 +135,7 @@ instance Scalar a => InOut (Array Pull (Exp a)) where
              pa1     = push'' tbInN a1
              pa2     = push a2
              
-             (Array (Push parr) _) = if (rest == 0) 
+             (Array _ (Push parr)) = if (rest == 0) 
                then pa1 
                else concP (pa1,pa2)
          
@@ -151,9 +151,9 @@ instance (BasePush a, Scalar a) => InOut (Array Push (Exp a)) where
   createInputs arr  = do 
     name <- newInOut "input" (cType arr) (len arr)
     let n = fromIntegral (len arr) 
-    return$ push$ Array (Pull (\ix -> index name (bid * n + ix)))  (len arr)
+    return$ push$ Array (len arr) (Pull (\ix -> index name (bid * n + ix)))  
     
-  writeOutputs threadBudget parr@(Array (Push pfun) _) = do   
+  writeOutputs threadBudget parr@(Array _ (Push pfun)) = do   
     
     name <- newInOut "result" (cType parr) (len parr)
    
@@ -161,7 +161,7 @@ instance (BasePush a, Scalar a) => InOut (Array Push (Exp a)) where
   
          
    -- HACK HACK HACK    
-  gcdThreads (Array (Push parr) n) = programThreads prg
+  gcdThreads (Array n(Push parr)) = programThreads prg
     where prg = (unP parr)  (globalTarget "dummy" (fromIntegral n)) 
 
 
@@ -207,7 +207,7 @@ instance (InOut (Array Pull a), InOut (Array Pull b)) => InOut (Array Pull (a,b)
 instance (BasePush a, Scalar a) => InOut (Array Modify (Exp a)) where
   createInputs arr  = error "Modify arrays cannot be inputs"
     
-  writeOutputs threadBudget parr@(Array (Modify pfun op) _) = do   
+  writeOutputs threadBudget parr@(Array _ (Modify pfun op)) = do   
     
     name <- newInOut "result" (cType parr) (len parr)
    
@@ -215,7 +215,7 @@ instance (BasePush a, Scalar a) => InOut (Array Modify (Exp a)) where
   
          
    -- HACK HACK HACK    
-  gcdThreads (Array (Modify parr op) n) = programThreads prg
+  gcdThreads (Array n (Modify parr op)) = programThreads prg
     where prg = (unP parr) (globalTargetModify op "dummy" (fromIntegral n)) 
 
 globalTargetModify :: Scalar a => Atomic (Exp a) -> Name -> Exp Word32 -> Exp Word32 -> Program ()

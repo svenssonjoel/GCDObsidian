@@ -16,13 +16,15 @@ import Prelude hiding (splitAt,zipWith)
 
 
 instance Functor (Array Pull) where 
-  fmap f arr = Array (Pull (\ix -> f (arr ! ix))) (len arr) 
+  fmap f arr =
+    mkPullArray (len arr) (\ix -> f (arr ! ix)) 
+    -- Array (Pull (\ix -> f (arr ! ix))) (len arr) 
 
 
 ------------------------------------------------------------------------------
 -- Reverse an array by indexing in it backwards
 rev :: Array Pull a -> Array Pull a 
-rev arr = mkPullArray (\ix -> arr ! (m - ix)) n 
+rev arr = mkPullArray n (\ix -> arr ! (m - ix)) 
    where m = fromIntegral (n-1)
          n = len arr
          
@@ -34,8 +36,8 @@ revTest arr = ixMap (\ix -> (m-ix)) arr
 ------------------------------------------------------------------------------
 -- splitAt (name clashes with Prelude.splitAt)
 splitAt :: Integral i => i -> Array Pull a -> (Array Pull a, Array Pull a) 
-splitAt n arr = (mkPullArray (\ix -> arr ! ix) m , 
-                 mkPullArray (\ix -> arr ! (ix + pos)) (len arr - m))
+splitAt n arr = (mkPullArray m (\ix -> arr ! ix) , 
+                 mkPullArray (len arr - m) (\ix -> arr ! (ix + pos)) )
   where pos = fromIntegral n
         m   = fromIntegral n
 
@@ -48,8 +50,8 @@ halve arr = splitAt n2 arr
 ----------------------------------------------------------------------------
 -- elements at even indices to fst output, odd to snd.
 evenOdds :: Array Pull a -> (Array Pull a, Array Pull a)
-evenOdds arr = (mkPullArray (\ix -> arr ! (2*ix)) (n-n2),
-                mkPullArray (\ix -> arr ! (2*ix + 1)) n2)
+evenOdds arr = (mkPullArray (n-n2) (\ix -> arr ! (2*ix)) ,
+                mkPullArray n2 (\ix -> arr ! (2*ix + 1)) )
   where
     n = fromIntegral (len arr)
     n2 = div n 2
@@ -58,9 +60,10 @@ evenOdds arr = (mkPullArray (\ix -> arr ! (2*ix)) (n-n2),
 ------------------------------------------------------------------------------
 --
 conc :: Choice a => (Array Pull a, Array Pull a) -> Array Pull a 
-conc (a1,a2) = mkPullArray (\ix -> ifThenElse (ix <* (fromIntegral n1)) 
+conc (a1,a2) = mkPullArray (n1+n2)
+                           (\ix -> ifThenElse (ix <* (fromIntegral n1)) 
                              (a1 ! ix) 
-                             (a2 ! (ix - (fromIntegral n1)))) (n1+n2)
+                             (a2 ! (ix - (fromIntegral n1)))) 
   where 
     n1 = len a1
     n2 = len a2 
@@ -70,18 +73,21 @@ conc (a1,a2) = mkPullArray (\ix -> ifThenElse (ix <* (fromIntegral n1))
 -- zipp unzipp
 
 unzipp :: Array Pull (a,b) -> (Array Pull a, Array Pull b)       
-unzipp arr = (mkPullArray (\ix -> fst (arr ! ix)) (len arr),
-              mkPullArray (\ix -> snd (arr ! ix)) (len arr))
+unzipp arr = (mkPullArray (len arr) (\ix -> fst (arr ! ix)) ,
+              mkPullArray (len arr) (\ix -> snd (arr ! ix)) )
               
 zipp :: (Array Pull a, Array Pull b) -> Array Pull (a, b)             
-zipp (arr1,arr2) = Array (Pull (\ix -> (arr1 ! ix, arr2 ! ix))) (min (len arr1) (len arr2))
+zipp (arr1,arr2) =
+  mkPullArray (min (len arr1) (len arr2))
+              (\ix -> (arr1 ! ix, arr2 ! ix))
+  --Array (Pull (\ix -> (arr1 ! ix, arr2 ! ix))) (min (len arr1) (len arr2))
 
 
 unzipp3 :: Array Pull (a,b,c) 
            -> (Array Pull a, Array Pull b, Array Pull c)       
-unzipp3 arr = (mkPullArray (\ix -> fst3 (arr ! ix)) (len arr),
-               mkPullArray (\ix -> snd3 (arr ! ix)) (len arr),
-               mkPullArray (\ix -> trd3 (arr ! ix)) (len arr))
+unzipp3 arr = (mkPullArray (len arr) (\ix -> fst3 (arr ! ix)) ,
+               mkPullArray (len arr) (\ix -> snd3 (arr ! ix)) ,
+               mkPullArray (len arr) (\ix -> trd3 (arr ! ix)) )
   where
     fst3 (x,_,_) = x
     snd3 (_,y,_) = y
@@ -90,33 +96,36 @@ unzipp3 arr = (mkPullArray (\ix -> fst3 (arr ! ix)) (len arr),
 zipp3 :: (Array Pull a, Array Pull b, Array Pull c) 
          -> Array Pull (a,b,c)             
 zipp3 (arr1,arr2,arr3) = 
-  mkPullArray (\ix -> (arr1 ! ix, arr2 ! ix, arr3 ! ix))
-    (minimum [len arr1, len arr2, len arr3])
+  mkPullArray (minimum [len arr1, len arr2, len arr3])
+              (\ix -> (arr1 ! ix, arr2 ! ix, arr3 ! ix))
+    
 
 
 zipWith :: (a -> b -> c) -> Array Pull a -> Array Pull b -> Array Pull c
 zipWith op a1 a2 =  
-  mkPullArray (\ix -> (a1 ! ix) `op` (a2 ! ix))
-                   (min (len a1) (len a2))
+  mkPullArray (min (len a1) (len a2)) $ 
+    \ix -> (a1 ! ix) `op` (a2 ! ix)
+                   
 
                    
 ----------------------------------------------------------------------------
 -- pair 
 
 pair :: Array Pull a -> Array Pull (a,a)
-pair (Array (Pull ixf) n) = 
-  mkPullArray (\ix -> (ixf (ix*2),ixf (ix*2+1))) n'
+pair arr = 
+  mkPullArray n' (\ix -> (arr ! (ix*2),arr ! (ix*2+1)))
   where 
-    n' = n `div` 2 
+    n' = len arr `div` 2 
 
 
 
 unpair :: Choice a => Array Pull (a,a) -> Array Pull a
 unpair arr = 
     let n = len arr
-    in  mkPullArray (\ix -> ifThenElse ((mod ix 2) ==* 0) 
-                            (fst (arr ! (ix `shiftR` 1)))
-                            (snd (arr ! (ix `shiftR` 1)))) (2*n)
+    in  mkPullArray (2*n) $
+        \ix -> ifThenElse ((mod ix 2) ==* 0) 
+               (fst (arr ! (ix `shiftR` 1)))
+               (snd (arr ! (ix `shiftR` 1))) 
 
 
 ------------------------------------------------------------------------------    
@@ -125,12 +134,14 @@ unpair arr =
 twoK ::Int -> (Array Pull a -> Array Pull b) -> Array Pull a -> Array Pull b 
 twoK 0 f = f  -- divide 0 times and apply f
 twoK n f =  (\arr -> 
-              let arr' = mkPullArray (\i -> (f (mkPullArray (\j -> (arr ! (g i j))) m) ! (h i))) lt
+              let arr' = mkPullArray lt $ 
+                          (\i -> (f (mkPullArray m 
+                                     (\j -> (arr ! (g i j)))) ! (h i))) 
                   m    = (len arr `shiftR` n)   --pow of two           
                   g i j = i .&. (fromIntegral (complement (m-1))) .|. j  
                   h i   = i .&. (fromIntegral (nl2-1))   -- optimize 
 
-                  nl2   = (len (f (mkPullArray (\j -> arr ! variable "X") m)))
+                  nl2   = (len (f (mkPullArray m (\j -> arr ! variable "X"))))
                   lt    = nl2 `shiftL` n 
               in arr')  
 
@@ -140,9 +151,9 @@ twoK n f =  (\arr ->
 -- ivt (untested)
 
 ivt :: Int -> Int -> (Array Pull a -> Array Pull b) -> Array Pull a -> Array Pull b
-ivt i j f arr = Array (Pull g) nl
+ivt i j f arr = mkPullArray nl g 
   where
-    g i1 = f (mkPullArray (\j2 -> arr ! (i1 `xor` (mask (j2 `xor` bb)))) 2) ! bb
+    g i1 = f (mkPullArray 2 (\j2 -> arr ! (i1 `xor` (mask (j2 `xor` bb))))) ! bb
         where bb = (i1 .&. bit) `shiftR` ij
     nl = len arr
     mask k = k  `shiftL` (ij+1) - k `shiftL` i
@@ -194,14 +205,14 @@ class IxMap a where
            -> a e
 
 instance IxMap (Array Push) where
-  ixMap f (Array (Push p) n) = Array (Push (ixMap' f p)) n
+  ixMap f (Array n (Push p)) = Array n (Push (ixMap' f p))
 
 -- instance IxMap (GlobalArray Push) where 
 --  ixMap f (GlobalArray (Push p) n) = 
 --     GlobalArray (Push (ixMap' f p)) n
 
 instance IxMap (Array Pull) where 
-  ixMap f (Array (Pull ixf) n) = Array (Pull (ixf . f)) n 
+  ixMap f (Array n (Pull ixf)) = Array n (Pull (ixf . f)) 
 
 -- instance IxMap (Array PullG) where 
 --   ixMap f (GlobalArray (Pull ixf) n) = GlobalArray (Pull (ixf . f)) n 
@@ -220,10 +231,11 @@ ixMap' f p = P $ \g -> (unP p) (\(i,a) -> g (f i,a))
 concP :: (Pushy Array p1 a,
           Pushy Array p2 a) => (Array p1 a, Array p2 a) -> Array Push a     
 concP (arr1,arr2) = 
-  mkPushArray  (\func -> parr1 !* func
+  mkPushArray (n1+n2)
+              (\func -> parr1 !* func
                          *>*  
                          parr2 !* (\(i,a) -> func (fromIntegral n1 + i,a)))
-  (n1+n2)
+  
   where 
      parr1 = push arr1
      parr2 = push arr2
@@ -233,8 +245,9 @@ concP (arr1,arr2) =
 ----------------------------------------------------------------------------
 --
 unpairP :: Pushy Array p (a,a) => Array p (a,a) -> Array Push a 
-unpairP arr =  mkPushArray (\k -> parr !* (everyOther k))
-         (2 * n)
+unpairP arr =  mkPushArray (2 * n)
+                           (\k -> parr !* (everyOther k))
+        
   where 
     parr = push arr 
     n    = len parr
@@ -248,10 +261,11 @@ everyOther f  = \(ix,(a,b)) -> f (ix * 2,a) *>* f (ix * 2 + 1,b)
     
 zipP :: Pushy Array p a  => Array p a -> Array p a -> Array Push a  
 zipP arr1 arr2 =
-  mkPushArray (\func -> p1 !* (\(i,a) -> func (2*i,a))
+  mkPushArray (n1+n2)
+              (\func -> p1 !* (\(i,a) -> func (2*i,a))
                         *>*
                         p2 !* (\(i,a) -> func (2*i + 1,a)))
-         (n1+n2)
+         
   where 
     p1 = push arr1
     p2 = push arr2
@@ -267,7 +281,8 @@ zipP arr1 arr2 =
 -- Should definitely not be exposed to the outside. 
 combine :: Array Push a -> Array Push a -> Array Push a    
 combine p1 p2 = 
-  mkPushArray (\k -> p1 !* k *>* p2 !* k) (len p1 + len p2) 
+  mkPushArray (len p1 + len p2)
+              (\k -> p1 !* k *>* p2 !* k)  
     
   
   
@@ -276,7 +291,8 @@ combine p1 p2 =
 ivMerge :: Pushy Array p a
            => Int
            -> Int -> Array p a -> Array p a -> Array Push a
-ivMerge i j arr1 arr2 = mkPushArray (\k -> a1 !* k *>* a2 !* k) (len a1 + len a2) 
+ivMerge i j arr1 arr2 = mkPushArray (len a1 + len a2) 
+                                    (\k -> a1 !* k *>* a2 !* k) 
   where
     left ix = ix + (ix .&. complement (oneBits (i+j)))
     right ix = (left ix) `xor` (fromIntegral mask)
@@ -329,7 +345,7 @@ flipLSBsTo i = (`xor` (oneBits (i+1)))
 ----------------------------------------------------------------------------
 -- 
 ilv1 :: Choice a => Int -> (b -> b-> a) -> (b -> b -> a) -> Array Pull b -> Array Pull a
-ilv1 i f g arr = mkPullArray ixf (len arr)
+ilv1 i f g arr = mkPullArray (len arr) ixf 
   where
     ixf ix = let l = arr ! ix
                  r = arr ! newix
@@ -337,7 +353,7 @@ ilv1 i f g arr = mkPullArray ixf (len arr)
              in ifThenElse (lowBit i ix) (f l r) (g l r)
 
 vee1 :: Choice a => Int -> (b -> b-> a) -> (b -> b -> a) -> Array Pull b -> Array Pull a
-vee1 i f g arr = mkPullArray ixf (len arr)
+vee1 i f g arr = mkPullArray (len arr) ixf 
   where
     ixf ix = let l = arr ! ix
                  r = arr ! newix
@@ -345,7 +361,7 @@ vee1 i f g arr = mkPullArray ixf (len arr)
              in ifThenElse (lowBit i ix) (f l r) (g l r)
 
 ilvVee1 :: Choice a => Int -> Int -> (b -> b-> a) -> (b -> b -> a) -> Array Pull b -> Array Pull a
-ilvVee1 i j f g arr = mkPullArray ixf (len arr)
+ilvVee1 i j f g arr = mkPullArray (len arr) ixf 
   where
     ixf ix = let l = arr ! ix
                  r = arr ! newix
@@ -359,7 +375,7 @@ ilvVee1 i j f g arr = mkPullArray ixf (len arr)
 ilv2 :: Choice b => Int -> (a -> a -> b) -> (a -> a -> b) -> 
                     Array Pull a -> Array Push b
 ilv2 i f g arr 
-   = mkPushArray (\k -> a5 !* k *>* a6 !* k) n
+   = mkPushArray n (\k -> a5 !* k *>* a6 !* k) 
   where
     n  = len arr
     n2 = n `div` 2
@@ -378,7 +394,7 @@ ilv2 i f g arr
 vee2 :: Choice b => Int -> (a -> a -> b) -> (a -> a -> b) -> 
                     Array Pull a -> Array Push b
 vee2 i f g arr  
-   = mkPushArray (\k -> a5 !* k *>* a6 !* k) n
+   = mkPushArray n (\k -> a5 !* k *>* a6 !* k)
   where
     n  = len arr
     n2 = n `div` 2
@@ -397,7 +413,7 @@ vee2 i f g arr
 ilvVee2 :: Choice b => Int -> Int -> (a -> a -> b) -> (a -> a -> b) -> 
             Array Pull a -> Array Push b
 ilvVee2 i j f g arr 
-   = mkPushArray (\k -> a5 !* k *>* a6 !* k) n
+   = mkPushArray n (\k -> a5 !* k *>* a6 !* k)
   where
     n  = len arr
     n2 = n `div` 2
@@ -418,7 +434,7 @@ ilvVee2 i j f g arr
 ilv4 :: Choice b => Int -> (a -> a -> b) -> (a -> a -> b) -> 
                     Array Pull a -> Array Push b
 ilv4 i f g arr
-   = mkPushArray (\k -> a9 !* k *>* a10 !* k *>* a11 !* k *>* a12 !* k) n
+   = mkPushArray n (\k -> a9 !* k *>* a10 !* k *>* a11 !* k *>* a12 !* k)
   where
     n  = len arr
     n2 = n `div` 4
@@ -444,7 +460,7 @@ ilv4 i f g arr
 ilv42 :: Choice a => Int -> (a -> a -> a) -> (a -> a -> a) -> 
                     Array Pull a -> Array Push a
 ilv42 i f g arr 
-   = mkPushArray (\k -> a13 !* k *>* a14 !* k *>* a15 !* k *>* a16 !* k) n
+   = mkPushArray n (\k -> a13 !* k *>* a14 !* k *>* a15 !* k *>* a16 !* k) 
   where
     n  = len arr
     n2 = n `div` 4
