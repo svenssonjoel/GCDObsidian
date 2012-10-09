@@ -4,52 +4,44 @@
              UndecidableInstances,  
              GADTs #-} 
 
-module Obsidian.GCDObsidian.Array
-{- 
-       ((!) -- pull array apply (index into)
-                                  ,(!*) -- push array apply 
-                                  , mkPullArray
-                                  , mkPushArray
-                                  , resize
-                                  , namedArray
-                                  , indexArray
-                                  , len 
-                                  , globLen
-                                  , Array(..)  
-                                  , Pushy
-                                  , PushyInternal
-                                  , pushGlobal
-                                  , push
-                                  , push' -- this is for "internal" use
-                                  , push'' -- this is for "internal" use
-                                  , P(..)
-                                  , block
-                                  , unblock
-                                  , GlobalArray(..)
-                                  , mkGlobalPushArray  
-                                  , mkGlobalPullArray
-                                  , Pull(..)
-                                  , Push(..)
-                                  )
--}where 
-
+module Obsidian.GCDObsidian.Array where 
+    
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 import Obsidian.GCDObsidian.Program
 
+import Obsidian.GCDObsidian.Shape 
+
 import Data.List
 import Data.Word
 
 ------------------------------------------------------------------------------
-data Push a = Push {pushFun :: P (Exp Word32,a)}
-data Pull a = Pull {pullFun :: Exp Word32 -> a}
+-- Push and pull arrays 
+data Push sh a = Push { pushShape :: (Shape sh Word32), 
+                        pushFun :: P (Shape (E sh) (Exp Word32),a) }
 
---What about
-data PushG a = PushG {pushGFun :: P (Exp Word32,Exp Word32, a)}
-data PullG a = PullG {pullGFun :: Exp Word32 -> Exp Word32 -> a} 
+data Pull sh a = Pull { pullShape :: (Shape sh Word32), 
+                        pullFun :: (Shape (E sh) (Exp Word32) -> a) }
 
 newtype P a = P {unP :: (a -> Program ()) -> Program ()}  
+
+
+testArray1 :: Pull DIM1 (Exp Int) 
+testArray1 = Pull sh  (\s -> index "apa" (toIndex sh s) ) 
+    where sh = (mkShape 1000)
+
+
+
+{- 
+-- Push and Pull global arrays. 
+data PushG a = PushG (Word32,Word32) {pushGFun :: P (Exp Word32,Exp Word32, a)}
+data PullG a = PullG (Word32,Word32) {pullGFun :: Exp Word32 -> Exp Word32 -> a} 
+
+
+
+
+type ArrayPull a = 
 
 data Array p a = Array Word32 (p a)
 
@@ -205,3 +197,4 @@ instance Indexible (GlobalArray Pull) a where
 globLen (GlobalArray _ n) = n
 
 -} 
+-}
