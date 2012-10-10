@@ -2,7 +2,8 @@
              FlexibleInstances,
              FlexibleContexts, 
              UndecidableInstances,  
-             GADTs #-} 
+             GADTs,
+             TypeOperators #-} 
 
 module Obsidian.GCDObsidian.Array where 
     
@@ -17,23 +18,71 @@ import Data.List
 import Data.Word
 
 ------------------------------------------------------------------------------
--- Push and pull arrays 
-data Push sh a = Push { pushShape :: (Shape sh Word32), 
-                        pushFun :: P (Shape (E sh) (Exp Word32),a) }
-
-data Pull sh a = Pull { pullShape :: (Shape sh Word32), 
-                        pullFun :: (Shape (E sh) (Exp Word32) -> a) }
 
 newtype P a = P {unP :: (a -> Program ()) -> Program ()}  
 
+-- Push and pull arrays 
+data Push sh a = Push { pushShape :: Shape sh Word32, 
+                        pushFun :: P (Shape (E sh) (Exp Word32),a) }
+
+data Pull sh a = Pull { pullShape :: Shape sh Word32, 
+                        pullFun   :: Shape (E sh) (Exp Word32) -> a }
+
+data PushG bdim gdim a =
+  PushG
+  {
+    pushGGridDim  :: Shape bdim Word32,
+    pushGBlockDim :: Shape gdim Word32,
+    
+    pushGFun   ::  P (Shape (E bdim) (Exp Word32),
+                      Shape (E gdim) (Exp Word32),
+                      a)
+  } 
+
+data PullG gdim bdim a =
+  PullG
+  {
+    pullGGridDim  :: Shape gdim Word32,
+    pullGBlockDim :: Shape bdim Word32,
+    
+    pullGFun   :: Shape (E gdim) (Exp Word32) ->
+                  Shape (E bdim) (Exp Word32) ->
+                  a
+  }
+                  
 
 testArray1 :: Pull DIM1 (Exp Int) 
 testArray1 = Pull sh  (\s -> index "apa" (toIndex sh s) ) 
-    where sh = (mkShape 1000)
+    where sh = mkShape 1000
 
 
+testGlobal1 :: PullG DIM1 DIM1 (Exp Int)
+testGlobal1 = PullG gdim bdim
+              $ \bix tix ->
+                  indexG "globalArray"
+                         (toBIndex gdim bdim bix) 
+                         (toIndex bdim tix)
+  where
+    bdim = mkShape 256
+    gdim = mkShape 100  -- so 25600 total elements.
 
+-- Problem: how do I create an index into these kinds of dims.
+--  I dont want to need to give these strange types explicitly :(  (see below) 
+testix :: Exp Word32 
+testix = toIndex dim ixinto
+   where
+     dim = mkShape 100 :: Shape (Z:.Word32) Word32 -- 100 blocks
+     ixinto = mkIndex dim [50] :: Shape (Z:.Exp Word32) (Exp Word32)
+     
+           
+    
 {- 
+
+
+
+
+
+
 -- Push and Pull global arrays. 
 data PushG a = PushG (Word32,Word32) {pushGFun :: P (Exp Word32,Exp Word32, a)}
 data PullG a = PullG (Word32,Word32) {pullGFun :: Exp Word32 -> Exp Word32 -> a} 

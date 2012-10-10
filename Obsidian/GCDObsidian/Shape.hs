@@ -50,9 +50,21 @@ toIndex :: Shape sh Word32
         -> Exp Word32 
 toIndex Z _ = 0
 toIndex (sh1 :. sh2) (i1 :. i2) = toIndex sh1 i1 * (fromIntegral sh2) + i2 
-           
 
+toBIndex :: Shape gdim Word32
+            -> Shape bdim Word32
+            -> Shape (E gdim) (Exp Word32)
+            -> Exp Word32
+toBIndex gdim bdim bix = toBIndex' gdim bix * blockSize 
+  where
+    blockSize = fromIntegral $ size bdim 
 
+    toBIndex' :: Shape gdim Word32
+                 -> Shape (E gdim) (Exp Word32)
+                 -> Exp Word32
+    toBIndex' Z _ = 0
+    toBIndex' (sh1 :. sh2) (i1 :. i2) = ((toBIndex' sh1 i1) + fromIntegral sh2 * i2)   
+  
 class Shapely sh where
   mkShape :: Word32 -> Shape sh Word32
   toShape :: Int -> [Word32] -> Shape sh Word32
@@ -66,4 +78,12 @@ instance Shapely sh => Shapely (sh :. Word32) where
   toShape i arr =
     toShape (i+1) arr :. (arr !! (fromIntegral i))
 
-    
+
+class Indexible sh where
+  mkIndex :: Shape sh Word32 -> [Exp Word32] -> Shape (E sh) (Exp Word32)
+
+instance Indexible Z where
+  mkIndex Z [] = Z
+
+instance Indexible sh => Indexible (sh :. Word32)  where
+  mkIndex (sh1 :. sh2) (x:xs) = mkIndex sh1 xs :. x 

@@ -116,7 +116,11 @@ data Exp a where
   
   Index   :: Scalar a => 
              (Name,[Exp Word32]) 
-             -> Exp a 
+             -> Exp a
+
+  IndexGlobal :: Scalar a
+                 => (Name, Exp Word32 ,Exp Word32)
+                 -> Exp a 
              
   If      :: Scalar a 
              => Exp Bool
@@ -181,26 +185,26 @@ data Op a where
   Max        :: Ord a => Op ((a,a) -> a) 
 
   -- Floating (different CUDA functions for float and double, issue maybe?) 
-  Exp :: Floating a => Op (a -> a) -- "expf" 
-  Sqrt :: Floating a => Op (a -> a) -- "sqrtf" 
-  --RSqrt :: Floating a => Op (a -> a) -- "rsqrtf"
-  Log :: Floating a => Op (a -> a) -- "logf"
-  Log2 :: Floating a => Op (a -> a) -- "log2f"
-  Log10 :: Floating a => Op (a -> a) -- "log10f"
-  Pow :: Floating a => Op ((a, a) -> a) -- "powf"
+  Exp :: Floating a => Op (a -> a) 
+  Sqrt :: Floating a => Op (a -> a) 
+  --RSqrt :: Floating a => Op (a -> a)  
+  Log :: Floating a => Op (a -> a) 
+  Log2 :: Floating a => Op (a -> a) 
+  Log10 :: Floating a => Op (a -> a)  
+  Pow :: Floating a => Op ((a, a) -> a)  
   -- Floating Trig
-  Tan :: Floating a => Op (a -> a) -- "tanf"
-  ASin :: Floating a => Op (a -> a) -- "asinf"
-  ATan :: Floating a => Op (a -> a) -- "atanf"
-  ACos :: Floating a => Op (a -> a) -- "acosf"
-  SinH :: Floating a => Op (a -> a) -- "sinhf"
-  TanH :: Floating a => Op (a -> a) -- "tanhf"
-  CosH :: Floating a => Op (a -> a) -- "coshf"
-  ASinH :: Floating a => Op (a -> a) -- "asinhf" 
-  ATanH :: Floating a => Op (a -> a) -- "atanhf"
-  ACosH :: Floating a => Op (a -> a) -- "acoshf"
+  Tan :: Floating a => Op (a -> a) 
+  ASin :: Floating a => Op (a -> a) 
+  ATan :: Floating a => Op (a -> a) 
+  ACos :: Floating a => Op (a -> a) 
+  SinH :: Floating a => Op (a -> a) 
+  TanH :: Floating a => Op (a -> a) 
+  CosH :: Floating a => Op (a -> a) 
+  ASinH :: Floating a => Op (a -> a) 
+  ATanH :: Floating a => Op (a -> a) 
+  ACosH :: Floating a => Op (a -> a) 
   -- There is no "div" in "Num" but it's already defined above. 
-  FDiv :: Floating a => Op ((a, a) -> a) -- "acoshf"
+  FDiv :: Floating a => Op ((a, a) -> a) 
 
 
 
@@ -211,7 +215,9 @@ data Op a where
 variable name = Index (name,[])
 index name ix = Index (name,[ix])
 
- 
+indexG name bix tix = IndexGlobal (name,bix,tix)
+
+                
 ------------------------------------------------------------------------------
 -- Collect array names
 
