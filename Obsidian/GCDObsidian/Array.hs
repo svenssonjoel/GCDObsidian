@@ -71,8 +71,8 @@ testGlobal1 = PullG gdim bdim
 testix :: Exp Word32 
 testix = toIndex dim ixinto
    where
-     dim = mkShape 100 :: Shape (Z:.Word32) Word32 -- 100 blocks
-     ixinto = mkIndex dim [50] :: Shape (Z:.Exp Word32) (Exp Word32)
+     dim = mkShape 100 :: Shape (Z:.Word32) Word32 
+     ixinto = mkIndex dim [50] -- :: Shape (Z:.Exp Word32) (Exp Word32)
      
            
     
