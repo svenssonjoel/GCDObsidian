@@ -1,10 +1,13 @@
 
 {-# LANGUAGE FlexibleInstances,
-             FlexibleContexts #-}
+             FlexibleContexts,
+             GADTs #-}
 module Obsidian.GCDObsidian.Library where 
 
-import Obsidian.GCDObsidian.Array 
-import Obsidian.GCDObsidian.Exp 
+import Obsidian.GCDObsidian.Array
+import Obsidian.GCDObsidian.Shape
+
+import Obsidian.GCDObsidian.Exp hiding (Z) 
 import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.Kernel
 
@@ -15,24 +18,55 @@ import Prelude hiding (splitAt,zipWith)
 
 
 
-instance Functor (Array Pull) where 
+instance Functor (Pull sh) where 
   fmap f arr =
-    mkPullArray (len arr) (\ix -> f (arr ! ix)) 
-    -- Array (Pull (\ix -> f (arr ! ix))) (len arr) 
+    Pull (pullShape arr) (\ix -> f (arr ! ix)) 
 
+
+{- 
+mapDIM1 :: (Data Index -> Data Index) -> Shape DIM1 -> Shape DIM1
+mapDIM1 ixmap (Z :. i) = Z :. ixmap i
+
+permute :: (Data Length -> Data Index -> Data Index) -> (Vector DIM1 a -> Vector DIM1 a)
+permute perm (Vector s@(Z :. l) ixf) = Vector s (ixf . mapDIM1 (perm l))
+
+reverse :: Syntax a => Vector DIM1 a -> Vector DIM1 a
+reverse = permute $ \l i -> l-1-i
+-} 
+
+mapDIM1 :: (Exp Word32 -> Exp Word32)
+           -> Shape (E DIM1) (Exp Word32)
+           -> Shape (E DIM1) (Exp Word32)
+mapDIM1 ixmap (Z:.i) = Z :. ixmap i 
+
+permute :: (Exp Word32 -> Exp Word32 -> Exp Word32)
+           -> Pull DIM1 a
+           -> Pull DIM1 a
+permute perm (Pull s@(Z :. l) ixf) = Pull s (ixf . mapDIM1 (perm (fromIntegral l)))
+
+reverse :: Pull DIM1 a -> Pull DIM1 a
+reverse = permute $ \l i -> l-1-i
 
 ------------------------------------------------------------------------------
 -- Reverse an array by indexing in it backwards
-rev :: Array Pull a -> Array Pull a 
-rev arr = mkPullArray n (\ix -> arr ! (m - ix)) 
-   where m = fromIntegral (n-1)
-         n = len arr
-         
-revTest :: Array Pull a -> Array Pull a 
-revTest arr = ixMap (\ix -> (m-ix)) arr
-   where 
-     m = fromIntegral (n-1)
-     n = len arr
+--rev :: Pull DIM1 a -> Pull DIM1 a 
+--rev arr =
+--  case psh of
+--    (Z:.n) ->
+--      let m = fromIntegral (n-1)
+--      in Pull (Z:.n)
+--         (\ix -> arr ! (mkIndex psh [(m - fromIntegral (size ix))])) 
+--      
+--    _ -> error "I dont know" 
+--  where
+--    psh = pullShape arr
+--revTest :: Array Pull a -> Array Pull a 
+--revTest arr = ixMap (\ix -> (m-ix)) arr
+--   where 
+--     m = fromIntegral (n-1)
+--     n = len arr
+
+{- 
 ------------------------------------------------------------------------------
 -- splitAt (name clashes with Prelude.splitAt)
 splitAt :: Integral i => i -> Array Pull a -> (Array Pull a, Array Pull a) 
@@ -489,3 +523,6 @@ ilv42 i f g arr
 insert2Zeros :: Int -> Exp Word32 -> Exp Word32
 insert2Zeros 0 a = a `shiftL` 2
 insert2Zeros i a = a + 3*(a .&. fromIntegral (complement (oneBits (i-1) :: Word32)))
+
+
+-} 

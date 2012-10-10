@@ -17,8 +17,15 @@ import Obsidian.GCDObsidian.Shape
 import Data.List
 import Data.Word
 
-------------------------------------------------------------------------------
 
+
+------------------------------------------------------------------------------
+-- more descriptive type aliases
+type ArrayPull sh a = Pull sh a 
+type ArrayPush sh a = Push sh a
+
+
+------------------------------------------------------------------------------
 newtype P a = P {unP :: (a -> Program ()) -> Program ()}  
 
 -- Push and pull arrays 
@@ -74,7 +81,10 @@ testix = toIndex dim ixinto
      dim = mkShape 100 :: Shape (Z:.Word32) Word32 
      ixinto = mkIndex dim [50] -- :: Shape (Z:.Exp Word32) (Exp Word32)
      
-           
+
+(!) :: ArrayPull sh e -> Shape (E sh) (Exp Word32) -> e
+(!) (Pull sh f) sh' = f sh' 
+
     
 {- 
 

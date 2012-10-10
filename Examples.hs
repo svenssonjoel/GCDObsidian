@@ -3,11 +3,16 @@
 module Examples where 
 
 import Obsidian.GCDObsidian.Array
+import Obsidian.GCDObsidian.Shape
+
 import Obsidian.GCDObsidian.Kernel
 import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Program
 
-import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
+import Obsidian.GCDObsidian.Library
+
+--import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
+
 -- import qualified Obsidian.GCDObsidian.CodeGen.C as C
 -- import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
@@ -21,10 +26,10 @@ import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 import Prelude hiding (zipWith,sum, reverse)
 
 
-mapFusion :: Array Pull IntE -> Kernel (Array Pull IntE) 
+mapFusion :: ArrayPull DIM1 IntE -> Kernel (ArrayPull DIM1 IntE) 
 mapFusion = pure (fmap (+1) . fmap (*2)) 
 
-
+{- 
 input1 :: Array Pull IntE 
 input1 = namedArray "apa" 32
 
@@ -43,7 +48,7 @@ reverse arr = mkPushArray n $
     
 getReverse   = putStrLn$ CUDA.genKernel "reverse" (pure reverse) input1
 getReverse_  = putStrLn$ CUDA.genKernel_ "reverse" (pure reverse) input1
-
+-} 
 {- 
 ---------------------------------------------------------------------------
 -- MapFusion example
