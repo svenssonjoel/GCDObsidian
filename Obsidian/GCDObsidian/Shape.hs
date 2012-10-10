@@ -19,7 +19,7 @@ infixl 3  :.
 --  Z :: Shape Z
 --  (:.) :: Shape sh -> Word32 -> Shape (sh :. Word32)
 
-data Shape a e where   
+data Shape sh e where   
   Z :: Shape Z e
   (:.) :: Shape sh e -> e -> Shape (sh :. e) e
 
