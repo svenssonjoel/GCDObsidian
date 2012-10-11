@@ -51,6 +51,18 @@ toIndex :: Shape sh Word32
 toIndex Z _ = 0
 toIndex (sh1 :. sh2) (i1 :. i2) = toIndex sh1 i1 * (fromIntegral sh2) + i2 
 
+fromIndex :: Shape sh Word32 -> Exp Word32 -> Shape (E sh) (Exp Word32) 
+fromIndex Z _ = Z 
+fromIndex sh@(_:._) i = fromIndexOne sh i 
+
+fromIndexOne :: Shape (sh :. Word32) Word32 
+             -> (Exp Word32) 
+             -> Shape (E (sh :. Word32)) (Exp Word32) 
+fromIndexOne (Z:._) ix = Z :. ix 
+fromIndexOne (ds@(_:._) :. d) ix = fromIndexOne ds (ix `quot` d') :. (ix `rem` d')  
+    where d' = fromIntegral d 
+
+
 toBIndex :: Shape gdim Word32
             -> Shape bdim Word32
             -> Shape (E gdim) (Exp Word32)

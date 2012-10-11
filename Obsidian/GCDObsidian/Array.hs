@@ -7,7 +7,7 @@
 
 module Obsidian.GCDObsidian.Array where 
     
-import Obsidian.GCDObsidian.Exp 
+import Obsidian.GCDObsidian.Exp hiding (Z)
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 import Obsidian.GCDObsidian.Program
@@ -31,6 +31,8 @@ newtype P a = P {unP :: (a -> Program ()) -> Program ()}
 -- Push and pull arrays 
 data Push sh a = Push { pushShape :: Shape sh Word32, 
                         pushFun :: P (Shape (E sh) (Exp Word32),a) }
+
+mkPush sh p = Push sh (P p) 
 
 data Pull sh a = Pull { pullShape :: Shape sh Word32, 
                         pullFun   :: Shape (E sh) (Exp Word32) -> a }
@@ -85,10 +87,37 @@ testix = toIndex dim ixinto
 (!) :: ArrayPull sh e -> Shape (E sh) (Exp Word32) -> e
 (!) (Pull sh f) sh' = f sh' 
 
+
+
+----------------------------------------------------------------------------
+-- Creating arrays 
+namedArray n name  = Pull n (\ix -> index name (toIndex n ix)) 
+
+   
+
+----------------------------------------------------------------------------
+-- Converting to push arrays 
+
+class ToPush a where 
+    toPush :: a sh e -> Push sh e 
     
+instance ToPush Pull where 
+    toPush (Pull sh ixf) = 
+       mkPush sh $ \k -> ForAll (fromIntegral (size sh))
+                              (\i ->
+                                   let i' = fromIndex sh i         
+                                   in k (i', ixf i'))
+
+-- Need to div,mod i into the correct shape.. 
+-- I think I know what works for 1D and 2D.. but nD ?
+                                    
+ 
 {- 
 
-
+instance Pushy Array Pull e  where   
+  push (Array n (Pull ixf)) =
+    mkPushArray n $ \k ->
+                    ForAll n (\i -> k (i, ixf i))
 
 
 

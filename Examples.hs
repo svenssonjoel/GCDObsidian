@@ -11,7 +11,7 @@ import Obsidian.GCDObsidian.Program
 
 import Obsidian.GCDObsidian.Library
 
---import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
+import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 
 -- import qualified Obsidian.GCDObsidian.CodeGen.C as C
 -- import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
@@ -29,13 +29,13 @@ import Prelude hiding (zipWith,sum, reverse)
 mapFusion :: ArrayPull DIM1 IntE -> Kernel (ArrayPull DIM1 IntE) 
 mapFusion = pure (fmap (+1) . fmap (*2)) 
 
-{- 
-input1 :: Array Pull IntE 
-input1 = namedArray "apa" 32
+
+input1 :: ArrayPull DIM1 IntE 
+input1 = namedArray (toShape 1 [256]) "apa" 
 
 getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 getMapFusion_  = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusion input1
-
+{- 
 
 reverse :: Array Pull IntE -> Array Push IntE 
 reverse arr = mkPushArray n $ 

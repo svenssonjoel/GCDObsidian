@@ -14,14 +14,17 @@ module Obsidian.GCDObsidian.CodeGen.InOut where
 
 import Obsidian.GCDObsidian.Kernel
 import Obsidian.GCDObsidian.Exp 
-import Obsidian.GCDObsidian.Array 
+
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs 
 import Obsidian.GCDObsidian.Program
-import Obsidian.GCDObsidian.ModifyArray
 
-import Prelude hiding (splitAt)
-import Obsidian.GCDObsidian.Library (splitAt,concP,unzipp,zipp)
+import Obsidian.GCDObsidian.ModifyArray
+import Obsidian.GCDObsidian.Array 
+import Obsidian.GCDObsidian.Shape
+
+import Prelude hiding (splitAt,reverse)
+import Obsidian.GCDObsidian.Library  -- (splitAt,concP,unzipp,zipp)
 
 
 import Control.Monad.State
@@ -33,8 +36,9 @@ bid :: Exp Word32
 bid = variable "blockIdx.x" 
 
 -- should work for any indexible
-cTypeOfArray :: Scalar a =>  Array Pull (Exp a) -> Type 
-cTypeOfArray arr = Pointer (typeOf (arr ! variable "X"))
+cTypeOfArray :: Scalar a =>  ArrayPull DIM1 (Exp a) -> Type 
+cTypeOfArray arr = Pointer $ typeOf (arr ! ix)
+    where ix = mkIndex (pullShape arr) [variable "X"] 
 
 --cTypeOfGlobalArray :: Scalar a =>  GlobalArray Pull (Exp a) -> Type 
 --cTypeOfGlobalArray (GlobalArray arr _) = Pointer (typeOf (pullFun arr (variable "X")))
@@ -45,6 +49,19 @@ globalTarget nom blockSize (i,a) = Assign nom ((bid * blockSize) + i)  a
 globalTargetAgain :: Scalar a => Name -> (Exp Word32, Exp a) -> Program () 
 globalTargetAgain nom (i,a) = Assign nom i a 
 
+class CTypeable a e where 
+    cType :: a (Exp e) -> Type 
+
+instance CTypeable Push Int where 
+    cType arr = Pointer Int 
+                             
+instance CTypeable Push Float where 
+    cType arr = Pointer Float 
+
+instance CTypeable Push Word32 where 
+    cType arr = Pointer Word32
+
+{- 
 class BasePush a where 
   cType :: Array p (Exp a) -> Type 
   --cTypeGlob :: GlobalArray p (Exp a) -> Type
@@ -60,7 +77,7 @@ instance BasePush (Float) where
 instance BasePush (Word32) where 
   cType arr = Pointer Word32
   --cTypeGlob arr = Pointer Word32
-
+-} 
 
 -----------------------------------------------------------------------------
 -- Inputs Outputs 
@@ -106,23 +123,33 @@ runInOut_ f = (a,reverse xs)
     (a,(_,xs)) = runState f (0,[])
 
 
-instance Scalar a => InOut (Array Pull (Exp a)) where
+instance Scalar a => InOut (Pull DIM1 (Exp a)) where
   createInputs arr  = do 
-    name <- newInOut "input" (cTypeOfArray arr) (len arr)
-    let n = fromIntegral (len arr) 
-    return$ Array (len arr) (Pull (\ix -> index name (bid * n + ix)))  
-    
+    name <- newInOut "input" (cTypeOfArray arr) numElt
+    let n = fromIntegral numElt  -- total needed threads (elements) 
+    return $ Pull (pullShape arr) 
+                  (\ix -> index name (bid * n * (toIndex ix)))
+    -- TODO: Think more about this. Maybe only GlobalArrays can be 
+    --       inputs or outputs ! 
+    --return$ Array (len arr) (Pull (\ix -> index name (bid * n + ix)))  
+    where 
+      numElt = size (pullShape arr)
   writeOutputs threadBudget arr {-e-} = do   
     
-    name <- newInOut "result" (cTypeOfArray arr) (len arr)
-    
-    if ( len arr <= threadBudget ) 
+    name <- newInOut "result" (cTypeOfArray arr) numElt    
+    if ( numElt <= threadBudget ) 
       then do 
-         let (Array n (Push parr)) = push arr
+         let (Push n parr) = toPush arr
          --return$ SyncUnit (len arr) {-threadBudget-}  
          --  (pushApp parr (targetArray  name)) e
          return $ (unP parr) (globalTarget name (fromIntegral (len arr))) 
-      else do 
+      else error "REMOVED THIS CASE TEMPORARILY" 
+    where
+     numElt = size (pullShape arr)      
+      
+           
+          {- 
+          do 
          let n  = len arr
              tb = threadBudget 
              tbInN =  n `div` tb 
@@ -141,13 +168,13 @@ instance Scalar a => InOut (Array Pull (Exp a)) where
          
          --return$ SyncUnit threadBudget (pushApp parr (targetArray  name)) e
          return$ (unP parr) (globalTarget name (fromIntegral (len arr))) -- (targetArray  name)
-         
+         -} 
          
                      
   gcdThreads arr = len arr
     
 
-instance (BasePush a, Scalar a) => InOut (Array Push (Exp a)) where
+instance (CTypeable (Push DIM1) a, Scalar a) => InOut (Push DIM1 (Exp a)) where
   createInputs arr  = do 
     name <- newInOut "input" (cType arr) (len arr)
     let n = fromIntegral (len arr) 
@@ -164,7 +191,7 @@ instance (BasePush a, Scalar a) => InOut (Array Push (Exp a)) where
   gcdThreads (Array n(Push parr)) = programThreads prg
     where prg = (unP parr)  (globalTarget "dummy" (fromIntegral n)) 
 
-
+{- 
 instance (InOut a, InOut b) => InOut (a, b) where 
   createInputs (a0,a1)  =     
     do 
@@ -185,7 +212,8 @@ instance (InOut a, InOut b) => InOut (a, b) where
    --                   (prg1 *>* prg2) e1 -- syncUnitFuseGCD s0 s1
    
   gcdThreads (a0,a1) = gcd (gcdThreads a0) (gcdThreads a1)
-  
+-}
+ {- 
 instance (InOut (Array Pull a), InOut (Array Pull b)) => InOut (Array Pull (a,b)) where
   createInputs arr = 
     do 
@@ -203,7 +231,7 @@ instance (InOut (Array Pull a), InOut (Array Pull b)) => InOut (Array Pull (a,b)
   gcdThreads arr = 
     let (a0,a1) = unzipp arr
     in  gcd (gcdThreads a0) (gcdThreads a1)
-        
+    -}     
 instance (BasePush a, Scalar a) => InOut (Array Modify (Exp a)) where
   createInputs arr  = error "Modify arrays cannot be inputs"
     
