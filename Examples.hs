@@ -31,7 +31,7 @@ mapFusion = pure (fmap (+1) . fmap (*2))
 
 
 input1 :: ArrayPull DIM1 IntE 
-input1 = namedArray (toShape 1 [256]) "apa" 
+input1 = namedArray (listShape [256]) "apa" 
 
 getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 getMapFusion_  = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusion input1

@@ -76,7 +76,10 @@ toBIndex gdim bdim bix = toBIndex' gdim bix * blockSize
                  -> Exp Word32
     toBIndex' Z _ = 0
     toBIndex' (sh1 :. sh2) (i1 :. i2) = ((toBIndex' sh1 i1) + fromIntegral sh2 * i2)   
-  
+
+listShape :: Shapely sh => [Word32] -> Shape sh Word32
+listShape = toShape 0 
+    
 class Shapely sh where
   mkShape :: Word32 -> Shape sh Word32
   toShape :: Int -> [Word32] -> Shape sh Word32
