@@ -46,7 +46,9 @@ data PushG bdim gdim a =
     pushGFun   ::  P (Shape (E bdim) (Exp Word32),
                       Shape (E gdim) (Exp Word32),
                       a)
-  } 
+  }
+
+mkPushG gsh bsh p = PushG gsh bsh (P p) 
 
 data PullG gdim bdim a =
   PullG
@@ -87,13 +89,21 @@ testix = toIndex dim ixinto
 (!) :: ArrayPull sh e -> Shape (E sh) (Exp Word32) -> e
 (!) (Pull sh f) sh' = f sh' 
 
-
+(!*) :: PullG gsh bsh e 
+        -> (Shape (E gsh) (Exp Word32),
+            Shape (E bsh) (Exp Word32))
+        -> e
+(!*) (PullG gsh bsh f) (bix,tix) = f bix tix 
 
 ----------------------------------------------------------------------------
 -- Creating arrays 
 namedArray n name  = Pull n (\ix -> index name (toIndex n ix)) 
 
-   
+namedGlobal gsh bsh name =
+  PullG gsh bsh
+        (\bix tix ->
+          indexG name (toIndex gsh bix)
+                      (toIndex bsh tix)) 
 
 ----------------------------------------------------------------------------
 -- Converting to push arrays 
@@ -107,6 +117,22 @@ instance ToPush Pull where
                               (\i ->
                                    let i' = fromIndex sh i         
                                    in k (i', ixf i'))
+
+
+class ToPushG a where 
+    toPushG :: a sh1 sh2 e -> PushG sh1 sh2  e 
+    
+instance ToPushG PullG where 
+    toPushG (PullG gsh bsh ixf) = 
+       mkPushG gsh bsh $ \k -> ForAllGlobal
+                                 (fromIntegral (size gsh))
+                                 (fromIntegral (size bsh)) 
+                                (\bix tix ->
+                                  let bix' = fromIndex gsh bix
+                                      tix' = fromIndex bsh tix
+                                  in k (bix',tix', ixf bix' tix'))
+
+
 
 -- Need to div,mod i into the correct shape.. 
 -- I think I know what works for 1D and 2D.. but nD ?

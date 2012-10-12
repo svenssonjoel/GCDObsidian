@@ -29,12 +29,24 @@ import Prelude hiding (zipWith,sum, reverse)
 mapFusion :: ArrayPull DIM1 IntE -> Kernel (ArrayPull DIM1 IntE) 
 mapFusion = pure (fmap (+1) . fmap (*2)) 
 
-
 input1 :: ArrayPull DIM1 IntE 
 input1 = namedArray (listShape [256]) "apa" 
 
 getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 getMapFusion_  = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusion input1
+
+-- GLOBAL ARRAYS 
+
+mapFusionG :: PullG DIM1 DIM1 IntE -> Kernel (PullG DIM1 DIM1 IntE)
+mapFusionG = pure (fmap (+2) . fmap (*4))
+
+input2 :: PullG DIM1 DIM1 IntE 
+input2 = namedGlobal (listShape [100]) (listShape [256]) "apa" 
+
+getMapFusionG   = putStrLn$ CUDA.genKernel "mapFusion" mapFusionG input2
+-- getMapFusionG_  = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusion input1
+
+
 {- 
 
 reverse :: Array Pull IntE -> Array Push IntE 

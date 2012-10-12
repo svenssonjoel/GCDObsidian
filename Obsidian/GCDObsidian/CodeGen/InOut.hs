@@ -39,7 +39,13 @@ bid = variable "blockIdx.x"
 -- should work for any indexible
 cTypeOfArray :: Scalar a =>  ArrayPull DIM1 (Exp a) -> Type 
 cTypeOfArray arr = Pointer $ typeOf (arr ! ix)
-    where ix = mkIndex (pullShape arr) [variable "X"] 
+  where ix = mkIndex (pullShape arr) [variable "X"] 
+
+cTypeOfPullG :: Scalar a => PullG DIM1 DIM1 (Exp a) -> Type
+cTypeOfPullG arr = Pointer $ typeOf $ arr !* (bix,tix)
+  where
+    bix = mkIndex (pullGGridDim arr) [variable "b"]
+    tix = mkIndex (pullGBlockDim arr) [variable "t"] 
 
 --cTypeOfGlobalArray :: Scalar a =>  GlobalArray Pull (Exp a) -> Type 
 --cTypeOfGlobalArray (GlobalArray arr _) = Pointer (typeOf (pullFun arr (variable "X")))
@@ -51,6 +57,10 @@ globalTarget nom blockSize (i,a) = Assign nom ((bid * blockSize) + i)  a
 globalTarget' :: Scalar a => Name -> Exp Word32 -> Shape sh Word32 -> (Shape (E sh) (Exp Word32),Exp a) -> Program ()
 globalTarget' nom blockSize sh (ix,a) = Assign nom ((bid * blockSize) + toIndex sh ix) a
                                                    
+newGlobalTarget nom gsh bsh (bix,tix,a) =
+  Assign nom ((toIndex gsh bix * blockSize) + toIndex bsh tix) a
+  where
+    blockSize = fromIntegral (size bsh)
 
 globalTargetAgain :: Scalar a => Name -> (Exp Word32, Exp a) -> Program () 
 globalTargetAgain nom (i,a) = Assign nom i a 
@@ -179,7 +189,72 @@ instance Scalar a => InOut (Pull DIM1 (Exp a)) where
          
                      
   gcdThreads (Pull n _)  = size n -- len arr
+
+-- Global Pull array instance ---
+instance Scalar a => InOut (PullG DIM1 DIM1 (Exp a)) where
+  createInputs arr  = do 
+    name <- newInOut "input" (cTypeOfPullG arr) numElt
+    let n = fromIntegral numElt  -- total needed threads (elements) 
+    return $ PullG gsh bsh 
+                   (\bix tix -> indexG name
+                                       (toIndex gsh bix)
+                                       (toIndex bsh tix))
+
+    -- TODO: Think more about this. Maybe only GlobalArrays can be 
+    --       inputs or outputs ! 
+    --return$ Array (len arr) (Pull (\ix -> index name (bid * n + ix)))  
+    where
+      -- psh    = pullShape arr
+      gsh    = pullGGridDim arr 
+      bsh    = pullGBlockDim arr
+      numElt = size gsh * size bsh 
+      
+  writeOutputs threadBudget arr {-e-} = do   
     
+    name <- newInOut "result" (cTypeOfPullG arr) numElt    
+    if ( threadsPerBlock <= threadBudget ) 
+      then do 
+         let (PushG gsh bsh parr) = toPushG arr
+         --return$ SyncUnit (len arr) {-threadBudget-}  
+         --  (pushApp parr (targetArray  name)) e
+         return $ (unP parr)
+                  (newGlobalTarget name gsh bsh)
+           -- (globalTarget' name (fromIntegral (size n)) n)  
+      else error "REMOVED THIS CASE TEMPORARILY" 
+    where
+      -- total number of elements 
+     numElt = size (pullGGridDim arr) *
+              size (pullGBlockDim arr)
+     threadsPerBlock = size (pullGBlockDim arr) 
+      
+           
+          {- 
+          do 
+         let n  = len arr
+             tb = threadBudget 
+             tbInN =  n `div` tb 
+             rest  = n `rem` tb
+             sp = tbInN * tb
+             (a1,a2) = splitAt sp arr
+             
+             -- Change to push' for (tid*2,tid*2+1) scheme 
+             -- Fix this so that the switch is easier. 
+             pa1     = push'' tbInN a1
+             pa2     = push a2
+             
+             (Array _ (Push parr)) = if (rest == 0) 
+               then pa1 
+               else concP (pa1,pa2)
+         
+         --return$ SyncUnit threadBudget (pushApp parr (targetArray  name)) e
+         return$ (unP parr) (globalTarget name (fromIntegral (len arr))) -- (targetArray  name)
+         -} 
+         
+  -- This is getting fuzzy.
+  -- This entire file needs to be remade and cleared up.
+  gcdThreads (PullG gsh bsh _)  = size bsh -- len arr
+
+
 
 instance (CTypeable (Push DIM1) a, Scalar a) => InOut (Push DIM1 (Exp a)) where
   createInputs arr = do 

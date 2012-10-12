@@ -107,11 +107,11 @@ data Exp a where
   ThreadIdx :: DimSpec
                -> Exp Word32
   
-  BlockDim :: DimSpec       -- useful ?? 
-              -> Exp Word32  
+--  BlockDim :: DimSpec       -- useful ?? 
+--             -> Exp Word32  
 
-  GridDim  :: DimSpec 
-              -> Exp Word32
+--  GridDim  :: DimSpec 
+--              -> Exp Word32
   
   
   Index   :: Scalar a => 

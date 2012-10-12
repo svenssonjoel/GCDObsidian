@@ -28,7 +28,7 @@ data Program extra
   | ForAll Word32 (Data Word32 -> (Program extra))    
 
 -- Could this be improved ? 
-  | ForAllGlobal (Data Word32 -> (Program extra)) (Exp Word32) 
+  | ForAllGlobal Word32 Word32 (Exp Word32 -> Exp Word32 -> (Program extra)) 
 -- TODO: Maybe the (Exp Word32, Exp Word32) should be (Word32,Word32)
 --                   Blocks      blocksize 
 --  | ForAllGlobal (Exp Word32, Exp Word32)
