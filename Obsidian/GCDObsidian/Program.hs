@@ -27,7 +27,8 @@ data Program extra
 -- Note: Writing of a scalar value into an array location.     
   | ForAll Word32 (Exp Word32 -> (Program extra))    
 
--- Could this be improved ? 
+-- Could this be improved ?
+-- ForAllGlobal should 
   | ForAllGlobal Word32 Word32 (Exp Word32 -> Exp Word32 -> (Program extra)) 
 -- TODO: Maybe the (Exp Word32, Exp Word32) should be (Word32,Word32)
 --                   Blocks      blocksize 

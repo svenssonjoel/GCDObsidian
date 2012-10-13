@@ -24,6 +24,7 @@ import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 
 
 import Prelude hiding (zipWith,sum, reverse)
+import Data.Word
 
 
 mapFusion :: ArrayPull DIM1 IntE -> Kernel (ArrayPull DIM1 IntE) 
@@ -32,9 +33,9 @@ mapFusion = pure (fmap (+1) . fmap (*2))
 input1 :: ArrayPull DIM1 IntE 
 input1 = namedArray (listShape [256]) "apa" 
 
-getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
-getMapFusion_  = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusion input1
-
+getMapFusion  = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
+getMapFusion_ = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusion input1
+                 
 -- GLOBAL ARRAYS 
 
 mapFusionG :: PullG DIM1 DIM1 IntE -> Kernel (PullG DIM1 DIM1 IntE)
@@ -43,9 +44,39 @@ mapFusionG = pure (fmap (+2) . fmap (*4))
 input2 :: PullG DIM1 DIM1 IntE 
 input2 = namedGlobal (listShape [100]) (listShape [256]) "apa" 
 
-getMapFusionG   = putStrLn$ CUDA.genKernel "mapFusion" mapFusionG input2
--- getMapFusionG_  = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusion input1
+getMapFusionG  = putStrLn$ CUDA.genKernel "mapFusion" mapFusionG input2
 
+-- getMapFusionG_  = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusionG input2
+
+
+local_f :: Pull DIM1 IntE -> Pull DIM1 IntE
+local_f = fmap (+2)
+
+global_f :: PullG DIM1 DIM1 IntE -> Kernel (PushG DIM1 DIM1 IntE)
+global_f garr = pure (pBlocks (pullGGridDim garr) . local_f . blocks) garr
+
+blocks :: PullG DIM1 DIM1 a -> Pull DIM1 a
+blocks (PullG gsh bsh gixf) = Pull bsh $ \tix -> gixf (fromIndex gsh BlockIdx) tix
+
+pBlocks :: Shape gsh Word32 -> Pull DIM1 a -> PushG gsh DIM1 a
+pBlocks gsh (Pull bsh ixf) = mkPushG gsh bsh
+                             $ \k -> ForAllGlobal (size gsh)
+                                                  (size bsh)
+                                                  $ \bix tix -> (k (fromIndex gsh bix,
+                                                                    fromIndex bsh tix,
+                                                                    ixf (fromIndex bsh tix)))
+
+getGlobal_f  = putStrLn$ CUDA.genKernel "mapFusion" global_f input2 
+
+--mapBlocks :: ToPush p =>  (Pull DIM1 a -> Kernel (p DIM1 b))
+--             -> PullG DIM1 DIM1 a
+--             -> PullG DIM1 DIM1 b
+--mapBlocks kern pl =
+--  where
+    
+  
+             
+                                                 
 
 {- 
 
