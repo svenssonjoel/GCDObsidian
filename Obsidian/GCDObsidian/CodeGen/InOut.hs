@@ -197,6 +197,7 @@ instance Scalar a => InOut (PullG DIM1 DIM1 (Exp a)) where
     let n = fromIntegral numElt  -- total needed threads (elements) 
     return $ PullG gsh bsh 
                    (\bix tix -> indexG name
+                                       (fromIntegral (size bsh))
                                        (toIndex gsh bix)
                                        (toIndex bsh tix))
 

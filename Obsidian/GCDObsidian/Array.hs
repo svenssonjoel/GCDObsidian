@@ -71,9 +71,11 @@ testGlobal1 :: PullG DIM1 DIM1 (Exp Int)
 testGlobal1 = PullG gdim bdim
               $ \bix tix ->
                   indexG "globalArray"
+                         (fromIntegral bsize)
                          (toBIndex gdim bdim bix) 
                          (toIndex bdim tix)
   where
+    bsize = size bdim
     bdim = mkShape 256
     gdim = mkShape 100  -- so 25600 total elements.
 
@@ -102,8 +104,10 @@ namedArray n name  = Pull n (\ix -> index name (toIndex n ix))
 namedGlobal gsh bsh name =
   PullG gsh bsh
         (\bix tix ->
-          indexG name (toIndex gsh bix)
-                      (toIndex bsh tix)) 
+         indexG name 
+                (fromIntegral (size bsh))
+                (toIndex gsh bix)
+                (toIndex bsh tix)) 
 
 ----------------------------------------------------------------------------
 -- Converting to push arrays 

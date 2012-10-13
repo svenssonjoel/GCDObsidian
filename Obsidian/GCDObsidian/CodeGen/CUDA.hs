@@ -2,8 +2,8 @@
 module Obsidian.GCDObsidian.CodeGen.CUDA 
        (genKernel
        ,genKernel_ 
-       ,genKernelGlob
-       ,genKernelGlob_ ) where 
+       {-,genKernelGlob
+       ,genKernelGlob_ -} ) where 
 
 import Data.List
 import Data.Word 
@@ -171,6 +171,7 @@ genKernel_ name kernel a = cuda
 
 ----------------------------------------------------------------------------
 -- Global array kernels
+{-
 genKernelGlob :: (GlobalInput a, GlobalOutput b)
                  => String 
                  -> (a -> Kernel b) 
@@ -237,7 +238,7 @@ genKernelGlob_ name kernel a = cuda
     ckernel = CKernel CQualifyerKernel CVoid name (inputs++outputs) body
     cuda = printCKernel (PPConfig "__global__" "" "" "__syncthreads()") ckernel 
   
-
+-} 
 ------------------------------------------------------------------------------
 -- put together all the parts that make a CUDA kernel.     
 getCUDA :: Config 
@@ -288,13 +289,13 @@ genProg mm nt (Assign name ix a) =
         
         
 genProg mm nt (ForAll n f) = potentialCond gc mm n nt $ 
-                               genProg mm nt (f (ThreadIdx X) {- (variable "tid") -} )
+                               genProg mm nt (f (ThreadIdx) {- (variable "tid") -} )
 -- TODO: The following line is a HACK to make code generation 
 ---      for the histo function in Counting sort "work". 
 --       More thought needed here. 
 --genProg mm nt (ForAllGlobal bn tn f) = genProg mm nt (f ((BlockIdx X * BlockDim X) + ThreadIdx X))
 genProg mm nt (ForAllGlobal bn tn f) =
-  genProg mm nt $ f (BlockIdx X) (ThreadIdx X) 
+  genProg mm nt $ f BlockIdx ThreadIdx 
 -- error "hello world"                                
 --genProg mm nt (f (variable "gtid"))
   
@@ -329,7 +330,7 @@ progToSPMDC nt (ForAll n f) =
   else 
     code 
   where 
-    code = progToSPMDC nt (f (ThreadIdx X) {- (variable "tid") -} )
+    code = progToSPMDC nt (f ThreadIdx {- (variable "tid") -} )
     
 progToSPMDC nt (Allocate name size t _) = []
 progToSPMDC nt (Synchronize True) = [CSync] 

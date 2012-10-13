@@ -23,9 +23,9 @@ import Obsidian.GCDObsidian.Globs
 data Program extra 
   = Skip
     
-  | forall a. Scalar a => Assign Name (Data Word32) (Data a) 
+  | forall a. Scalar a => Assign Name (Exp Word32) (Exp a) 
 -- Note: Writing of a scalar value into an array location.     
-  | ForAll Word32 (Data Word32 -> (Program extra))    
+  | ForAll Word32 (Exp Word32 -> (Program extra))    
 
 -- Could this be improved ? 
   | ForAllGlobal Word32 Word32 (Exp Word32 -> Exp Word32 -> (Program extra)) 
@@ -53,7 +53,7 @@ data Program extra
   | ProgramSeq (Program extra) 
                (Program extra) 
 
-  | forall a. Scalar a => AtomicOp Name Name (Exp Word32) (Atomic (Data a))
+  | forall a. Scalar a => AtomicOp Name Name (Exp Word32) (Atomic (Exp a))
 
 -- took same as precedence as for ++ for *>*
 infixr 5 *>* 
@@ -102,6 +102,6 @@ targetPair n1 n2  (i,(a,b)) = Assign n1 i a *>*
 -- Atomic operations
 
 data Atomic a where
-  AtomicInc :: Atomic (Data Int)
+  AtomicInc :: Atomic (Exp Int)
 
 printAtomic AtomicInc = "atomicInc"

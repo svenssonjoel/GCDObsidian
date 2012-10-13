@@ -28,7 +28,7 @@ import Obsidian.GCDObsidian.CodeGen.SPMDC
 
 ------------------------------------------------------------------------------
 -- some synonyms
-type Data a = Exp a 
+-- type Data a = Exp a 
 
 type IntE    = Exp Int      
 type FloatE  = Exp Float  
@@ -94,32 +94,18 @@ data Exp a where
              => a 
              -> Exp a 
   
-  {- 
-  Add more specific constructors for block,thread variables
-   (these concepts excist in both OpenCL and CUDA 
-    but are accessed differently so it could be a good 
-    idea to add them as constructors here. These 
-    can be translated into the CUDA/OpenCL specific 
-    concept later in the codegeneration 
-  -} 
-  BlockIdx :: DimSpec 
-              -> Exp Word32
-  ThreadIdx :: DimSpec
-               -> Exp Word32
-  
---  BlockDim :: DimSpec       -- useful ?? 
---             -> Exp Word32  
+  BlockIdx  :: Exp Word32
+  ThreadIdx :: Exp Word32  
 
---  GridDim  :: DimSpec 
---              -> Exp Word32
-  
-  
   Index   :: Scalar a => 
              (Name,[Exp Word32]) 
              -> Exp a
 
   IndexGlobal :: Scalar a
-                 => (Name, Exp Word32 ,Exp Word32)
+                 => Name
+                 -> Exp Word32 -- BlockSize
+                 -> Exp Word32 -- BlockIdx
+                 -> Exp Word32 -- ThreadIdx
                  -> Exp a 
              
   If      :: Scalar a 
@@ -215,7 +201,7 @@ data Op a where
 variable name = Index (name,[])
 index name ix = Index (name,[ix])
 
-indexG name bix tix = IndexGlobal (name,bix,tix)
+indexG name bsize bix tix = IndexGlobal name bsize bix tix
 
                 
 ------------------------------------------------------------------------------
@@ -306,6 +292,8 @@ instance Num (Exp Word32) where
   (-) (Literal a) (Literal b) = Literal (a - b) 
   (-) a b = BinOp Sub a b 
   
+  (*) a (Literal 0) = 0
+  (*) (Literal 0) a = 0 
   (*) a (Literal 1) = a 
   (*) (Literal 1) a = a
   (*) a b = BinOp Mul a b 
@@ -464,10 +452,16 @@ printExp (Literal a) = show a
 printExp (Index (name,[])) = name
 printExp (Index (name,es)) = 
   name ++ "[" ++ ((concat . intersperse "," . map printExp) es) ++ "]"
+printExp (IndexGlobal name bsize bix tix) = 
+  name ++ "[" ++ printExp bix ++ "*" ++ 
+                 printExp bsize ++ "+" ++ 
+                 printExp tix ++ "]"
+
 printExp (BinOp op e1 e2) = "(" ++ printOp op ++ " " ++  printExp e1 ++ " " ++ printExp e2 ++ " )"
 printExp (UnOp  op e) = "(" ++ printOp op ++ " " ++ printExp e ++ " )"
 printExp (If b e1 e2) = "(" ++ printExp b ++ " ? " ++ printExp e1 ++ " : " ++ printExp e2 ++ ")"
-
+printExp ThreadIdx = "threadIdx.x"
+printExp BlockIdx  = "blockIdx.x" 
 
 printOp :: Op a -> String
 printOp Add = " + " 
@@ -541,10 +535,10 @@ instance ExpToCExp Word64 where
 
   
 expToCExpGeneral :: ExpToCExp a  => Exp a -> CExpr 
-expToCExpGeneral (BlockIdx d) = cBlockIdx d
-expToCExpGeneral (ThreadIdx d) = cThreadIdx d
-expToCExpGeneral (BlockDim d) = cBlockDim d
-expToCExpGeneral (GridDim d)  = cGridDim d
+expToCExpGeneral (BlockIdx) = cBlockIdx X 
+expToCExpGeneral (ThreadIdx) = cThreadIdx X
+--expToCExpGeneral (BlockDim d) = cBlockDim d
+--expToCExpGeneral (GridDim d)  = cGridDim d
 
 expToCExpGeneral e@(Index (name,[])) = cVar name (typeToCType (typeOf e))
 expToCExpGeneral e@(Index (name,xs)) = cIndex (cVar name (CPointer (typeToCType (typeOf e))),map expToCExp xs) (typeToCType (typeOf e)) 

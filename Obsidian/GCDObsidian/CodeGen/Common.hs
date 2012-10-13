@@ -53,18 +53,18 @@ parens s = '(' : s ++ ")"
 genExp :: Scalar a => GenConfig -> MemMap -> Exp a -> [String]
 
 -- Cheat and do CUDA printing here as well 
-genExp gc _ (BlockIdx X) = ["blockIdx.x"]
-genExp gc _ (BlockIdx Y) = ["blockIdx.y"]
-genExp gc _ (BlockIdx Z) = ["blockIdx.z"]
-genExp gc _ (ThreadIdx X) = ["threadIdx.x"]
-genExp gc _ (ThreadIdx Y) = ["threadIdx.y"]
-genExp gc _ (ThreadIdx Z) = ["threadIdx.z"]
-genExp gc _ (BlockDim X) = ["blockDim.x"]
-genExp gc _ (BlockDim Y) = ["blockDim.y"]
-genExp gc _ (BlockDim Z) = ["blockDim.z"]
-genExp gc _ (GridDim X) = ["gridDim.x"]
-genExp gc _ (GridDim Y) = ["gridDim.y"]
-genExp gc _ (GridDim Z) = ["gridDim.z"]
+genExp gc _ (BlockIdx) = ["blockIdx.x"]
+--genExp gc _ (BlockIdx Y) = ["blockIdx.y"]
+--genExp gc _ (BlockIdx Z) = ["blockIdx.z"]
+genExp gc _ (ThreadIdx) = ["threadIdx.x"]
+--genExp gc _ (ThreadIdx Y) = ["threadIdx.y"]
+--genExp gc _ (ThreadIdx Z) = ["threadIdx.z"]
+--genExp gc _ (BlockDim X) = ["blockDim.x"]
+--genExp gc _ (BlockDim Y) = ["blockDim.y"]
+--genExp gc _ (BlockDim Z) = ["blockDim.z"]
+--genExp gc _ (GridDim X) = ["gridDim.x"]
+--genExp gc _ (GridDim Y) = ["gridDim.y"]
+--genExp gc _ (GridDim Z) = ["gridDim.z"]
 
 
 genExp gc _ (Literal a) = [show a] 
@@ -82,6 +82,22 @@ genExp gc mm exp@(Index (name,es)) =
                  then "(sbase+" ++ show offs ++ ")"             
                  else "sbase"
             else name
+genExp gc mm exp@(IndexGlobal name bsize bix tix) = 
+  [name' ++ "[" ++ "(" ++ concat (genExp gc mm bix) ++ "*" ++ 
+                          concat (genExp gc mm bsize) ++ ")" ++  "+" ++ 
+                          concat (genExp gc mm tix) ++ "]"] -- genIndices gc mm es]
+  where 
+    (offs,t)  = 
+      case Map.lookup name mm of  
+        Nothing -> error "array does not excist in map" 
+        (Just x) -> x
+    name' = if mappedName name 
+            then parens$ genCast gc t ++ 
+                 if offs > 0 
+                 then "(sbase+" ++ show offs ++ ")"             
+                 else "sbase"
+            else name
+
 
    
 genExp gc mm (BinOp op e1 e2) = 
@@ -94,6 +110,7 @@ genExp gc mm (If b e1 e2) =
   [genIf (genExp gc mm b ++ 
           genExp gc mm e1 ++ 
           genExp gc mm e2 )] 
+
 
 ----------------------------------------------------------------------------
 --
