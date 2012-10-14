@@ -38,7 +38,7 @@ import Data.Word
    - Clean up Code generation and adapt it the multidimensional arrays.
    - Create a more generalised "sync" module. Call it Force to be
      consistent across other similar libraris ?
-
+   - Always try to simplify things. Apply KISS! 
 -} 
 
 

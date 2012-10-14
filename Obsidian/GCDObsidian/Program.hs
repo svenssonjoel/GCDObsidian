@@ -19,27 +19,12 @@ import Obsidian.GCDObsidian.Globs
 
 ----------------------------------------------------------------------------
 -- 
--- TODO: Data a and Exp a is the same. (look at this!) 
 data Program extra 
   = Skip
-    
   | forall a. Scalar a => Assign Name (Exp Word32) (Exp a) 
 -- Note: Writing of a scalar value into an array location.     
   | ForAll Word32 (Exp Word32 -> (Program extra))    
-
--- Could this be improved ?
--- ForAllGlobal should 
   | ForAllGlobal Word32 Word32 (Exp Word32 -> Exp Word32 -> (Program extra)) 
--- TODO: Maybe the (Exp Word32, Exp Word32) should be (Word32,Word32)
---                   Blocks      blocksize 
---  | ForAllGlobal (Exp Word32, Exp Word32)
---                 (Exp Word32 -> Exp Word32 -> Program extra)
-
--- Alternative (but I dont know... this implies there
---              can be things such as Allocate inside a ForAllBlocks..
---              Maybe that is ok, just need to think a bit more about it) 
-  | ForAllBlocks (Exp Word32) (Exp Word32 -> Program extra)    
-    
 -- DONE: I Think Allocate should not introduce nesting
   | Allocate Name Word32 Type extra
 -- potentially a sync is needed. 
@@ -52,7 +37,10 @@ data Program extra
 --       Again, to start with, I will ensure that none of my library function 
 --       introduces a Synchronize nested in anything.     
   | ProgramSeq (Program extra) 
-               (Program extra) 
+               (Program extra)
+-- Loop a program a given number of times...
+-- TODO: Is this useful. Improve !
+  | SeqLoop (Exp Word32) ((Exp Word32) -> Program extra)    
 
   | forall a. Scalar a => AtomicOp Name Name (Exp Word32) (Atomic (Exp a))
 
@@ -63,7 +51,8 @@ infixr 5 *>*
          -> Program extra 
          -> Program extra    
 (*>*) = ProgramSeq 
-    
+
+--TODO: There should be a threadsPerBlock function instead. 
 programThreads :: Program extra -> Word32
 programThreads Skip = 0
 programThreads (Synchronize _) = 0 
