@@ -7,17 +7,12 @@ module Obsidian.GCDObsidian.Shape where
 
 import Data.Word
 
-import Obsidian.GCDObsidian.Exp hiding (Z) 
+import Obsidian.GCDObsidian.Exp 
 
 data Z
 data tail :. head
 
 infixl 3  :.
-
-
---data Shape a where
---  Z :: Shape Z
---  (:.) :: Shape sh -> Word32 -> Shape (sh :. Word32)
 
 data Shape sh e where   
   Z :: Shape Z e

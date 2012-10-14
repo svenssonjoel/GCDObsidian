@@ -5,9 +5,7 @@
              FlexibleInstances, 
              UndecidableInstances #-} 
 
-module Obsidian.GCDObsidian.Exp 
-       (module Obsidian.GCDObsidian.Exp,
-        module Obsidian.GCDObsidian.DimSpec) where 
+module Obsidian.GCDObsidian.Exp  where 
 
 
 
@@ -25,7 +23,7 @@ import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 
 import Obsidian.GCDObsidian.CodeGen.SPMDC
-import Obsidian.GCDObsidian.DimSpec -- TODO: Should be a part of SPMDC 
+
 
 ------------------------------------------------------------------------------
 -- some synonyms

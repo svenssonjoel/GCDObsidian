@@ -7,7 +7,7 @@
 
 module Obsidian.GCDObsidian.Array where 
     
-import Obsidian.GCDObsidian.Exp hiding (Z)
+import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 import Obsidian.GCDObsidian.Program

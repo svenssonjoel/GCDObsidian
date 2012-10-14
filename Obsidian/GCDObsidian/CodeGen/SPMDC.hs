@@ -2,7 +2,6 @@ module Obsidian.GCDObsidian.CodeGen.SPMDC where
 
 
 import Obsidian.GCDObsidian.Globs
-import Obsidian.GCDObsidian.DimSpec
 
 import Obsidian.GCDObsidian.CodeGen.PP
 
@@ -26,7 +25,12 @@ import Data.Maybe
 -} 
 
 ----------------------------------------------------------------------------
--- 
+--
+
+data DimSpec = X | Y | Z
+             deriving (Eq,Ord,Show)
+
+
 data Value = IntVal Int
            | FloatVal Float 
            | DoubleVal Double
