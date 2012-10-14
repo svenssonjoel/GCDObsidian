@@ -62,7 +62,7 @@ input2 = namedGlobal (listShape [100]) (listShape [256]) "apa"
 
 getMapFusionG  = putStrLn$ CUDA.genKernel "mapFusion" mapFusionG input2
 
--- getMapFusionG_  = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusionG input2
+getMapFusionG_  = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusionG input2
 
 
 local_f :: Pull DIM1 IntE -> Pull DIM1 IntE
@@ -76,13 +76,15 @@ blocks :: PullG DIM1 DIM1 a -> Pull DIM1 a
 -- But maybe thats fine ?? ... 
 blocks (PullG gsh bsh gixf) = Pull bsh $ \tix -> gixf (fromIndex gsh BlockIdx) tix
 
+----------------------------------------------------------------------------
 pBlocks :: Shape gsh Word32 -> Pull DIM1 a -> PushG gsh DIM1 a
-pBlocks gsh (Pull bsh ixf) = mkPushG gsh bsh
-                             $ \k -> ForAllGlobal (size gsh)
-                                                  (size bsh)
-                                                  $ \bix tix -> (k (fromIndex gsh bix,
-                                                                    fromIndex bsh tix,
-                                                                    ixf (fromIndex bsh tix)))
+pBlocks gsh (Pull bsh ixf) =
+  mkPushG gsh bsh
+  $ \k -> ForAllGlobal (size gsh)
+                       (size bsh)
+                       $ \bix tix -> (k (fromIndex gsh bix,
+                                         fromIndex bsh tix,
+                                         ixf (fromIndex bsh tix)))
 
 getGlobal_f  = putStrLn$ CUDA.genKernel "global_f" global_f input2 
 
