@@ -17,7 +17,7 @@ import Data.Bits
 
 import qualified Foreign.Storable as Storable
 
-import Obsidian.GCDObsidian.DimSpec
+
 
 ------------------------------------------------------------------------------
 -- Obsidian imports
@@ -25,6 +25,7 @@ import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 
 import Obsidian.GCDObsidian.CodeGen.SPMDC
+import Obsidian.GCDObsidian.DimSpec -- TODO: Should be a part of SPMDC 
 
 ------------------------------------------------------------------------------
 -- some synonyms
