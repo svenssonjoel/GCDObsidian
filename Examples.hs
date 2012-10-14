@@ -10,6 +10,9 @@ import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Program
 
 import Obsidian.GCDObsidian.Library
+import Obsidian.GCDObsidian.Types
+import Obsidian.GCDObsidian.Globs
+
 
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 
@@ -22,9 +25,22 @@ import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 --import Data.Word
 --import Data.Bits
 
+import Control.Monad.Writer
 
 import Prelude hiding (zipWith,sum, reverse)
 import Data.Word
+
+{-
+ TODOS:
+   - I expect that changes are needed in threadsNeeded.
+      + how should the numbder of threads needed for this
+        new kind of kernel be computed.
+   - Clean up Code generation and adapt it the multidimensional arrays.
+   - Create a more generalised "sync" module. Call it Force to be
+     consistent across other similar libraris ?
+
+-} 
+
 
 
 mapFusion :: ArrayPull DIM1 IntE -> Kernel (ArrayPull DIM1 IntE) 
@@ -56,6 +72,8 @@ global_f :: PullG DIM1 DIM1 IntE -> Kernel (PushG DIM1 DIM1 IntE)
 global_f garr = pure (pBlocks (pullGGridDim garr) . local_f . blocks) garr
 
 blocks :: PullG DIM1 DIM1 a -> Pull DIM1 a
+-- I dont like having to put a hardcoded "BlockIdx" in this code.
+-- But maybe thats fine ?? ... 
 blocks (PullG gsh bsh gixf) = Pull bsh $ \tix -> gixf (fromIndex gsh BlockIdx) tix
 
 pBlocks :: Shape gsh Word32 -> Pull DIM1 a -> PushG gsh DIM1 a
@@ -66,7 +84,51 @@ pBlocks gsh (Pull bsh ixf) = mkPushG gsh bsh
                                                                     fromIndex bsh tix,
                                                                     ixf (fromIndex bsh tix)))
 
-getGlobal_f  = putStrLn$ CUDA.genKernel "mapFusion" global_f input2 
+getGlobal_f  = putStrLn$ CUDA.genKernel "global_f" global_f input2 
+
+global_f2 :: PullG DIM1 DIM1 IntE -> Kernel (PushG DIM1 DIM1 IntE)
+global_f2 garr = (pure blocks ->- myLocal ->- pure (pBlocks (pullGGridDim garr))) garr
+
+myLocal :: Pull DIM1 IntE -> Kernel (Pull DIM1 IntE)
+myLocal = pure (fmap (+1)) ->-
+          pSyncArray ->-
+          pure (fmap (*2)) ->-
+          pSyncArray ->-
+          pure (fmap (+3)) ->-
+          pSyncArray ->-
+          pure (fmap (*4)) 
+
+
+getGlobal_f2 = putStrLn$ CUDA.genKernel "global_f2" global_f2 input2 
+
+
+pSyncArray  :: Scalar a => Pull sh (Exp a) -> Kernel (Pull sh (Exp a))
+pSyncArray arr@(Pull sh ixf) = 
+  do 
+    name <- newArray
+    
+    let p = ((unP . pushFun) parr) (newTargetArray sh name)
+         
+    tell$ 
+        (Allocate name (es * (size sh)) t ()) 
+        `ProgramSeq`
+        p 
+        `ProgramSeq`
+        (Synchronize True)
+            
+    return$ Pull sh (\tix -> index name (toIndex sh tix))
+      
+  where 
+    es = fromIntegral$ sizeOf (arr ! (fromIndex sh 0)) 
+    t  = Pointer$ Local$ typeOf (arr ! (fromIndex sh 0))
+
+    parr = toPush arr 
+        
+
+newTargetArray :: Scalar a => (Shape sh Word32) -> Name ->  (Shape (E sh) (Exp Word32),Exp a) -> Program ()
+newTargetArray sh n (i,a) = Assign n (toIndex sh i) a 
+
+
 
 --mapBlocks :: ToPush p =>  (Pull DIM1 a -> Kernel (p DIM1 b))
 --             -> PullG DIM1 DIM1 a

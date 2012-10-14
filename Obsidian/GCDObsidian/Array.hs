@@ -97,6 +97,9 @@ testix = toIndex dim ixinto
         -> e
 (!*) (PullG gsh bsh f) (bix,tix) = f bix tix 
 
+
+
+
 ----------------------------------------------------------------------------
 -- Creating arrays 
 namedArray n name  = Pull n (\ix -> index name (toIndex n ix)) 

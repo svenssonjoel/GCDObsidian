@@ -65,6 +65,8 @@ newGlobalTarget nom gsh bsh (bix,tix,a) =
 globalTargetAgain :: Scalar a => Name -> (Exp Word32, Exp a) -> Program () 
 globalTargetAgain nom (i,a) = Assign nom i a 
 
+
+-- TODO: This is bad. replace with something nice. 
 class CTypeable a e where 
     cType :: a (Exp e) -> Type 
 
@@ -77,23 +79,16 @@ instance CTypeable (Push sh) Float where
 instance CTypeable (Push sh) Word32 where 
     cType arr = Pointer Word32
 
-{- 
-class BasePush a where 
-  cType :: Array p (Exp a) -> Type 
-  --cTypeGlob :: GlobalArray p (Exp a) -> Type
-  
-instance BasePush (Int) where 
-  cType arr = Pointer Int 
-  --cTypeGlob arr = Pointer Int
-  
-instance BasePush (Float) where 
-  cType arr = Pointer Float
-  --cTypeGlob arr = Pointer Float
-
-instance BasePush (Word32) where 
+instance CTypeable (PushG gsh bsh) Int where
   cType arr = Pointer Word32
-  --cTypeGlob arr = Pointer Word32
--} 
+
+instance CTypeable (PushG gsh bsh) Float where
+  cType arr = Pointer Word32
+
+instance CTypeable (PushG gsh bsh) Word32 where
+  cType arr = Pointer Word32
+
+
 
 -----------------------------------------------------------------------------
 -- Inputs Outputs 
@@ -273,7 +268,33 @@ instance (CTypeable (Push DIM1) a, Scalar a) => InOut (Push DIM1 (Exp a)) where
          
    -- HACK HACK HACK    
   gcdThreads (Push sh parr) = programThreads prg
-    where prg = (unP parr)  (globalTarget' "dummy" (fromIntegral (size sh)) sh) 
+    where prg = (unP parr)  (globalTarget' "dummy" (fromIntegral (size sh)) sh)
+
+
+-- Global Push array instance 
+instance (CTypeable (PushG DIM1 DIM1) a, Scalar a) => InOut (PushG DIM1 DIM1 (Exp a)) where
+  createInputs arr = do 
+    name <- newInOut "input" (cType arr) (size gsh * size bsh)
+   -- let n = fromIntegral (size psh) 
+    return$ toPushG$ PullG gsh bsh (\bix tix -> indexG name (fromIntegral (size bsh))
+                                                            (toIndex gsh bix)
+                                                            (toIndex bsh tix))  
+      where
+        gsh = pushGGridDim arr
+        bsh = pushGBlockDim arr 
+--         psh = pushShape arr
+        
+              
+  writeOutputs threadBudget parr@(PushG gsh bsh pfun) = do   
+    
+    name <- newInOut "result" (cType parr) (size gsh * size bsh)
+   
+    return$ (unP pfun) (newGlobalTarget name gsh bsh)
+  
+         
+   -- HACK HACK HACK    
+  gcdThreads (PushG gsh bsh parr) = programThreads prg
+    where prg = (unP parr)  (newGlobalTarget "dummy" bsh gsh)           
 
 {- 
 instance (InOut a, InOut b) => InOut (a, b) where 
