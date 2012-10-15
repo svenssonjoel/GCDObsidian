@@ -41,10 +41,11 @@ cTypeOfArray :: Scalar a =>  ArrayPull DIM1 (Exp a) -> Type
 cTypeOfArray arr = Pointer $ typeOf (arr ! ix)
   where ix = mkIndex (pullShape arr) [variable "X"] 
 
-cTypeOfPullG :: Scalar a => PullG DIM1 DIM1 (Exp a) -> Type
+cTypeOfPullG :: Scalar a => PullG GDIM1 DIM1 (Exp a) -> Type
 cTypeOfPullG arr = Pointer $ typeOf $ arr !* (bix,tix)
   where
-    bix = mkIndex (pullGGridDim arr) [variable "b"]
+    -- Ok just to use the griddim variables ?? 
+    bix = pullGGridDim arr --mkIndex (pullGGridDim arr) [variable "b"]
     tix = mkIndex (pullGBlockDim arr) [variable "t"] 
 
 --cTypeOfGlobalArray :: Scalar a =>  GlobalArray Pull (Exp a) -> Type 
@@ -58,7 +59,7 @@ globalTarget' :: Scalar a => Name -> Exp Word32 -> Shape sh Word32 -> (Shape (E 
 globalTarget' nom blockSize sh (ix,a) = Assign nom ((bid * blockSize) + toIndex sh ix) a
                                                    
 newGlobalTarget nom gsh bsh (bix,tix,a) =
-  Assign nom ((toIndex gsh bix * blockSize) + toIndex bsh tix) a
+  Assign nom ((toIndexDyn gsh bix * blockSize) + toIndex bsh tix) a
   where
     blockSize = fromIntegral (size bsh)
 
@@ -187,14 +188,14 @@ instance Scalar a => InOut (Pull DIM1 (Exp a)) where
   gcdThreads (Pull n _)  = size n -- len arr
 
 -- Global Pull array instance ---
-instance Scalar a => InOut (PullG DIM1 DIM1 (Exp a)) where
+instance Scalar a => InOut (PullG GDIM1 DIM1 (Exp a)) where
   createInputs arr  = do 
     name <- newInOut "input" (cTypeOfPullG arr) numElt
     let n = fromIntegral numElt  -- total needed threads (elements) 
     return $ PullG gsh bsh 
                    (\bix tix -> indexG name
                                        (fromIntegral (size bsh))
-                                       (toIndex gsh bix)
+                                       (toIndexDyn gsh bix)
                                        (toIndex bsh tix))
 
     -- TODO: Think more about this. Maybe only GlobalArrays can be 
@@ -273,12 +274,12 @@ instance (CTypeable (Push DIM1) a, Scalar a) => InOut (Push DIM1 (Exp a)) where
 
 
 -- Global Push array instance 
-instance (CTypeable (PushG DIM1 DIM1) a, Scalar a) => InOut (PushG DIM1 DIM1 (Exp a)) where
+instance (CTypeable (PushG GDIM1 DIM1) a, Scalar a) => InOut (PushG GDIM1 DIM1 (Exp a)) where
   createInputs arr = do 
     name <- newInOut "input" (cType arr) (size gsh * size bsh)
    -- let n = fromIntegral (size psh) 
     return$ toPushG$ PullG gsh bsh (\bix tix -> indexG name (fromIntegral (size bsh))
-                                                            (toIndex gsh bix)
+                                                            (toIndexDyn gsh bix)
                                                             (toIndex bsh tix))  
       where
         gsh = pushGGridDim arr
@@ -295,7 +296,7 @@ instance (CTypeable (PushG DIM1 DIM1) a, Scalar a) => InOut (PushG DIM1 DIM1 (Ex
          
    -- HACK HACK HACK    
   gcdThreads (PushG gsh bsh parr) = programThreads prg
-    where prg = (unP parr)  (newGlobalTarget "dummy" bsh gsh)           
+    where prg = (unP parr)  (newGlobalTarget "dummy" gsh bsh)           
 
 ---------------------------------------------------------------------------
 -- 

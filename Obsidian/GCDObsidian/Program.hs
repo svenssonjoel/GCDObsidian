@@ -24,7 +24,7 @@ data Program extra
   | forall a. Scalar a => Assign Name (Exp Word32) (Exp a) 
 -- Note: Writing of a scalar value into an array location.     
   | ForAll Word32 (Exp Word32 -> (Program extra))    
-  | ForAllGlobal Word32 Word32
+  | ForAllGlobal Word32
                  (Exp Word32 -> Exp Word32 -> (Program extra)) 
 
 -- DONE: I Think Allocate should not introduce nesting
@@ -73,17 +73,18 @@ programThreads (AtomicOp _ _ _ _) = 1
 -- gives the number of threads needed.
 reqBlockSize :: Program extra -> Word32
 reqBlockSize (ForAll n _) = n
-reqBlockSize (ForAllGlobal _ n _) = n
+reqBlockSize (ForAllGlobal n _) = n
 reqBlockSize (p1 `ProgramSeq`  p2) = max (reqBlockSize p1)
                                          (reqBlockSize p2)
 reqBlockSize _ = 0
 
 -- gives the number of blocks needed.
-reqGridSize :: Program extra -> Word32
-reqGridSize (ForAllGlobal g _ _) = g
-reqGridSize (p1 `ProgramSeq` p2) = max (reqGridSize p1)
-                                       (reqGridSize p2)
-reqGridSize _ = 0 -- ??? 
+-- No! grids are dynamic
+--reqGridSize :: Program extra -> Word32
+--reqGridSize (ForAllGlobal g _ _) = g
+--reqGridSize (p1 `ProgramSeq` p2) = max (reqGridSize p1)
+--                                       (reqGridSize p2)
+--reqGridSize _ = 0 -- ??? 
 
 
 ---------------------------------------------------------------------------
@@ -98,7 +99,7 @@ printProgram (ForAll n f)   = "par i " ++ show n ++
                               " {\n" ++
                               printProgram (f (variable "i")) ++
                               "\n}"
-printProgram (ForAllGlobal gn bn f) = "parG bi " ++ show gn ++ " ti " ++ show bn
+printProgram (ForAllGlobal bn f) = "parG (bi in all blocks)  "  ++ " ti " ++ show bn
                                       ++ "{\n" ++
                                       printProgram (f (variable "bi") (variable "ti"))
                                       ++ "\n}"

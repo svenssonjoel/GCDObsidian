@@ -40,25 +40,26 @@ data Pull sh a = Pull { pullShape :: Shape sh Word32,
 data PushG bdim gdim a =
   PushG
   {
-    pushGGridDim  :: Shape bdim Word32,
+    pushGGridDim  :: Shape bdim (Exp Word32),
     pushGBlockDim :: Shape gdim Word32,
     
-    pushGFun   ::  P (Shape (E bdim) (Exp Word32),
+    pushGFun   ::  P (Shape bdim (Exp Word32),
                       Shape (E gdim) (Exp Word32),
                       a)
   }
+
 
 mkPushG gsh bsh p = PushG gsh bsh (P p) 
 
 data PullG gdim bdim a =
   PullG
   {
-    pullGGridDim  :: Shape gdim Word32,
+    pullGGridDim  :: Shape gdim (Exp Word32),
     pullGBlockDim :: Shape bdim Word32,
     
-    pullGFun   :: Shape (E gdim) (Exp Word32) ->
+    pullGFun   :: Shape gdim (Exp Word32) ->
                   Shape (E bdim) (Exp Word32) ->
-                  a
+                  a 
   }
                   
 
@@ -67,7 +68,7 @@ testArray1 = Pull sh  (\s -> index "apa" (toIndex sh s) )
     where sh = mkShape 1000
 
 
-testGlobal1 :: PullG DIM1 DIM1 (Exp Int)
+testGlobal1 :: PullG GDIM1 DIM1 (Exp Int)
 testGlobal1 = PullG gdim bdim
               $ \bix tix ->
                   indexG "globalArray"
@@ -77,7 +78,7 @@ testGlobal1 = PullG gdim bdim
   where
     bsize = size bdim
     bdim = mkShape 256
-    gdim = mkShape 100  -- so 25600 total elements.
+    gdim = mkShape (variable "x")
 
 -- Problem: how do I create an index into these kinds of dims.
 --  I dont want to need to give these strange types explicitly :(  (see below) 
@@ -92,7 +93,7 @@ testix = toIndex dim ixinto
 (!) (Pull sh f) sh' = f sh' 
 
 (!*) :: PullG gsh bsh e 
-        -> (Shape (E gsh) (Exp Word32),
+        -> (Shape gsh (Exp Word32),
             Shape (E bsh) (Exp Word32))
         -> e
 (!*) (PullG gsh bsh f) (bix,tix) = f bix tix 
@@ -104,12 +105,13 @@ testix = toIndex dim ixinto
 -- Creating arrays 
 namedArray n name  = Pull n (\ix -> index name (toIndex n ix)) 
 
+
 namedGlobal gsh bsh name =
   PullG gsh bsh
         (\bix tix ->
          indexG name 
                 (fromIntegral (size bsh))
-                (toIndex gsh bix)
+                (toIndexDyn gsh bix)
                 (toIndex bsh tix)) 
 
 ----------------------------------------------------------------------------
@@ -132,10 +134,10 @@ class ToPushG a where
 instance ToPushG PullG where 
     toPushG (PullG gsh bsh ixf) = 
        mkPushG gsh bsh $ \k -> ForAllGlobal
-                                 (fromIntegral (size gsh))
+                                 --(fromIntegral (size gsh))
                                  (fromIntegral (size bsh)) 
                                 (\bix tix ->
-                                  let bix' = fromIndex gsh bix
+                                  let bix' = fromIndexDyn gsh bix
                                       tix' = fromIndex bsh tix
                                   in k (bix',tix', ixf bix' tix'))
 

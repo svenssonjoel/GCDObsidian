@@ -64,11 +64,11 @@ getMapFusion_ = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusion input1
                  
 -- GLOBAL ARRAYS 
 
-mapFusionG :: PullG DIM1 DIM1 IntE -> Kernel (PullG DIM1 DIM1 IntE)
+mapFusionG :: PullG GDIM1 DIM1 IntE -> Kernel (PullG GDIM1 DIM1 IntE)
 mapFusionG = pure (fmap (+2) . fmap (*4))
 
-input2 :: PullG DIM1 DIM1 IntE 
-input2 = namedGlobal (listShape [100]) (listShape [256]) "apa" 
+input2 :: PullG GDIM1 DIM1 IntE 
+input2 = namedGlobal (listShape [variable "d1"]) (listShape [256]) "apa" 
 
 getMapFusionG  = putStrLn$ CUDA.genKernel "mapFusion" mapFusionG input2
 
@@ -78,13 +78,13 @@ getMapFusionG_  = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusionG input2
 local_f :: Pull DIM1 IntE -> Pull DIM1 IntE
 local_f = fmap (+2)
 
-global_f :: PullG DIM1 DIM1 IntE -> Kernel (PushG DIM1 DIM1 IntE)
+global_f :: PullG GDIM1 DIM1 IntE -> Kernel (PushG GDIM1 DIM1 IntE)
 global_f garr = pure (pBlocks (pullGGridDim garr) . local_f . blocks) garr
 
-blocks :: PullG DIM1 DIM1 a -> Pull DIM1 a
+blocks :: PullG GDIM1 DIM1 a -> Pull DIM1 a
 -- I dont like having to put a hardcoded "BlockIdx" in this code.
 -- But maybe thats fine ?? ... 
-blocks (PullG gsh bsh gixf) = Pull bsh $ \tix -> gixf (fromIndex gsh BlockIdx) tix
+blocks (PullG gsh bsh gixf) = Pull bsh $ \tix -> gixf (fromIndexDyn gsh BlockIdx) tix
 
 
 ---------------------------------------------------------------------------
@@ -93,18 +93,18 @@ blocks (PullG gsh bsh gixf) = Pull bsh $ \tix -> gixf (fromIndex gsh BlockIdx) t
 
 -- create a global push array given a shape-of-blocks
 -- and a local array (a block) 
-pBlocks :: Shape gsh Word32 -> Pull DIM1 a -> PushG gsh DIM1 a
+pBlocks :: Shape gsh (Exp Word32) -> Pull DIM1 a -> PushG gsh DIM1 a
 pBlocks gsh (Pull bsh ixf) =
   mkPushG gsh bsh
-  $ \k -> ForAllGlobal (size gsh)
+  $ \k -> ForAllGlobal -- (size gsh)
                        (size bsh)
-                       $ \bix tix -> (k (fromIndex gsh bix,
+                       $ \bix tix -> (k (fromIndexDyn gsh bix,
                                          fromIndex bsh tix,
                                          ixf (fromIndex bsh tix)))
 
 getGlobal_f  = putStrLn$ CUDA.genKernel "global_f" global_f input2 
 
-global_f2 :: PullG DIM1 DIM1 IntE -> Kernel (PushG DIM1 DIM1 IntE)
+global_f2 :: PullG GDIM1 DIM1 IntE -> Kernel (PushG GDIM1 DIM1 IntE)
 global_f2 garr = (pure blocks ->- myLocal ->- pure (pBlocks (pullGGridDim garr))) garr
 
 myLocal :: Pull DIM1 IntE -> Kernel (Pull DIM1 IntE)
@@ -153,7 +153,7 @@ newTargetArray :: Scalar a
 newTargetArray sh n (i,a) = Assign n (toIndex sh i) a 
 
 
-
+{- 
 ---------------------------------------------------------------------------
 --Reifyable functions
 ---------------------------------------------------------------------------
@@ -212,13 +212,13 @@ newGlobalTarget nom gsh bsh (bix,tix,a) =
   Assign nom ((toIndex gsh bix * blockSize) + toIndex bsh tix) a
   where
     blockSize = fromIntegral (size bsh)
-
+-} 
 ---------------------------------------------------------------------------
 --
 ---------------------------------------------------------------------------
 
 
-test = evalState (reifyFun global_f2 input2) (0,0)
+-- test = evalState (reifyFun global_f2 input2) (0,0)
       
         
 

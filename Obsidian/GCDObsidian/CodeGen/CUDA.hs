@@ -294,7 +294,7 @@ genProg mm nt (ForAll n f) = potentialCond gc mm n nt $
 ---      for the histo function in Counting sort "work". 
 --       More thought needed here. 
 
-genProg mm nt (ForAllGlobal bn tn f) =
+genProg mm nt (ForAllGlobal {-bn-} tn f) =
   genProg mm nt $ f BlockIdx ThreadIdx 
   -- TODO: Many details missing here, think about nested ForAlls 
   -- TODO: Sync only if needed here                              
