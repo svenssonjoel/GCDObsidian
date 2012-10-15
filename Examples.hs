@@ -1,4 +1,5 @@
-{-# LANGUAGE FlexibleInstances #-} 
+{-# LANGUAGE FlexibleInstances,
+             MultiParamTypeClasses #-} 
 
 module Examples where 
 
@@ -19,13 +20,14 @@ import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 -- import qualified Obsidian.GCDObsidian.CodeGen.C as C
 -- import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
---import Obsidian.GCDObsidian.Program
---import qualified Obsidian.GCDObsidian.Helpers as Help
+-- import Obsidian.GCDObsidian.Program
+-- import qualified Obsidian.GCDObsidian.Helpers as Help
 
---import Data.Word
---import Data.Bits
+-- import Data.Word
+-- import Data.Bits
 
 import Control.Monad.Writer
+import Control.Monad.State
 
 import Prelude hiding (zipWith,sum, reverse)
 import Data.Word
@@ -35,10 +37,18 @@ import Data.Word
    - I expect that changes are needed in threadsNeeded.
       + how should the numbder of threads needed for this
         new kind of kernel be computed.
+
    - Clean up Code generation and adapt it the multidimensional arrays.
+
    - Create a more generalised "sync" module. Call it Force to be
      consistent across other similar libraris ?
-   - Always try to simplify things. Apply KISS! 
+
+   - Always try to simplify things. Apply KISS!
+
+   - I suspect that it would be good to generate
+     code for a variable number of blocks.
+     + First go with static. Then branch out and try this.
+     
 -} 
 
 
@@ -76,7 +86,10 @@ blocks :: PullG DIM1 DIM1 a -> Pull DIM1 a
 -- But maybe thats fine ?? ... 
 blocks (PullG gsh bsh gixf) = Pull bsh $ \tix -> gixf (fromIndex gsh BlockIdx) tix
 
-----------------------------------------------------------------------------
+
+---------------------------------------------------------------------------
+-- 
+---------------------------------------------------------------------------
 
 -- create a global push array given a shape-of-blocks
 -- and a local array (a block) 
@@ -106,7 +119,9 @@ myLocal = pure (fmap (+1)) ->-
 
 getGlobal_f2 = putStrLn$ CUDA.genKernel "global_f2" global_f2 input2 
 
-
+---------------------------------------------------------------------------
+-- Sync Experiments
+---------------------------------------------------------------------------
 pSyncArray  :: Scalar a => Pull sh (Exp a) -> Kernel (Pull sh (Exp a))
 pSyncArray arr@(Pull sh ixf) = 
   do 
@@ -138,9 +153,74 @@ newTargetArray :: Scalar a
 newTargetArray sh n (i,a) = Assign n (toIndex sh i) a 
 
 
-  
-             
-                                                 
+
+---------------------------------------------------------------------------
+--Reifyable functions
+---------------------------------------------------------------------------
+class ReifyableFun a b where
+  reifyFun :: (a -> b) -> a -> State (Integer,Integer)
+                                     ([(String,Type,Word32)], --inputs 
+                                      [(String,Type,Word32)], --outputs 
+                                      Program ())
+
+---------------------------------------------------------------------------
+--
+---------------------------------------------------------------------------
+
+newInputID = do
+  (i,o) <- get
+  put (i+1,o)
+  return $ "input" ++ show i
+
+newOutputID = do
+  (i,o) <- get
+  put (i,o+1)
+  return $ "output" ++ show o
+
+---------------------------------------------------------------------------
+--
+---------------------------------------------------------------------------
+
+
+-- Now generalise this. 
+instance ReifyableFun (PullG gsh bsh (Exp Int))
+                      (Kernel (PushG gsh1 bsh1 (Exp Int))) where
+  reifyFun f (PullG gsh bsh e) =
+    do
+      inID <- newInputID
+      outID <- newOutputID
+      let inArr = PullG gsh bsh
+                        (\bix tix -> indexG  inID
+                                             (fromIntegral (size bsh))
+                                             (toIndex gsh bix)
+                                             (toIndex bsh tix))
+
+          -- needs to know things about the result
+          -- in order to generate the code that writes outputs. 
+          rp@(PushG rgsh rbsh rf) = evalKernel (f inArr)
+         
+          prog  = getKernelProgram (f inArr)
+
+          -- writeout is a program that writes to an output array. 
+          writeout = (unP rf) (newGlobalTarget outID rgsh rbsh)
+                        
+      -- Write outputs also
+      return ([],[],prog *>* writeout)
+
+-- Duplicated code (also in InOut.hs) 
+newGlobalTarget nom gsh bsh (bix,tix,a) =
+  Assign nom ((toIndex gsh bix * blockSize) + toIndex bsh tix) a
+  where
+    blockSize = fromIntegral (size bsh)
+
+---------------------------------------------------------------------------
+--
+---------------------------------------------------------------------------
+
+
+test = evalState (reifyFun global_f2 input2) (0,0)
+      
+        
 
 {- 
 

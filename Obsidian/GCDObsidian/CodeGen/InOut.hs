@@ -80,17 +80,17 @@ instance CTypeable (Push sh) Word32 where
     cType arr = Pointer Word32
 
 instance CTypeable (PushG gsh bsh) Int where
-  cType arr = Pointer Word32
+  cType arr = Pointer Int
 
 instance CTypeable (PushG gsh bsh) Float where
-  cType arr = Pointer Word32
+  cType arr = Pointer Float
 
 instance CTypeable (PushG gsh bsh) Word32 where
   cType arr = Pointer Word32
 
 
 
------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Inputs Outputs 
 
 class InOut a where 
@@ -99,7 +99,6 @@ class InOut a where
   
   writeOutputs :: NumThreads -> 
                   a -> 
-            --      e -> 
                   State (Int,[(String,Type,Word32)]) (Program ())
   
   -- is this a hack ? yes, and poorly named!
@@ -133,7 +132,9 @@ runInOut_ f = (a,reverse xs)
   where 
     (a,(_,xs)) = runState f (0,[])
 
-
+---------------------------------------------------------------------------
+-- InOut instances
+---------------------------------------------------------------------------
 instance Scalar a => InOut (Pull DIM1 (Exp a)) where
   createInputs arr  = do 
     name <- newInOut "input" (cTypeOfArray arr) numElt
@@ -282,7 +283,7 @@ instance (CTypeable (PushG DIM1 DIM1) a, Scalar a) => InOut (PushG DIM1 DIM1 (Ex
       where
         gsh = pushGGridDim arr
         bsh = pushGBlockDim arr 
---         psh = pushShape arr
+
         
               
   writeOutputs threadBudget parr@(PushG gsh bsh pfun) = do   
@@ -296,110 +297,25 @@ instance (CTypeable (PushG DIM1 DIM1) a, Scalar a) => InOut (PushG DIM1 DIM1 (Ex
   gcdThreads (PushG gsh bsh parr) = programThreads prg
     where prg = (unP parr)  (newGlobalTarget "dummy" bsh gsh)           
 
-{- 
-instance (InOut a, InOut b) => InOut (a, b) where 
-  createInputs (a0,a1)  =     
-    do 
-      a0' <- createInputs a0 
-      a1' <- createInputs a1 
-      return (a0',a1')
-  
-  writeOutputs threadBudget (a0,a1) {-e-}= do   
-    
-    --(SyncUnit nt1 prg1 e1) <- writeOutputs threadBudget a0 e
-    --(SyncUnit nt2 prg2 e2) <- writeOutputs threadBudget a1 e
-    prg1 <- writeOutputs threadBudget a0 {-e-}
-    prg2 <- writeOutputs threadBudget a1 {-e-}
-    --error ( show nt1 ++ " " ++ show nt2 ++ " " ++ show threadBudget)
-    return$ prg1 *>* prg2  -- syncUnitFuseGCD s0 s1
-   
-   -- return$ SyncUnit (max nt1 nt2)  -- what exactly should this be
-   --                   (prg1 *>* prg2) e1 -- syncUnitFuseGCD s0 s1
-   
-  gcdThreads (a0,a1) = gcd (gcdThreads a0) (gcdThreads a1)
--}
- {- 
-instance (InOut (Array Pull a), InOut (Array Pull b)) => InOut (Array Pull (a,b)) where
-  createInputs arr = 
-    do 
-      let (a0,a1) = unzipp arr 
-      a0' <- createInputs a0
-      a1' <- createInputs a1
-      return (zipp (a0',a1'))
-  writeOutputs threads arr = 
-    do 
-      let (a0,a1) = unzipp arr
-      prg1 <- writeOutputs threads a0
-      prg2 <- writeOutputs threads a1 
-      return$ prg1 *>* prg2
-      
-  gcdThreads arr = 
-    let (a0,a1) = unzipp arr
-    in  gcd (gcdThreads a0) (gcdThreads a1)
-    -}
-{-           
-instance (BasePush a, Scalar a) => InOut (Array Modify (Exp a)) where
-  createInputs arr  = error "Modify arrays cannot be inputs"
-    
-  writeOutputs threadBudget parr@(Array _ (Modify pfun op)) = do   
-    
-    name <- newInOut "result" (cType parr) (len parr)
-   
-    return$ (unP pfun) (globalTargetModify op name (fromIntegral (len parr))) 
-  
-         
-   -- HACK HACK HACK    
-  gcdThreads (Array n (Modify parr op)) = programThreads prg
-    where prg = (unP parr) (globalTargetModify op "dummy" (fromIntegral n)) 
+---------------------------------------------------------------------------
+-- 
+---------------------------------------------------------------------------
 
-globalTargetModify :: Scalar a => Atomic (Exp a) -> Name -> Exp Word32 -> Exp Word32 -> Program ()
-globalTargetModify op nom blockSize i =
-  AtomicOp "dummy" nom ((bid * blockSize) + i) op
--}
-        
---------------------------------------------------------------------------        
--- New approach to input output
-  
-        
-class GlobalInput a where
-  createGlobalInput :: a -> State (Int,[(String,Type,Word32)]) a   
-  
-class GlobalOutput a where 
-  writeGlobalOutput :: NumThreads -> 
-                       a -> 
-                       State (Int,[(String,Type,Word32)]) (Program ())
-   
-                       
-                       
---------------------------------------------------------------------------                       
--- Base
+{-       
+ name <- newInOut "input" (cTypeOfPullG arr) numElt
+    let n = fromIntegral numElt  -- total needed threads (elements) 
+    return $ PullG gsh bsh 
+                   (\bix tix -> indexG name
+                                       (fromIntegral (size bsh))
+                                       (toIndex gsh bix)
+                                       (toIndex bsh tix))
 
-{-   
-instance Scalar a => GlobalInput (GlobalArray Pull (Exp a)) where 
-  createGlobalInput arr@(GlobalArray _ _) = do 
-    (name,n) <- newGlobalInputArray (cTypeOfGlobalArray arr)
-    let fun ix = index name ix 
-    return$ GlobalArray (Pull fun) (variable n)
-      
-instance Scalar a => GlobalInput (Exp a) where   
-  createGlobalInput a = do 
-    name <- newInOut "v" (typeOf a) undefined {- again no size -} 
-    return (variable name)
-      
-instance (GlobalInput a, GlobalInput b) 
-         => GlobalInput (a,b) where 
-  createGlobalInput (a,b) = do 
-    a' <- createGlobalInput a
-    b' <- createGlobalInput b
-    return (a',b')
-      
-instance (BasePush a, Scalar a) => GlobalOutput (GlobalArray Push (Exp a)) where       
-  writeGlobalOutput threadBugdet parr@(GlobalArray (Push pfun) n) = do  
-    name <- newInOut "result" (cTypeGlob parr) undefined 
-    return$ pfun (globalTargetAgain name)
-    
--}
---------------------------------------------------------------------------
--- complex inputs 
-
--- TODO!
+    -- TODO: Think more about this. Maybe only GlobalArrays can be 
+    --       inputs or outputs ! 
+    --return$ Array (len arr) (Pull (\ix -> index name (bid * n + ix)))  
+    where
+      -- psh    = pullShape arr
+      gsh    = pullGGridDim arr 
+      bsh    = pullGBlockDim arr
+      numElt = size gsh * size bsh 
+-} 

@@ -161,7 +161,7 @@ genKernel_ name kernel a = cuda
     spmd = performCSE2  (progToSPMDC threadBudget c')
     body = shared : mmSPMDC mm spmd
     ckernel = CKernel CQualifyerKernel CVoid name (inputs++outputs) body
-    shared = CDecl (CQualified CQualifyerExtern (CQualified CQualifyerShared ((CQualified (CQualifyerAttrib (CAttribAligned 16)) (CArray []  (CWord8)))))) "sbase"
+    shared = CDecl (CQualified CQualifyerExtern (CQualified CQualifyerShared ((CQualified (CQualifyerAttrib (CAttribAligned 16)) (CArray []  CWord8))))) "sbase"
     
     cuda = printCKernel (PPConfig "__global__" "" "" "__syncthreads()") ckernel 
   
@@ -293,12 +293,9 @@ genProg mm nt (ForAll n f) = potentialCond gc mm n nt $
 -- TODO: The following line is a HACK to make code generation 
 ---      for the histo function in Counting sort "work". 
 --       More thought needed here. 
---genProg mm nt (ForAllGlobal bn tn f) = genProg mm nt (f ((BlockIdx X * BlockDim X) + ThreadIdx X))
+
 genProg mm nt (ForAllGlobal bn tn f) =
   genProg mm nt $ f BlockIdx ThreadIdx 
--- error "hello world"                                
---genProg mm nt (f (variable "gtid"))
-  
   -- TODO: Many details missing here, think about nested ForAlls 
   -- TODO: Sync only if needed here                              
   --      ++ Might help to add information to Program type that a "sync is requested"                              
@@ -330,7 +327,7 @@ progToSPMDC nt (ForAll n f) =
   else 
     code 
   where 
-    code = progToSPMDC nt (f ThreadIdx {- (variable "tid") -} )
+    code = progToSPMDC nt (f ThreadIdx)
     
 progToSPMDC nt (Allocate name size t _) = []
 progToSPMDC nt (Synchronize True) = [CSync] 

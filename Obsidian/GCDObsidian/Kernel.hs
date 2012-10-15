@@ -26,22 +26,29 @@ tid = variable "tid"
       
 type NumThreads = Word32      
       
-
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Kernels
-                   
+---------------------------------------------------------------------------
+
 instance Monoid (Program extra) where 
   mempty = Skip 
   mappend Skip a = a 
   mappend a Skip = a 
   mappend (p1 `ProgramSeq` p2) p3 = p1 `ProgramSeq` (mappend p2 p3) 
-  mappend p1 (p2 `ProgramSeq` p3) = (p1 ` ProgramSeq` p2) `mappend` p3                
+  mappend p1 (p2 `ProgramSeq` p3) = (p1 ` ProgramSeq` p2) `mappend` p3  
   mappend p1 p2 = p1 `ProgramSeq` p2
   
   
 type Kernel a = StateT Integer (Writer (Program ())) a
-               
-runKernel k = runWriter (runStateT k 0)
+
+runKernel :: Kernel k -> ((k,Integer),Program ())
+runKernel k = runWriter $ runStateT k 0
+
+evalKernel :: Kernel k -> k
+evalKernel k = fst $ runWriter $ evalStateT k 0
+
+getKernelProgram :: Kernel k -> Program ()
+getKernelProgram k = execWriter $ runStateT k 0
 
 newArray :: Kernel Name 
 newArray  = do
