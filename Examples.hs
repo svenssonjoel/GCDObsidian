@@ -77,6 +77,9 @@ blocks :: PullG DIM1 DIM1 a -> Pull DIM1 a
 blocks (PullG gsh bsh gixf) = Pull bsh $ \tix -> gixf (fromIndex gsh BlockIdx) tix
 
 ----------------------------------------------------------------------------
+
+-- create a global push array given a shape-of-blocks
+-- and a local array (a block) 
 pBlocks :: Shape gsh Word32 -> Pull DIM1 a -> PushG gsh DIM1 a
 pBlocks gsh (Pull bsh ixf) =
   mkPushG gsh bsh
@@ -127,17 +130,14 @@ pSyncArray arr@(Pull sh ixf) =
     parr = toPush arr 
         
 
-newTargetArray :: Scalar a => (Shape sh Word32) -> Name ->  (Shape (E sh) (Exp Word32),Exp a) -> Program ()
+newTargetArray :: Scalar a
+                  => (Shape sh Word32)
+                  -> Name
+                  ->  (Shape (E sh) (Exp Word32),Exp a)
+                  -> Program ()
 newTargetArray sh n (i,a) = Assign n (toIndex sh i) a 
 
 
-
---mapBlocks :: ToPush p =>  (Pull DIM1 a -> Kernel (p DIM1 b))
---             -> PullG DIM1 DIM1 a
---             -> PullG DIM1 DIM1 b
---mapBlocks kern pl =
---  where
-    
   
              
                                                  
