@@ -220,7 +220,7 @@ instance (BasePush a, Scalar a) => InOut (Array Modify (Exp a)) where
 
 globalTargetModify :: Scalar a => Atomic (Exp a) -> Name -> Exp Word32 -> Exp Word32 -> Program ()
 globalTargetModify op nom blockSize i =
-  AtomicOp "dummy" nom ((bid * blockSize) + i) op
+  AtomicOp  nom ((bid * blockSize) + i) op
 
         
 --------------------------------------------------------------------------        

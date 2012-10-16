@@ -14,3 +14,4 @@ type ModArray a = Array Modify a
 
 mkModifyArray p op n = Array (Modify p op) n
 
+-- create a modify array from push/pull array.

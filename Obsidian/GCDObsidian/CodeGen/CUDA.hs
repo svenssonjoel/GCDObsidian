@@ -1,9 +1,10 @@
+{-# LANGUAGE GADTs #-}
 
 module Obsidian.GCDObsidian.CodeGen.CUDA 
        (genKernel
        ,genKernel_ 
        ,genKernelGlob
-       ,genKernelGlob_ ) where 
+       ,genKernelGlob_) where 
 
 import Data.List
 import Data.Word 
@@ -285,6 +286,16 @@ genProg mm nt (Assign name ix a) =
         line$  name ++ "[" ++ concat (genExp gc mm ix) ++ "] = " ++ 
           concat (genExp gc mm a) ++ ";"
         newline
+genProg mm nt (AtomicOp name ix AtomicInc) = 
+  case Map.lookup name mm of
+    Just (addr,t) ->
+      do 
+        line$  "atomicInc(&(" ++ sbaseStr addr t ++ ")" ++ "+"
+          ++ concat (genExp gc mm ix) ++ ",0xFFFFFFFF)" ++ ";"
+        newline
+    Nothing -> error "genProg: AtomicOp. Think about this case"       
+        
+        
 -- TODO: Add Similar AtomicOp case
 --       Also see where else it needs to go!
 --        # CSE

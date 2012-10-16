@@ -18,6 +18,7 @@ import Data.Bits
 import Prelude hiding (zipWith,sum )
 
 
+
 ---------------------------------------------------------------------------
 -- MapFusion example
 mapFusion :: Array Pull IntE -> Kernel (Array Pull IntE) 
