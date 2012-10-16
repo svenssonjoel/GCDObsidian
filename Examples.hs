@@ -81,10 +81,15 @@ local_f = fmap (+2)
 global_f :: PullG GDIM1 DIM1 IntE -> Kernel (PushG GDIM1 DIM1 IntE)
 global_f garr = pure (pBlocks (pullGGridDim garr) . local_f . blocks) garr
 
-blocks :: PullG GDIM1 DIM1 a -> Pull DIM1 a
+
+-- blocks :: PullG (DIM2 -> ... ) DIM2
+-- problem domain vs distribution of work onto (grid decomposition)
+
+
+--blocks :: (DIM1 -> DIM2) -> PullG DIM2 a -> Pull DIM1 a
 -- I dont like having to put a hardcoded "BlockIdx" in this code.
 -- But maybe thats fine ?? ... 
-blocks (PullG gsh bsh gixf) = Pull bsh $ \tix -> gixf (fromIndexDyn gsh BlockIdx) tix
+blocks {- dtransform-} (PullG gsh bsh gixf) = Pull bsh $ \tix -> gixf (fromIndexDyn gsh BlockIdx) tix
 
 
 ---------------------------------------------------------------------------
