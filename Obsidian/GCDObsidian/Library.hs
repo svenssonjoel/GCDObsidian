@@ -306,19 +306,19 @@ insertZero i a = a + (a .&. fromIntegral (complement (oneBits i :: Word32)))
 
 
 
-flipBits :: Bits a => Int -> Int -> a -> a
+flipBits :: (Num a, Bits a) => Int -> Int -> a -> a
 flipBits i j a = a `xor` (fromIntegral mask)
   where
     mask = (oneBits j :: Word32) `shiftL` i
 
-flipBit :: Bits a => Int -> a -> a
+flipBit :: (Num a, Bits a) => Int -> a -> a
 flipBit = flip complementBit 
 
-oneBits :: Bits a => Int -> a
+oneBits :: (Num a, Bits a) => Int -> a
 oneBits i = bit i - 1
     
 -- flip bits from position i to position i+j inclusive
-flipBitsFrom :: Bits a => Int -> Int -> a -> a
+flipBitsFrom :: (Num a, Bits a) => Int -> Int -> a -> a
 flipBitsFrom i j a = a `xor` (fromIntegral mask)
   where
     mask = (oneBits (j + 1):: Word32) `shiftL` i

@@ -21,7 +21,8 @@ Tested-With: GHC == 7.0.3
 build-type: Simple
 
 Library
-  build-depends: base >= 4 && < 5, haskell98
+  build-depends: base >= 4 && < 5
+--               , haskell98
                , mtl
                , containers
                , process
@@ -35,14 +36,14 @@ Library
                  , Obsidian.GCDObsidian.Exp  
                  , Obsidian.GCDObsidian.Printing
                  , Obsidian.GCDObsidian.Sync
-                 , Obsidian.GCDObsidian.Memory
+--                 , Obsidian.GCDObsidian.Memory
                  , Obsidian.GCDObsidian.Globs
                  , Obsidian.GCDObsidian.CodeGen.Common
                  , Obsidian.GCDObsidian.CodeGen.OpenCL
                  , Obsidian.GCDObsidian.CodeGen.CUDA 
                  , Obsidian.GCDObsidian.CodeGen.C
-                 , Obsidian.GCDObsidian.AddOn.ArrowObsidian
-                 , Obsidian.GCDObsidian.AddOn.SortLang
+--                 , Obsidian.GCDObsidian.AddOn.ArrowObsidian
+--                 , Obsidian.GCDObsidian.AddOn.SortLang
 
 
               
