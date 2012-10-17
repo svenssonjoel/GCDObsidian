@@ -85,11 +85,14 @@ global_f garr = pure (pBlocks (pullGGridDim garr) . local_f . blocks) garr
 -- blocks :: PullG (DIM2 -> ... ) DIM2
 -- problem domain vs distribution of work onto (grid decomposition)
 
+-- TODO: TESTA!
+--blocks ::  (Pull DIM1 a -> Pull DIM1 b) -> PullG GDIM1 DIM1  a -> PullG GDIM1 DIM1 b
 
---blocks :: (DIM1 -> DIM2) -> PullG DIM2 a -> Pull DIM1 a
+
+--  PullG (Shape sh0 Word32, Shape sh1 (Exp Word32)) a  
 -- I dont like having to put a hardcoded "BlockIdx" in this code.
 -- But maybe thats fine ?? ... 
-blocks {- dtransform-} (PullG gsh bsh gixf) = Pull bsh $ \tix -> gixf (fromIndexDyn gsh BlockIdx) tix
+blocks (PullG gsh bsh gixf) = Pull bsh $ \tix -> gixf (fromIndexDyn gsh BlockIdx) tix
 
 
 ---------------------------------------------------------------------------
