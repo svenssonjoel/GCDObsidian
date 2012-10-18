@@ -26,7 +26,7 @@ type ArrayPush sh a = Push sh a
 
 
 ------------------------------------------------------------------------------
-newtype P a = P {unP :: (a -> Program ()) -> Program ()}  
+-- newtype P a = P {unP :: (a -> Program ()) -> Program ()}  
 
 -- Push and pull arrays 
 data Push sh a = Push { pushShape :: Shape sh Word32, 
@@ -116,7 +116,7 @@ namedGlobal gsh bsh name =
 
 ----------------------------------------------------------------------------
 -- Converting to push arrays 
-
+{- 
 class ToPush a where 
     toPush :: a sh e -> Push sh e 
     
@@ -145,7 +145,7 @@ instance ToPushG PullG where
 
 -- Need to div,mod i into the correct shape.. 
 -- I think I know what works for 1D and 2D.. but nD ?
-                                    
+   -}                                  
  
 {- 
 

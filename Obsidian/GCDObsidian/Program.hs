@@ -1,5 +1,6 @@
 {-# LANGUAGE     RankNTypes, 
-                 GADTs #-} 
+                 GADTs,
+                 GeneralizedNewtypeDeriving #-} 
 module Obsidian.GCDObsidian.Program 
        (Program(..)
        ,printProgram
@@ -8,7 +9,13 @@ module Obsidian.GCDObsidian.Program
        ,targetArray
        ,targetPair
        ,Atomic(..)
-       ,printAtomic  
+       ,printAtomic
+
+        --- Experimental
+       ,runFunc
+       ,P(..)
+       ,(*>>>)
+       ,newName
        )where 
 
 import Data.Word
@@ -17,32 +24,27 @@ import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 
+
+--import Control.Monad.State
+
+import Data.Supply
+import System.IO.Unsafe
 ----------------------------------------------------------------------------
 -- 
 data Program extra 
   = Skip
   | forall a. Scalar a => Assign Name (Exp Word32) (Exp a) 
--- Note: Writing of a scalar value into an array location.     
+
   | ForAll Word32 (Exp Word32 -> (Program extra))    
   | ForAllGlobal Word32
                  (Exp Word32 -> Exp Word32 -> (Program extra)) 
 
--- DONE: I Think Allocate should not introduce nesting
   | Allocate Name Word32 Type extra
--- potentially a sync is needed. 
--- DONE: Analysis will check if it is REALLY needed
-  | Synchronize Bool 
--- NOTE: Adding a synchronize statement here 
---       the sync operation can now insert a Syncronize as a guide 
---       to the code generation 
--- TODO: What will this mean when nested inside something ? 
---       Again, to start with, I will ensure that none of my library
---       function introduces a Synchronize nested in anything.     
+
+  | Synchronize Bool
   | ProgramSeq (Program extra) 
                (Program extra)
 
--- Experimental additions
-  | SeqLoop (Exp Word32) ((Exp Word32) -> Program extra)
 -- Be careful so that a conditional program does not contain Synchronize  
   | Cond    (Exp Bool) (Program extra)
     
@@ -128,3 +130,73 @@ data Atomic a where
   AtomicInc :: Atomic (Exp Int)
 
 printAtomic AtomicInc = "atomicInc"
+
+---------------------------------------------------------------------------
+-- P Monad 
+---------------------------------------------------------------------------
+data P a = P {unP :: (a -> NameSupply (Program ())) -> NameSupply (Program ())}
+
+instance Monad P where
+  return a = P (\k -> k a)
+  P f  >>= m = P (\k -> f (\a -> unP (m a) k))
+
+
+runP :: P a -> Program ()
+runP (P m) = runNS (m (\_ -> return Skip)) 
+
+
+(*>>) :: Program () -> NameSupply (Program ())  -> NameSupply (Program ()) 
+p *>> m =
+  do 
+    p' <- m
+    return (p *>* p')
+
+-- Sequence NameSupply (Program ())  
+(*>>>) :: NameSupply (Program ()) 
+          -> NameSupply (Program ()) 
+          -> NameSupply (Program ())
+m1 *>>> m2 =
+  do
+    p1 <- m1
+    p2 <- m2
+    return (p1 *>* p2) 
+  
+
+---------------------------------------------------------------------------
+-- Wrappers on Program constructors.  
+---------------------------------------------------------------------------
+skip :: P ()
+skip = P (\k -> Skip *>> k ())
+
+assign :: Scalar a => Name -> Exp Word32 -> Exp a  -> P ()
+assign name ix e = P (\k -> Assign name ix e *>> k ())
+
+
+forAll :: Word32 -> (Exp Word32 -> P a) -> P a
+forAll l body = P (\k ->
+                    do
+                      b <- runFunc (\i -> unP (body i) k)
+                      return (ForAll l b)) 
+               
+---------------------------------------------------------------------------
+--  New NameSupply monad. 
+---------------------------------------------------------------------------
+data NameSupply a = NS { unNS :: Supply Int -> a }
+
+instance Monad NameSupply where
+  return a = NS $ \_ -> a
+  NS f >>= m = NS $ \s ->
+    let (s1,s2) = split2 s in
+    unNS (m (f s1)) s2
+
+newName :: String -> NameSupply String
+newName v = NS $ \s -> v ++ show (supplyValue s)
+
+runFunc :: (a -> NameSupply b) -> NameSupply (a -> b)
+runFunc f = NS $ \s -> \a -> unNS (f a) s
+
+
+runNS :: NameSupply a -> a 
+runNS (NS ns) = ns (unsafePerformIO newEnumSupply)
+  -- unNS (m (\_ -> return Skip)) (unsafePerformIO (newEnumSupply))
+

@@ -15,7 +15,7 @@ import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 
 
-import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
+-- import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 
 -- import qualified Obsidian.GCDObsidian.CodeGen.C as C
 -- import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
@@ -34,31 +34,44 @@ import Data.Word
 
 {-
  TODOS:
-   - I expect that changes are needed in threadsNeeded.
-      + how should the numbder of threads needed for this
-        new kind of kernel be computed.
-
-   - Clean up Code generation and adapt it the multidimensional arrays.
-
-   - Create a more generalised "sync" module. Call it Force to be
-     consistent across other similar libraris ?
-
-   - Always try to simplify things. Apply KISS!
-
-   - I suspect that it would be good to generate
-     code for a variable number of blocks.
-     + First go with static. Then branch out and try this.
-     
+   TOO MANY TO MENTION!
 -} 
 
 
 
-mapFusion :: ArrayPull DIM1 IntE -> Kernel (ArrayPull DIM1 IntE) 
-mapFusion = pure (fmap (+1) . fmap (*2)) 
+mapFusion :: ArrayPull DIM1 IntE -> ArrayPull DIM1 IntE 
+mapFusion = fmap (+1) . fmap (*2)  
+
+codeMapFusion = force $ mapFusion input1 
 
 input1 :: ArrayPull DIM1 IntE 
-input1 = namedArray (listShape [256]) "apa" 
+input1 = namedArray (listShape [256]) "apa"
 
+-- Pushable  something => 
+force :: Scalar a => Pull DIM1 (Exp a)  -> P (Pull DIM1 (Exp a))
+force  pully@(Pull bsh ixf) =
+  P $ \k ->
+    do
+      nom <- newName "arr"
+      ((unP . pushFun . push) pully) (assignImm nom) *>>> (k (Pull bsh (\i -> index nom (toIndex bsh i))))
+        where
+          assignImm imm (ix,e) = return (Assign imm (toIndex bsh ix) e) 
+
+                                                  
+push :: Pull DIM1 (Exp a) -> Push DIM1 (Exp a)
+push (Pull n f) = Push n (push' n f) 
+
+push' :: Shape sh Word32
+         -> (Shape (E sh) (Exp Word32) -> Exp a)
+         -> P (Shape (E sh) (Exp Word32), Exp a)
+push' bsh ixf =
+  P $ \k -> do func <- runFunc k
+               return (ForAll (size bsh)
+                              (\i -> func (fromIndex bsh i,
+                                           ixf (fromIndex bsh i))))
+
+
+{- 
 getMapFusion  = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 getMapFusion_ = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusion input1
                  
@@ -93,12 +106,35 @@ global_f garr = pure (pBlocks (pullGGridDim garr) . local_f . blocks) garr
 -- I dont like having to put a hardcoded "BlockIdx" in this code.
 -- But maybe thats fine ?? ... 
 blocks (PullG gsh bsh gixf) = Pull bsh $ \tix -> gixf (fromIndexDyn gsh BlockIdx) tix
+-} 
+{- 
+blockMap :: (Pull DIM1 a -> Kernel (Pull DIM1 b))
+            ->  PullG GDIM1 DIM1 a -> Kernel (PushG GDIM1 DIM1 b)
+blockMap f input@(PullG gsh bsh gixf) =
+  do
+    imm <- f (getBlock input)
+    return $ res imm
+  where 
+    res imm = mkPushG gsh bsh $ \k ->
+      ForAllGlobal (fromIntegral (size bsh))
+                   (\bix tix ->
+                     let bix' = fromIndexDyn gsh bix
+                         tix' = fromIndex bsh tix
+                     in  k (bix',tix',imm tix'))
+-}                          
+--pushBlockTo :: Push DIM1 b -> Kernel (Exp Word32 -> PushG GDIM1 DIM1 b)
+--pushBlockTo (Push bsh pixf) =
+--  return $ \bix -> PushG 
+      
+
+      --pull <- f (Pull bsh (\ix -> 
+      --PullG gsh bsh $ \bix tix -> 
 
 
 ---------------------------------------------------------------------------
 -- 
 ---------------------------------------------------------------------------
-
+{- 
 -- create a global push array given a shape-of-blocks
 -- and a local array (a block) 
 pBlocks :: Shape gsh (Exp Word32) -> Pull DIM1 a -> PushG gsh DIM1 a
@@ -160,7 +196,7 @@ newTargetArray :: Scalar a
                   -> Program ()
 newTargetArray sh n (i,a) = Assign n (toIndex sh i) a 
 
-
+-} 
 {- 
 ---------------------------------------------------------------------------
 --Reifyable functions
