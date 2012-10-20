@@ -16,6 +16,8 @@ module Obsidian.GCDObsidian.Program
        ,P(..)
        ,(*>>>)
        ,newName
+       ,NameSupply(..)
+       ,runP
        )where 
 
 import Data.Word

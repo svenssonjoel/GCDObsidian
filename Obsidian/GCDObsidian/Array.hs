@@ -29,27 +29,63 @@ type ArrayPush sh a = Push sh a
 -- newtype P a = P {unP :: (a -> Program ()) -> Program ()}  
 
 -- Push and pull arrays 
-data Push sh a = Push { pushShape :: Shape sh Word32, 
-                        pushFun :: P (Shape (E sh) (Exp Word32),a) }
+--data Push sh a = Push { pushShape :: Shape sh Word32, 
+--                        pushFun :: P (Shape (E sh) (Exp Word32),a) }
 
-mkPush sh p = Push sh (P p) 
+
+--data Local = Local
+--data Global sh = Global (Shape (E sh) (Exp Word32))
+
+--data Push w sh a = Push { pushShape :: Shape sh Word32, 
+--                          pushFun :: P (w,Shape (E sh) (Exp Word32),a) }
+
+
+--type PushL sh a = Push Local sh a
+--type PushG gsh bsh a = Push (Global gsh) bsh a 
+
+
 
 data Pull sh a = Pull { pullShape :: Shape sh Word32, 
                         pullFun   :: Shape (E sh) (Exp Word32) -> a }
 
-data PushG bdim gdim a =
-  PushG
+
+data Global  = Global 
+data Local   = Local
+
+data Push_ w gdim bdim a =
+  Push
   {
-    pushGGridDim  :: Shape bdim (Exp Word32),
-    pushGBlockDim :: Shape gdim Word32,
+    pushGridDim  :: Shape gdim (Exp Word32),
+    pushBlockDim :: Shape bdim Word32,
     
-    pushGFun   ::  P (Shape bdim (Exp Word32),
-                      Shape (E gdim) (Exp Word32),
-                      a)
+    pushFun   ::  P (Shape gdim (Exp Word32),
+                     Shape (E bdim) (Exp Word32),
+                     a)
   }
 
+type Push = Push_ Local Z 
+type PushG = Push_ Global
 
-mkPushG gsh bsh p = PushG gsh bsh (P p) 
+-- TODO: Z feels slightly wrong here.
+--       Maybe not so wrong if we think that the
+--       Global shape is "added" on top of the other shape.
+--       Its not "multiplied"...
+mkPush :: Shape bdim Word32
+     -> (((Shape Z (Exp Word32), Shape (E bdim) (Exp Word32), a)
+          -> NameSupply (Program ()))
+         -> NameSupply (Program ()))
+     -> Push bdim a
+mkPush sh p = Push Z sh (P p)
+
+
+mkPushG
+  :: Shape gdim (Exp Word32)
+     -> Shape bdim Word32
+     -> (((Shape gdim (Exp Word32), Shape (E bdim) (Exp Word32), a)
+          -> NameSupply (Program ()))
+         -> NameSupply (Program ()))
+     -> PushG gdim bdim a
+mkPushG gsh bsh p = Push gsh bsh (P p) 
 
 data PullG gdim bdim a =
   PullG

@@ -37,8 +37,9 @@ import Data.Word
    TOO MANY TO MENTION!
 -} 
 
-
-
+---------------------------------------------------------------------------
+--
+---------------------------------------------------------------------------
 mapFusion :: ArrayPull DIM1 IntE -> ArrayPull DIM1 IntE 
 mapFusion = fmap (+1) . fmap (*2)  
 
@@ -47,30 +48,61 @@ codeMapFusion = force $ mapFusion input1
 input1 :: ArrayPull DIM1 IntE 
 input1 = namedArray (listShape [256]) "apa"
 
--- Pushable  something => 
+---------------------------------------------------------------------------
+-- force a computation (aka sync) 
+---------------------------------------------------------------------------
+-- TODO: force :: Pushable something => something dim a -> P (Pull dim a)  
 force :: Scalar a => Pull DIM1 (Exp a)  -> P (Pull DIM1 (Exp a))
 force  pully@(Pull bsh ixf) =
   P $ \k ->
     do
       nom <- newName "arr"
-      ((unP . pushFun . push) pully) (assignImm nom) *>>> (k (Pull bsh (\i -> index nom (toIndex bsh i))))
+      ((unP . pushFun . push) pully) (assignImm nom) *>>>
+        (k (Pull bsh (\i -> index nom (toIndex bsh i))))
         where
-          assignImm imm (ix,e) = return (Assign imm (toIndex bsh ix) e) 
+          assignImm imm (dummy,ix,e) =
+            return (Assign imm (toIndex bsh ix) e) 
 
-                                                  
+---------------------------------------------------------------------------
+-- push (make into a Push array) 
+---------------------------------------------------------------------------
 push :: Pull DIM1 (Exp a) -> Push DIM1 (Exp a)
-push (Pull n f) = Push n (push' n f) 
+push (Pull n f) = Push Z n (push' n f) 
 
 push' :: Shape sh Word32
          -> (Shape (E sh) (Exp Word32) -> Exp a)
-         -> P (Shape (E sh) (Exp Word32), Exp a)
+         -> P (Shape Z (Exp Word32), Shape (E sh) (Exp Word32), Exp a)
 push' bsh ixf =
   P $ \k -> do func <- runFunc k
                return (ForAll (size bsh)
-                              (\i -> func (fromIndex bsh i,
+                              (\i -> func (mkShape 0,
+                                           fromIndex bsh i,
                                            ixf (fromIndex bsh i))))
+---------------------------------------------------------------------------
+-- push (make into a Push array) 
+---------------------------------------------------------------------------
 
-
+--blockMap :: (Pull DIM1 a -> P (Pull DIM1 b))
+--            -> PullG GDIM1 DIM1 a -> PushG GDIM1 DIM1 b
+--blockMap f iarr@(PullG gsh bsh gixf) =
+--  PushG gsh bsh $
+--  do
+    
+--    P (\k ->
+                      
+{-
+pushWithBid :: Pull DIM1 (Exp a)
+               -> Shape (E DIM1) (Exp Word32)
+               -> Shape (E DIM1) (Exp Word32)  -> Push DIM1 (Exp a) 
+pushWithBid (Pull bsh ixf)  gsh bid =
+  Push bsh $ P $ \k ->
+  do func <- runFunc k
+     return (ForAll (size bsh)
+             (\tix-> func ((fromIndexDyn gsh bid) + (fromIndex bsh tix),
+                             ixf (fromIndex bsh tix))))
+                                               
+                          
+-} 
 {- 
 getMapFusion  = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 getMapFusion_ = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusion input1
