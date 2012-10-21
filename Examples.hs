@@ -41,12 +41,21 @@ import Data.Word
 --
 ---------------------------------------------------------------------------
 mapFusion :: ArrayPull DIM1 IntE -> ArrayPull DIM1 IntE 
-mapFusion = fmap (+1) . fmap (*2)  
+mapFusion = fmap (+1) . fmap (*2)
 
+
+test1 :: Pull DIM1 (Pull DIM1 IntE) -> Pull DIM1 (Pull DIM1 IntE)
+test1 (Pull bsh bxf) = Pull bsh (\bid -> mapFusion (bxf bid))
+
+
+
+
+{- 
 codeMapFusion = force $ mapFusion input1 
 
 input1 :: ArrayPull DIM1 IntE 
 input1 = namedArray (listShape [256]) "apa"
+
 
 codeMapFusion2 :: P (PullG (E DIM1) (DIM1) IntE)
 codeMapFusion2 =
@@ -123,7 +132,7 @@ pushWithBid (Pull bsh ixf) gsh =
                                fromIndex bsh tix,
                                ixf (fromIndex bsh tix))))
                           
- 
+-} 
 {- 
 getMapFusion  = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 getMapFusion_ = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusion input1

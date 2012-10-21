@@ -23,11 +23,11 @@ instance Functor (Pull sh) where
     Pull (pullShape arr) $ \ix -> f (arr ! ix) 
 
 
-instance Functor (PullG gsh bsh) where
-  fmap f arr =
-    PullG (pullGGridDim arr) 
-          (pullGBlockDim arr)
-          $ \bix tix -> f (arr !* (bix,tix))
+--instance Functor (PullG gsh bsh) where-
+--  fmap f arr =
+--    PullG (pullGGridDim arr) 
+ --         (pullGBlockDim arr)
+ --         $ \bix tix -> f (arr !* (bix,tix))
 {- 
 mapDIM1 :: (Data Index -> Data Index) -> Shape DIM1 -> Shape DIM1
 mapDIM1 ixmap (Z :. i) = Z :. ixmap i

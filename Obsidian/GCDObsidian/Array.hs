@@ -48,56 +48,31 @@ type ArrayPush sh a = Push sh a
 data Pull sh a = Pull { pullShape :: Shape sh Word32, 
                         pullFun   :: Shape (E sh) (Exp Word32) -> a }
 
-
-data Global  = Global 
-data Local   = Local
-
-data Push_ w gdim bdim a =
+data Push dim a =
   Push
   {
-    pushGridDim  :: Shape gdim (Exp Word32),
-    pushBlockDim :: Shape bdim Word32,
+    pushDim :: Shape dim Word32,
     
-    pushFun   ::  P (Shape gdim (Exp Word32),
-                     Shape (E bdim) (Exp Word32),
-                     a)
+    pushFun ::  P (Shape (E dim) (Exp Word32),a)
   }
 
-type Push = Push_ Local Z 
-type PushG = Push_ Global
+
+
+
+
 
 -- TODO: Z feels slightly wrong here.
 --       Maybe not so wrong if we think that the
 --       Global shape is "added" on top of the other shape.
 --       Its not "multiplied"...
-mkPush :: Shape bdim Word32
-     -> (((Shape Z (Exp Word32), Shape (E bdim) (Exp Word32), a)
-          -> NameSupply (Program ()))
-         -> NameSupply (Program ()))
-     -> Push bdim a
-mkPush sh p = Push Z sh (P p)
+--mkPush :: Shape bdim Word32
+--     -> (Shape (E bdim) (Exp Word32), a)
+--          -> NameSupply (Program ())
+--         -> NameSupply (Program ())
+--     -> Push bdim a
+mkPush sh p = Push sh (P p)
 
-
-mkPushG
-  :: Shape gdim (Exp Word32)
-     -> Shape bdim Word32
-     -> (((Shape gdim (Exp Word32), Shape (E bdim) (Exp Word32), a)
-          -> NameSupply (Program ()))
-         -> NameSupply (Program ()))
-     -> PushG gdim bdim a
-mkPushG gsh bsh p = Push gsh bsh (P p) 
-
-data PullG gdim bdim a =
-  PullG
-  {
-    pullGGridDim  :: Shape gdim (Exp Word32),
-    pullGBlockDim :: Shape bdim Word32,
-    
-    pullGFun   :: Shape gdim (Exp Word32) ->
-                  Shape (E bdim) (Exp Word32) ->
-                  a 
-  }
-                  
+{- 
 
 testArray1 :: Pull DIM1 (Exp Int) 
 testArray1 = Pull sh  (\s -> index "apa" (toIndex sh s) ) 
@@ -124,15 +99,15 @@ testix = toIndex dim ixinto
      dim = mkShape 100 :: Shape (Z:.Word32) Word32 
      ixinto = mkIndex dim [50] -- :: Shape (Z:.Exp Word32) (Exp Word32)
      
-
+-} 
 (!) :: ArrayPull sh e -> Shape (E sh) (Exp Word32) -> e
 (!) (Pull sh f) sh' = f sh' 
 
-(!*) :: PullG gsh bsh e 
-        -> (Shape gsh (Exp Word32),
-            Shape (E bsh) (Exp Word32))
-        -> e
-(!*) (PullG gsh bsh f) (bix,tix) = f bix tix 
+--(!*) :: PullG gsh bsh e 
+--        -> (Shape gsh (Exp Word32),
+--            Shape (E bsh) (Exp Word32))
+--        -> e
+--(!*) (PullG gsh bsh f) (bix,tix) = f bix tix 
 
 
 
@@ -142,6 +117,7 @@ testix = toIndex dim ixinto
 namedArray n name  = Pull n (\ix -> index name (toIndex n ix)) 
 
 
+{- 
 namedGlobal gsh bsh name =
   PullG gsh bsh
         (\bix tix ->
@@ -149,6 +125,7 @@ namedGlobal gsh bsh name =
                 (fromIntegral (size bsh))
                 (toIndexDyn gsh bix)
                 (toIndex bsh tix)) 
+-} 
 
 ----------------------------------------------------------------------------
 -- Converting to push arrays 
