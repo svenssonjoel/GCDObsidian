@@ -15,9 +15,11 @@ module Obsidian.GCDObsidian.Program
        ,runFunc
        ,P(..)
        ,(*>>>)
+       ,(*>>)
        ,newName
        ,NameSupply(..)
        ,runP
+       , runNSWith
        )where 
 
 import Data.Word
@@ -168,18 +170,15 @@ m1 *>>> m2 =
 -- Wrappers on Program constructors.  
 ---------------------------------------------------------------------------
 skip :: P ()
-skip = P (\k -> Skip *>> k ())
+skip = undefined
 
 assign :: Scalar a => Name -> Exp Word32 -> Exp a  -> P ()
-assign name ix e = P (\k -> Assign name ix e *>> k ())
+assign name ix e = undefined 
 
 
 forAll :: Word32 -> (Exp Word32 -> P a) -> P a
-forAll l body = P (\k ->
-                    do
-                      b <- runFunc (\i -> unP (body i) k)
-                      return (ForAll l b)) 
-               
+forAll l body = undefined
+
 ---------------------------------------------------------------------------
 --  New NameSupply monad. 
 ---------------------------------------------------------------------------
@@ -197,8 +196,11 @@ newName v = NS $ \s -> v ++ show (supplyValue s)
 runFunc :: (a -> NameSupply b) -> NameSupply (a -> b)
 runFunc f = NS $ \s -> \a -> unNS (f a) s
 
+                   
 
 runNS :: NameSupply a -> a 
 runNS (NS ns) = ns (unsafePerformIO newEnumSupply)
   -- unNS (m (\_ -> return Skip)) (unsafePerformIO (newEnumSupply))
 
+runNSWith :: Supply Int -> NameSupply a -> a 
+runNSWith s (NS ns) = ns s 

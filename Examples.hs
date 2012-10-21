@@ -31,6 +31,7 @@ import Control.Monad.State
 
 import Prelude hiding (zipWith,sum, reverse)
 import Data.Word
+import Data.Supply
 
 {-
  TODOS:
@@ -43,11 +44,49 @@ import Data.Word
 mapFusion :: ArrayPull DIM1 IntE -> ArrayPull DIM1 IntE 
 mapFusion = fmap (+1) . fmap (*2)
 
+mapFusion2 :: ArrayPull DIM1 IntE -> P (ArrayPull DIM1 IntE)
+mapFusion2 arr = return $ (fmap (+1) . fmap (*2)) arr 
+
+input :: Pull DIM1 (Pull DIM1 IntE)
+input = Pull (Z :. 100)
+             (\bid ->
+               (Pull (Z :. 100) (\tid -> indexG "input"
+                                                100
+                                                (toIndex (Z :. 100) bid)
+                                                (toIndex (Z :. 100) tid))))
 
 test1 :: Pull DIM1 (Pull DIM1 IntE) -> Pull DIM1 (Pull DIM1 IntE)
 test1 (Pull bsh bxf) = Pull bsh (\bid -> mapFusion (bxf bid))
 
+test2 :: Pull DIM1 (Pull DIM1 IntE) -> P (Pull DIM1 (Pull DIM1 IntE))
+test2 = externalize . (mapBlocks mapFusion2)
 
+mapBlocks :: (Pull DIM1 a -> P (Pull DIM1 b)) ->
+             (Pull DIM1 (Pull DIM1 a)) -> (Pull DIM1 (P (Pull DIM1 b)))
+mapBlocks f (Pull gsh gxf) = Pull gsh (\bid -> f (gxf bid))
+
+
+externalize :: Scalar a => Pull DIM1 (P (Pull DIM1 (Exp a))) ->
+               P (Pull DIM1 (Pull DIM1 (Exp a)))
+externalize (Pull gsh bxf) =
+  do
+    P $ \k ->
+        do
+          global <- newName "glob"
+          (s:_) <- (NS $ \sup -> split sup)
+          let prog = ForAll (size gsh)
+                            (\bid -> (runNSWith s (
+                                         unP (bxf (fromIndex gsh bid))
+                                             (assignTo global))))
+                     
+          prog *>> (k $ Pull gsh (\bid ->
+                         (Pull (Z:.100) (\tid ->
+                                          indexG global (100)
+                                                        (toIndex gsh bid)
+                                                        (toIndex (Z:.100) tid)))))
+     
+
+assignTo = undefined     
 
 
 {- 
