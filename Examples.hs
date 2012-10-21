@@ -48,6 +48,13 @@ codeMapFusion = force $ mapFusion input1
 input1 :: ArrayPull DIM1 IntE 
 input1 = namedArray (listShape [256]) "apa"
 
+codeMapFusion2 =
+  do
+    p <- force $ mapFusion input1
+    q <- force $ mapFusion p 
+    return$ pushWithBid q (Z :. BlockIdx)  
+   
+
 ---------------------------------------------------------------------------
 -- force a computation (aka sync) 
 ---------------------------------------------------------------------------
@@ -61,7 +68,7 @@ force  pully@(Pull bsh ixf) =
         (k (Pull bsh (\i -> index nom (toIndex bsh i))))
         where
           assignImm imm (dummy,ix,e) =
-            return (Assign imm (toIndex bsh ix) e) 
+            return (Assign imm (t oIndex bsh ix) e) 
 
 ---------------------------------------------------------------------------
 -- push (make into a Push array) 
@@ -90,19 +97,19 @@ push' bsh ixf =
     
 --    P (\k ->
                       
-{-
+
 pushWithBid :: Pull DIM1 (Exp a)
-               -> Shape (E DIM1) (Exp Word32)
-               -> Shape (E DIM1) (Exp Word32)  -> Push DIM1 (Exp a) 
-pushWithBid (Pull bsh ixf)  gsh bid =
-  Push bsh $ P $ \k ->
+               -> Shape (E DIM1) (Exp Word32)  -> PushG (E DIM1) DIM1 (Exp a) 
+pushWithBid (Pull bsh ixf) gsh =
+  Push gsh bsh $ P $ \k ->
   do func <- runFunc k
-     return (ForAll (size bsh)
-             (\tix-> func ((fromIndexDyn gsh bid) + (fromIndex bsh tix),
-                             ixf (fromIndex bsh tix))))
+     return (ForAllGlobal (size bsh)
+             (\bid tix-> func (fromIndexDyn gsh bid,
+                               fromIndex bsh tix,
+                               ixf (fromIndex bsh tix))))
                                                
                           
--} 
+ 
 {- 
 getMapFusion  = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 getMapFusion_ = putStrLn$ CUDA.genKernel_ "mapFusion" mapFusion input1
