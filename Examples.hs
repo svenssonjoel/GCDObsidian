@@ -48,11 +48,23 @@ codeMapFusion = force $ mapFusion input1
 input1 :: ArrayPull DIM1 IntE 
 input1 = namedArray (listShape [256]) "apa"
 
+codeMapFusion2 :: P (PullG (E DIM1) (DIM1) IntE)
 codeMapFusion2 =
-  do
+  do -- P Monad
     p <- force $ mapFusion input1
-    q <- force $ mapFusion p 
-    return$ pushWithBid q (Z :. BlockIdx)  
+    q <- force $ mapFusion p
+    let bsh = pullShape q
+    P $ \k ->
+      do -- NameSupply monad
+        imm <- newName "globalOut" 
+        let pushy = pushWithBid q (Z :. BlockIdx)
+        ((unP . pushFun) pushy) (assignImm imm (pullShape q)) *>>>
+          (k (PullG gsh bsh (\j i -> indexG imm (fromIntegral (size bsh)) (toIndexDyn gsh j) (toIndex bsh i))))
+          where
+            gsh = Z :. (variable "xdim")
+            assignImm imm bsh (bid,ix,e) = 
+              return (Assign imm (toIndexDyn (Z :. (variable "xdim")) bid +  toIndex bsh ix) e)
+    
    
 
 ---------------------------------------------------------------------------
@@ -68,7 +80,7 @@ force  pully@(Pull bsh ixf) =
         (k (Pull bsh (\i -> index nom (toIndex bsh i))))
         where
           assignImm imm (dummy,ix,e) =
-            return (Assign imm (t oIndex bsh ix) e) 
+            return (Assign imm (toIndex bsh ix) e) 
 
 ---------------------------------------------------------------------------
 -- push (make into a Push array) 
@@ -89,17 +101,20 @@ push' bsh ixf =
 -- push (make into a Push array) 
 ---------------------------------------------------------------------------
 
---blockMap :: (Pull DIM1 a -> P (Pull DIM1 b))
---            -> PullG GDIM1 DIM1 a -> PushG GDIM1 DIM1 b
---blockMap f iarr@(PullG gsh bsh gixf) =
---  PushG gsh bsh $
---  do
-    
---    P (\k ->
-                      
+blockMap :: (Pull DIM1 a -> P (Pull DIM1 b))
+            -> PullG GDIM1 DIM1 a -> PushG GDIM1 DIM1 b
+blockMap f iarr@(PullG gsh bsh gixf) =
+  Push gsh bsh $
+  do -- P monad
+    pully <- f (pullBlock BlockIdx iarr)
+    let pushy = pushWithBid pully gsh
+    pushFun pushy
 
-pushWithBid :: Pull DIM1 (Exp a)
-               -> Shape (E DIM1) (Exp Word32)  -> PushG (E DIM1) DIM1 (Exp a) 
+pullBlock :: Exp Word32 -> PullG GDIM1 DIM1 a -> Pull DIM1 a
+pullBlock block (PullG gsh bsh gixf) = Pull bsh (gixf (fromIndexDyn gsh block))
+
+pushWithBid :: Pull DIM1 a
+               -> Shape (E DIM1) (Exp Word32)  -> PushG (E DIM1) DIM1 a
 pushWithBid (Pull bsh ixf) gsh =
   Push gsh bsh $ P $ \k ->
   do func <- runFunc k
@@ -107,7 +122,6 @@ pushWithBid (Pull bsh ixf) gsh =
              (\bid tix-> func (fromIndexDyn gsh bid,
                                fromIndex bsh tix,
                                ixf (fromIndex bsh tix))))
-                                               
                           
  
 {- 
