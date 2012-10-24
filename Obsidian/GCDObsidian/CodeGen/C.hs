@@ -12,7 +12,7 @@ import Data.Word
 import Data.Monoid
 import qualified Data.Map as Map
 
-import Obsidian.GCDObsidian.Kernel 
+
 import Obsidian.GCDObsidian.Array 
 import Obsidian.GCDObsidian.Exp  
 --import Obsidian.GCDObsidian.Memory

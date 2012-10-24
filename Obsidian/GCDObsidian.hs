@@ -1,7 +1,7 @@
 module Obsidian.GCDObsidian 
        (module Obsidian.GCDObsidian.Array, 
         module Obsidian.GCDObsidian.Library,
-        module Obsidian.GCDObsidian.Kernel,
+        module Obsidian.GCDObsidian.Program,
         module Obsidian.GCDObsidian.Exp,
         module Obsidian.GCDObsidian.Sync,
         ) where 
@@ -9,6 +9,6 @@ module Obsidian.GCDObsidian
 
 import Obsidian.GCDObsidian.Array 
 import Obsidian.GCDObsidian.Library
-import Obsidian.GCDObsidian.Kernel 
+import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.Exp  
 import Obsidian.GCDObsidian.Sync

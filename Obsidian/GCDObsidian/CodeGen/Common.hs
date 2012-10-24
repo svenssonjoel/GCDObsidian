@@ -6,7 +6,7 @@ import Data.List
 import Data.Word
 import qualified Data.Map as Map 
 
-import Obsidian.GCDObsidian.Kernel 
+
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
@@ -27,10 +27,15 @@ genConfig = GenConfig
 
 
 ------------------------------------------------------------------------------
--- Helpers 
+-- Helpers
+
+
+
 mappedName :: Name -> Bool 
 mappedName name = isPrefixOf "arr" name
 
+tid :: Exp Word32
+tid = variable "tid" 
 
 genType _ Int = "int "
 genType _ Float = "float "

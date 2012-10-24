@@ -5,7 +5,6 @@ module Obsidian.GCDObsidian.Library where
 import Obsidian.GCDObsidian.Array 
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Program
-import Obsidian.GCDObsidian.Kernel
 
 import Data.Bits
 import Data.Word
@@ -15,7 +14,7 @@ import Prelude hiding (splitAt,zipWith)
 
 
 instance Functor (Array Pull) where 
-  fmap f arr = Array (Pull (\ix -> f (arr ! ix))) (len arr) 
+  fmap f arr = Array (len arr) (Pull (\ix -> f (arr ! ix)))  
 
 
 ------------------------------------------------------------------------------
@@ -28,7 +27,7 @@ forAllGlobal = flip ForAllGlobal
 ------------------------------------------------------------------------------
 -- Reverse an array by indexing in it backwards
 rev :: Array Pull a -> Array Pull a 
-rev arr = mkPullArray (\ix -> arr ! (m - ix)) n 
+rev arr = mkPullArray n (\ix -> arr ! (m - ix))  
    where m = fromIntegral (n-1)
          n = len arr
          
@@ -40,8 +39,8 @@ revTest arr = ixMap (\ix -> (m-ix)) arr
 ------------------------------------------------------------------------------
 -- splitAt (name clashes with Prelude.splitAt)
 splitAt :: Integral i => i -> Array Pull a -> (Array Pull a, Array Pull a) 
-splitAt n arr = (mkPullArray (\ix -> arr ! ix) m , 
-                 mkPullArray (\ix -> arr ! (ix + pos)) (len arr - m))
+splitAt n arr = (mkPullArray m (\ix -> arr ! ix), 
+                 mkPullArray  (len arr - m) (\ix -> arr ! (ix + pos)))
   where pos = fromIntegral n
         m   = fromIntegral n
 
@@ -54,8 +53,8 @@ halve arr = splitAt n2 arr
 ----------------------------------------------------------------------------
 -- elements at even indices to fst output, odd to snd.
 evenOdds :: Array Pull a -> (Array Pull a, Array Pull a)
-evenOdds arr = (mkPullArray (\ix -> arr ! (2*ix)) (n-n2),
-                mkPullArray (\ix -> arr ! (2*ix + 1)) n2)
+evenOdds arr = (mkPullArray (n-n2) (\ix -> arr ! (2*ix)) ,
+                mkPullArray n2     (\ix -> arr ! (2*ix + 1)))
   where
     n = fromIntegral (len arr)
     n2 = div n 2
@@ -64,9 +63,10 @@ evenOdds arr = (mkPullArray (\ix -> arr ! (2*ix)) (n-n2),
 ------------------------------------------------------------------------------
 --
 conc :: Choice a => (Array Pull a, Array Pull a) -> Array Pull a 
-conc (a1,a2) = mkPullArray (\ix -> ifThenElse (ix <* (fromIntegral n1)) 
-                             (a1 ! ix) 
-                             (a2 ! (ix - (fromIntegral n1)))) (n1+n2)
+conc (a1,a2) = mkPullArray (n1+n2)
+               (\ix -> ifThenElse (ix <* (fromIntegral n1)) 
+                       (a1 ! ix) 
+                       (a2 ! (ix - (fromIntegral n1)))) 
   where 
     n1 = len a1
     n2 = len a2 
@@ -76,18 +76,19 @@ conc (a1,a2) = mkPullArray (\ix -> ifThenElse (ix <* (fromIntegral n1))
 -- zipp unzipp
 
 unzipp :: Array Pull (a,b) -> (Array Pull a, Array Pull b)       
-unzipp arr = (mkPullArray (\ix -> fst (arr ! ix)) (len arr),
-              mkPullArray (\ix -> snd (arr ! ix)) (len arr))
+unzipp arr = (mkPullArray (len arr) (\ix -> fst (arr ! ix)) ,
+              mkPullArray (len arr) (\ix -> snd (arr ! ix)) )
               
 zipp :: (Array Pull a, Array Pull b) -> Array Pull (a, b)             
-zipp (arr1,arr2) = Array (Pull (\ix -> (arr1 ! ix, arr2 ! ix))) (min (len arr1) (len arr2))
+zipp (arr1,arr2) = Array (min (len arr1) (len arr2))
+                   (Pull (\ix -> (arr1 ! ix, arr2 ! ix))) 
 
 
 unzipp3 :: Array Pull (a,b,c) 
            -> (Array Pull a, Array Pull b, Array Pull c)       
-unzipp3 arr = (mkPullArray (\ix -> fst3 (arr ! ix)) (len arr),
-               mkPullArray (\ix -> snd3 (arr ! ix)) (len arr),
-               mkPullArray (\ix -> trd3 (arr ! ix)) (len arr))
+unzipp3 arr = (mkPullArray (len arr) (\ix -> fst3 (arr ! ix)) ,
+               mkPullArray (len arr) (\ix -> snd3 (arr ! ix)) ,
+               mkPullArray (len arr) (\ix -> trd3 (arr ! ix)) )
   where
     fst3 (x,_,_) = x
     snd3 (_,y,_) = y
@@ -96,22 +97,24 @@ unzipp3 arr = (mkPullArray (\ix -> fst3 (arr ! ix)) (len arr),
 zipp3 :: (Array Pull a, Array Pull b, Array Pull c) 
          -> Array Pull (a,b,c)             
 zipp3 (arr1,arr2,arr3) = 
-  mkPullArray (\ix -> (arr1 ! ix, arr2 ! ix, arr3 ! ix))
-    (minimum [len arr1, len arr2, len arr3])
+  mkPullArray (minimum [len arr1, len arr2, len arr3])
+  (\ix -> (arr1 ! ix, arr2 ! ix, arr3 ! ix))
+    
 
 
 zipWith :: (a -> b -> c) -> Array Pull a -> Array Pull b -> Array Pull c
 zipWith op a1 a2 =  
-  mkPullArray (\ix -> (a1 ! ix) `op` (a2 ! ix))
-                   (min (len a1) (len a2))
+  mkPullArray (min (len a1) (len a2))
+  (\ix -> (a1 ! ix) `op` (a2 ! ix))
+                   
 
                    
 ----------------------------------------------------------------------------
 -- pair 
 
 pair :: Array Pull a -> Array Pull (a,a)
-pair (Array (Pull ixf) n) = 
-  mkPullArray (\ix -> (ixf (ix*2),ixf (ix*2+1))) n'
+pair (Array n (Pull ixf)) = 
+  mkPullArray n' (\ix -> (ixf (ix*2),ixf (ix*2+1))) 
   where 
     n' = n `div` 2 
 
@@ -120,9 +123,9 @@ pair (Array (Pull ixf) n) =
 unpair :: Choice a => Array Pull (a,a) -> Array Pull a
 unpair arr = 
     let n = len arr
-    in  mkPullArray (\ix -> ifThenElse ((mod ix 2) ==* 0) 
-                            (fst (arr ! (ix `shiftR` 1)))
-                            (snd (arr ! (ix `shiftR` 1)))) (2*n)
+    in  mkPullArray (2*n) (\ix -> ifThenElse ((mod ix 2) ==* 0) 
+                                  (fst (arr ! (ix `shiftR` 1)))
+                                  (snd (arr ! (ix `shiftR` 1)))) 
 
 
 ------------------------------------------------------------------------------    
@@ -131,12 +134,12 @@ unpair arr =
 twoK ::Int -> (Array Pull a -> Array Pull b) -> Array Pull a -> Array Pull b 
 twoK 0 f = f  -- divide 0 times and apply f
 twoK n f =  (\arr -> 
-              let arr' = mkPullArray (\i -> (f (mkPullArray (\j -> (arr ! (g i j))) m) ! (h i))) lt
+              let arr' = mkPullArray lt (\i -> (f (mkPullArray  m (\j -> (arr ! (g i j)))) ! (h i))) 
                   m    = (len arr `shiftR` n)   --pow of two           
                   g i j = i .&. (fromIntegral (complement (m-1))) .|. j  
                   h i   = i .&. (fromIntegral (nl2-1))   -- optimize 
 
-                  nl2   = (len (f (mkPullArray (\j -> arr ! variable "X") m)))
+                  nl2   = (len (f (mkPullArray  m (\j -> arr ! variable "X"))))
                   lt    = nl2 `shiftL` n 
               in arr')  
 
@@ -144,7 +147,7 @@ twoK n f =  (\arr ->
 
 ------------------------------------------------------------------------------    
 -- ivt (untested)
-
+{- 
 ivt :: Int -> Int -> (Array Pull a -> Array Pull b) -> Array Pull a -> Array Pull b
 ivt i j f arr = Array (Pull g) nl
   where
@@ -170,6 +173,7 @@ ivDiv i j arr = (resize (ixMap left arr) (n-n2),
     left = insertZero (i+j) 
     right ix = (left ix) `xor` (fromIntegral mask)
     mask = (oneBits (j+1) :: Word32) `shiftL` i
+-} 
 {-
 ivDiv :: Int -> Int -> Array Pull a -> (Array Pull a, Array Pull a)
 ivDiv i j (Array (Pull ixf) n) = (Array (Pull (ixf . left)) (n-n2),
@@ -186,11 +190,11 @@ ivDiv i j (Array (Pull ixf) n) = (Array (Pull (ixf . left)) (n-n2),
 -- ***                          PUSHY LIBRARY                        *** ---
 ----------------------------------------------------------------------------
 
-revP :: Pushy arr => arr a -> Array Push a 
-revP  arr = ixMap (\ix -> (fromIntegral (n-1)) - ix) parr 
-  where
-    parr = push arr
-    n =  len parr
+--revP :: Pushy arr => arr a -> Array Push a 
+--revP  arr = ixMap (\ix -> (fromIntegral (n-1)) - ix) parr 
+--  where
+--    parr = push arr
+--    n =  len parr
 
 ----------------------------------------------------------------------------
 -- IxMap Class
@@ -199,23 +203,23 @@ class IxMap a where
            -> a e 
            -> a e
 
-instance IxMap (Array Push) where
-  ixMap f (Array (Push p) n) = Array (Push (ixMap' f p)) n
+--instance IxMap (Array Push) where
+--  ixMap f (Array n (Push p)) = Array n (Push (ixMap' f p)) 
 
-instance IxMap (GlobalArray Push) where 
-  ixMap f (GlobalArray (Push p) n) = 
-     GlobalArray (Push (ixMap' f p)) n
+--instance IxMap (GlobalArray Push) where 
+--  ixMap f (GlobalArray n (Push p)) = 
+--     GlobalArray n (Push (ixMap' f p))
 
 instance IxMap (Array Pull) where 
-  ixMap f (Array (Pull ixf) n) = Array (Pull (ixf . f)) n 
+  ixMap f (Array n (Pull ixf)) = Array n (Pull (ixf . f)) 
 
 instance IxMap (GlobalArray Pull) where 
-  ixMap f (GlobalArray (Pull ixf) n) = GlobalArray (Pull (ixf . f)) n 
+  ixMap f (GlobalArray n (Pull ixf)) = GlobalArray n (Pull (ixf . f)) 
 
-ixMap' :: (Exp Word32 -> Exp Word32) 
-         -> P (Exp Word32, a)
-         -> P (Exp Word32, a) 
-ixMap' f p = \g -> ( p) (\(i,a) -> g (f i,a))
+--ixMap' :: (Exp Word32 -> Exp Word32) 
+--         -> P (Exp Word32, a)
+--         -> P (Exp Word32, a) 
+--ixMap' f p = \g -> ( p) (\(i,a) -> g (f i,a))
 
 
 
@@ -223,19 +227,26 @@ ixMap' f p = \g -> ( p) (\(i,a) -> g (f i,a))
 
 ----------------------------------------------------------------------------
 -- Concatenate on Push arrays
+
+
+
 concP :: (Pushy arr1,
           Pushy arr2) => (arr1 a, arr2 a) -> Array Push a     
 concP (arr1,arr2) = 
-  mkPushArray  (\func -> parr1 !* func
-                         *>*  
-                         parr2 !* (\(i,a) -> func (fromIntegral n1 + i,a)))
-  (n1+n2)
+  mkPushArray  (n1+n2)
+               (\k ->
+                 do
+                   --func <- runFunc k 
+                   (((unP . pushFun) parr1)  k)
+                     *>>> 
+                     (((unP . pushFun) parr2)  (\(i,a) -> k (fromIntegral n1 + i,a))))
+  
   where 
-     parr1 = push arr1
-     parr2 = push arr2
-     n1    = len parr1
-     n2    = len parr2
-     
+     (Array n1 parr1) = push arr1
+     (Array n2 parr2) = push arr2
+    -- n1    = len parr1
+    -- n2    = len parr2
+ {-     
 ----------------------------------------------------------------------------
 --
 unpairP :: Pushy arr => arr (a,a) -> Array Push a 
@@ -297,7 +308,7 @@ iv i j f g arr = ivMerge i j arr1' arr2'
     arr1' = push $ zipWith f arr1 arr2
     arr2' = push $ zipWith g arr1 arr2
 
-
+-} 
 -- Stuff added or changed by Mary
 
 insertZero :: Int -> Exp Word32 -> Exp Word32
@@ -330,6 +341,7 @@ lowBit i ix = (ix .&. bit i) ==* 0
 flipLSBsTo :: Int -> UWordE -> UWordE
 flipLSBsTo i = (`xor` (oneBits (i+1)))
 
+{- 
 ----------------------------------------------------------------------------
 -- 
 ilv1 :: Choice a => Int -> (b -> b-> a) -> (b -> b -> a) -> Array Pull b -> Array Pull a
@@ -477,3 +489,5 @@ ilv42 i f g arr
 insert2Zeros :: Int -> Exp Word32 -> Exp Word32
 insert2Zeros 0 a = a `shiftL` 2
 insert2Zeros i a = a + 3*(a .&. fromIntegral (complement (oneBits (i-1) :: Word32)))
+
+-} 

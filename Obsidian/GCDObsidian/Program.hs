@@ -8,7 +8,16 @@ module Obsidian.GCDObsidian.Program
        ,targetArray
        ,targetPair
        ,Atomic(..)
-       ,printAtomic  
+       ,printAtomic
+
+       ,runP
+       ,(*>>)
+       ,(*>>>)
+       ,P(..)
+       ,runFunc
+       ,NameSupply
+       ,unNS
+       ,runNSDummy
        )where 
 
 import Data.Word
@@ -120,9 +129,21 @@ instance Monad P where
 runP :: P a -> Program ()
 runP (P m) = unNS (m (\_ -> return Skip)) (unsafePerformIO (newEnumSupply))
 
+
 (*>>) :: Program () -> NameSupply (Program ()) -> NameSupply (Program ())
 p *>> m = do p' <- m
              return (p *>* p')
+
+
+(*>>>) :: NameSupply (Program ())
+          -> NameSupply (Program ())
+          -> NameSupply (Program ())
+m1 *>>> m2 = do p1 <- m1
+                p2 <- m2 
+                return (p1 *>* p2)
+
+
+
 
 skip :: P ()
 skip = P (\k -> Skip *>> k ())
@@ -152,6 +173,8 @@ atomicOp name ix atomic = P (\k -> do dest <- newName "a"
 -- A monad to generate fresh names for the variables assigned in the atomic
 -- operations
 data NameSupply a = NS { unNS :: Supply Int -> a }
+
+runNSDummy ns = unNS ns (unsafePerformIO newEnumSupply)
 
 instance Monad NameSupply where
   return a = NS $ \_ -> a

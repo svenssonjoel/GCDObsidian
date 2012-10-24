@@ -1,9 +1,9 @@
 
 module Obsidian.GCDObsidian.CodeGen.CUDA 
-       (genKernel
-       ,genKernel_ 
-       ,genKernelGlob
-       ,genKernelGlob_ ) where 
+       (genKernel) where 
+     --  ,genKernel_ 
+     --  ,genKernelGlob
+     --  ,genKernelGlob_ ) where 
 
 import Data.List
 import Data.Word 
@@ -11,7 +11,7 @@ import Data.Monoid
 import qualified Data.Map as Map
 
 
-import Obsidian.GCDObsidian.Kernel 
+
 import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Exp 
 
@@ -104,19 +104,41 @@ genKernel_ name kernel ins outs = (cuda,threads,size m)
         
 -}      
     
-genKernel :: (InOut a, InOut b) => String -> (a -> Kernel b) -> a -> String 
+genKernel :: (InOut a, InOut b) => String -> (a -> P b) -> a -> String 
 genKernel name kernel a = cuda 
   where 
     (input,ins)  = runInOut (createInputs a) (0,[])
   
-    ((res,_),c_old)  = runKernel (kernel input)
-    
-    c = syncAnalysis c_old  
-    lc  = liveness c
-    
-    
+    -- ((res,_),c_old)  = runKernel (kernel input)
 
-   
+    tmpc = runP (kernel input) -- extra run
+    
+    -- c = syncAnalysis c_old  
+    lc  = liveness tmpc
+    
+    (m,mm) = mapMemory lc sharedMem Map.empty
+    
+    c = runP $
+        do
+          res <- kernel input
+          let threadBudget =
+                case tmpc of
+                  Skip -> gcdThreads res
+                  a    -> programThreads tmpc
+          let (outCode,outs) =
+                runInOut (writeOutputs threadBudget res) (0,[])
+          P (\k -> k () *>>> (return outCode))
+    threadBudget = programThreads c 
+          
+    -- TODO: Feels like doing much redundant work.
+    --       But that will clean up as going along.. 
+    cuda = getCUDA (config threadBudget mm (size m))
+                   c
+                   name
+                   -- TODO: Need a way to get the outputs -- 
+                   (map fst2 ins) [("output0",Pointer Int)] -- (map fst2 outs)
+                   
+   {- 
     threadBudget =  
       case c of 
         Skip -> gcdThreads res
@@ -130,7 +152,9 @@ genKernel name kernel a = cuda
     sc = c -- remove
     
     cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
+-}
 
+    {- 
 genKernel_ :: (InOut a, InOut b) => String -> (a -> Kernel b) -> a -> String 
 genKernel_ name kernel a = cuda 
   where 
@@ -237,7 +261,7 @@ genKernelGlob_ name kernel a = cuda
     ckernel = CKernel CQualifyerKernel CVoid name (inputs++outputs) body
     cuda = printCKernel (PPConfig "__global__" "" "" "__syncthreads()") ckernel 
   
-
+-} 
 ------------------------------------------------------------------------------
 -- put together all the parts that make a CUDA kernel.     
 getCUDA :: Config 

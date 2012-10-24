@@ -3,7 +3,7 @@ module Obsidian.GCDObsidian.CodeGen.SyncAnalysis (syncAnalysis) where
 
 
 
-import Obsidian.GCDObsidian.Kernel
+
 import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Globs

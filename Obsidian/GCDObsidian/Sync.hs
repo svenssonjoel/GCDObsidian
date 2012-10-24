@@ -6,21 +6,23 @@
              GADTs  #-}  
 module Obsidian.GCDObsidian.Sync where 
 
-import Obsidian.GCDObsidian.Kernel
+-- import Obsidian.GCDObsidian.Kernel
 import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.Library
 
-
-
 import Control.Monad.Writer
 import Data.Word
+
+{- Todo: This module needs improvement -} 
+
 
 ----------------------------------------------------------------------------
 -- Library functions that use Sync  
 
+{- 
 
 composeS [] = pure id
 composeS (f:fs) = f ->- sync ->- composeS fs
@@ -271,3 +273,4 @@ pSyncArrayP2 arr@(ArrayP f n) =
                 p))) Skip
     return (zipp (result1,result2))
 -}
+-} 

@@ -5,7 +5,7 @@
              GADTs #-} 
 
 module Obsidian.GCDObsidian.Array ((!) -- pull array apply (index into)
-                                  ,(!*) -- push array apply 
+                                --   ,(!*) -- push array apply 
                                   , mkPullArray
                                   , mkPushArray
                                   , resize
@@ -20,9 +20,7 @@ module Obsidian.GCDObsidian.Array ((!) -- pull array apply (index into)
                                   , push
                                   , push' -- this is for "internal" use
                                   , push'' -- this is for "internal" use
-                                  , P(..)
-                                  , block
-                                  , unblock
+
                                   , GlobalArray(..)
                                   , mkGlobalPushArray  
                                   , mkGlobalPullArray
@@ -48,92 +46,18 @@ import Data.Word
 data Push a = Push {pushFun :: P (Exp Word32,a)}
 data Pull a = Pull {pullFun :: Exp Word32 -> a}
 
-{- 
-   data Push ix a = Push {pushFun :: P (ix,a))
-   data Pull ix a = Pull {pullFun :: ix -> a)) 
+mkPush p = Push (P p)  
 
-   data Dim1 = Dim1  Word32 
-   data Dim2 = Dim2  Word32 Word32  
-   data Dim3 = Dim3  Word32 Word32 Word32
- 
-   data Array p a d = Array (p a) d
-
-
-   type PullArray   a = Array (Pull Ix1D a) Dim1 
-   type PullArray2D a = Array (Pull Ix2D a) Dim2  
-   type PullArray3D a = Array (Pull Ix3D a) Dim3
-  
-   type PushArray   a = Array (Push Ix1D a) Dim1 
-   type PushArray2D a = Array (Push Ix2D a) Dim2
-   type PushArray3D a = Array (Push Ix3D a) Dim3 
-   
-
-   What happens once someone tries to nest these.. 
-   PullArray3D (PullArray3D (Exp Int)) 
-
-   More things to consider here:  
-     - Grid dimensions will be FIXED throughout the execution 
-       of a kernel. 
-     - Maybe it is better to Emulate the 2d and 3d blocks. 
-       For example a single kernel might handle an array of size 256 
-       and a at the same time a 16*16 Array2D. This means this kernel 
-       needs to use 256 threads. But does it need 256 threads as 16*16 or 256*1.
-       Of course only one option is possible and either way leads to some extra arith.
-         (arr256[tid.y*16+tid.x] and arr16x16[tid.y][tid.x]) or 
-         (arr256[tid.x] and arr16x16[tid.x `div` 16][tid.x `mod` 16]
-    - This can get more complicated.  
-      A single kernel could operate on many different multidimensional arrays. 
-      arr16x16 and arr4x12 for example. This would lead to things like 
-      if (threadIdx.x < 12 && threadIdx.y < 4 ) { 
-         arr4x12[threadIdx.y][threadIdx.x] = ...
-      } 
-      arr16x16[threadIdx.y][threadIdx.x] = ... 
-    - And even worse!!
-      arr16x16 and arr128x4 
-      
-    - Add 3D arrays to this mix and it gets very complicated.   
-    
-
-
--} 
-
--- Arrays!
---data Array a = Array (Exp Word32 -> a) Word32 
---data Array a = Array (Exp Word32 -> a)  Word32 
--- PUSHY ARRAYS! 
-
-type P a = (a -> Program ()) -> Program () 
-
-data Array p a = Array (p a) Word32
+data Array p a = Array Word32 (p a) 
 
 type PushArray a = Array Push a 
 type PullArray a = Array Pull a 
 
-mkPushArray p n = Array (Push p) n 
-mkPullArray p n = Array (Pull p) n 
+mkPushArray n p = Array n (Push (P p)) 
+mkPullArray n p = Array n (Pull p)  
 
-resize (Array p n) m = Array p m 
+resize m (Array n p) = Array m p 
 
-
-{- 
-To look at later !!!! (needs to be a newtype though!
-instance Monad P where 
-  return a = P $ \k -> k a 
-  (>>=) (P m) f = P $ \k -> m (\a -> runP (f a) k) 
-
-instance Functor P where 
-  ... 
-
-instance Applicative P where 
-  ...
-
--} 
-
--- data ArrayP a = ArrayP (P (Exp Word32, a)) Word32
-
--- data ArrayP a = ArrayP ((Exp Word32 -> a -> Program ()) -> Program ()) Word32
-
--- pushApp (ArrayP func n) a =  func a 
 
 
 -- TODO: Do you need (Exp e) where there is only e ? 
@@ -141,21 +65,30 @@ class  PushyInternal a where
   push' :: Word32 -> a e -> Array Push e  
   push'' :: Word32 -> a e -> Array Push e 
 
+
+
+
 instance PushyInternal (Array Pull)  where   
-  push' m (Array (Pull ixf) n) = 
-    Array (Push (\func -> ForAll (\i -> foldr1 (*>*) 
+  push' m (Array n (Pull ixf)) = 
+    Array n (mkPush (\k ->
+                       do
+                         func <- runFunc k
+                         return $ ForAll (\i -> foldr1 (*>*) 
                                    [func (ix,a)
                                    | j <-  [0..m-1],
                                      let ix = (i*(fromIntegral m) + (fromIntegral j)),
                                      let a  = ixf ix
-                                   ]) (n `div` m))) n
-  push'' m (Array (Pull ixf) n) = 
-    Array (Push (\func -> ForAll (\i -> foldr1 (*>*) 
+                                   ]) (n `div` m)))
+  push'' m (Array n (Pull ixf)) = 
+    Array n (mkPush (\k ->
+                      do
+                        func <- runFunc k 
+                        return $ ForAll (\i -> foldr1 (*>*) 
                                    [func (ix,a)
                                    | j <-  [0..m-1],
                                      let ix = (i+((fromIntegral ((n `div` m) * j)))),
                                      let a  = ixf ix
-                                   ]) (n `div` m))) n
+                                   ]) (n `div` m)))
              
 class Pushy a where 
   push :: a e -> Array Push e 
@@ -164,49 +97,62 @@ instance Pushy (Array Push) where
   push = id 
   
 instance Pushy (Array Pull)  where   
-  push (Array (Pull ixf) n) = Array (Push (\func -> ForAll (\i -> func (i,ixf i)) n)) n 
+  push (Array n (Pull ixf)) =
+    Array n (mkPush (\k ->
+                      do
+                        func <- runFunc k 
+                        return $ ForAll (\i -> func (i,ixf i)) n)) 
 
 
 class PushGlobal a where 
   pushGlobal :: a e -> GlobalArray Push e 
 
 instance PushGlobal (GlobalArray Pull) where 
-  pushGlobal (GlobalArray (Pull ixf) n) = 
-      GlobalArray (Push (\func -> ForAllGlobal (\i -> func (i,ixf i)) n )) n
+  pushGlobal (GlobalArray n (Pull ixf))  = 
+      GlobalArray n (mkPush (\k ->
+                            do
+                              func <- runFunc k
+                              return $ ForAllGlobal
+                                (\i -> func (i,ixf i)) n ))
 ----------------------------------------------------------------------------
 --
 
-namedArray name n = mkPullArray (\ix -> index name ix) n 
-indexArray n      = mkPullArray (\ix -> ix) n 
+namedArray name n = mkPullArray n (\ix -> index name ix)
+indexArray n      = mkPullArray n (\ix -> ix)
 
 class Indexible a e where 
   access :: a e -> Exp Word32 -> e 
   
 instance Indexible (Array Pull) a where
-  access (Array ixf _) ix = pullFun ixf ix
+  access (Array _ ixf) ix = pullFun ixf ix
 
+{- 
 class PushApp a where 
   papp :: a e -> ((Exp Word32,e) -> Program ()) -> Program ()
 
 instance PushApp (Array Push) where 
-  papp (Array (Push f) n) a = f a 
+  papp (Array _ (Push (P f))) a = f a 
 
 instance PushApp (GlobalArray Push) where 
   papp (GlobalArray (Push f) n) a = f a 
-  
+  -} 
+
 class Len a where 
   len :: a e -> Word32
 
 instance Len (Array p) where 
-  len (Array _ n) = n 
-  
+  len (Array n _) = n 
+
 infixl 9 ! 
 (!) :: Indexible a e => a e -> Exp Word32 -> e 
 (!) = access
 
-infixl 9 !* 
-(!*) :: PushApp a => a e -> ((Exp Word32,e) -> Program ()) -> Program () 
-(!*) p a = papp p a 
+ 
+-- infixl 9 !* 
+-- (!*) :: PushApp a => a e -> ((Exp Word32,e) -> Program ()) -> Program ()
+-- (!*) :: PushApp a => a e -> 
+-- (!*) p a = papp p a 
+ 
 
 ------------------------------------------------------------------------------
 -- Show 
@@ -228,40 +174,17 @@ instance Show  a => Show (Array Pull a) where
 -- This is also quite directly influencing "coordination" 
 -- of kernels. 
 
-data GlobalArray p a = GlobalArray (p a) (Exp Word32)
+data GlobalArray p a = GlobalArray (Exp Word32) (p a) 
 
-mkGlobalPushArray p n = GlobalArray (Push p) n 
-mkGlobalPullArray f n = GlobalArray (Pull f) n 
+mkGlobalPushArray n p  = GlobalArray n (Push p) 
+mkGlobalPullArray n f  = GlobalArray n (Pull f) 
 
 instance Functor (GlobalArray Pull) where 
-  fmap f (GlobalArray (Pull g) n) = GlobalArray (Pull (f . g)) n 
+  fmap f (GlobalArray n (Pull g)) = GlobalArray n (Pull (f . g)) 
 
 instance Indexible (GlobalArray Pull) a where  
-  access (GlobalArray ixf _) ix = pullFun ixf ix
+  access (GlobalArray _ ixf) ix = pullFun ixf ix
   
-globLen (GlobalArray _ n) = n
-
-
----------------------------------------------------------------------------- 
---  Block and unblock
-
--- TODO: These should be somewhere else !!! 
--- TODO: Should these "Be" at all ?
-block :: Word32 -> GlobalArray Pull a -> Array Pull a   
-block blockSize glob = Array (Pull newFun) blockSize 
-  where 
-    newFun ix = (pullFun pull) ((bid * (fromIntegral blockSize)) + ix)  
-    (GlobalArray pull n) = glob 
-
-bid   = BlockIdx X -- variable "bid"
-nblks = GridDim X -- variable "gridDim.x"
-
-unblock :: Array Push a -> GlobalArray Push a 
-unblock array = GlobalArray newFun (nblks * (fromIntegral n)) 
- -- from a kernel's point of view the arrays is (nblks * n) long
-  where 
-    (Array (Push fun) n) = array
-    newFun  = Push (\func -> fun (\(i,a) -> func (bid * (fromIntegral n)+i,a)))
-
+globLen (GlobalArray n _) = n
 
 

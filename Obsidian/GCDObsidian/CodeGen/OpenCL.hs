@@ -10,7 +10,7 @@ import Data.List
 import Data.Word 
 import qualified Data.Map as Map
 
-import Obsidian.GCDObsidian.Kernel 
+
 import Obsidian.GCDObsidian.Array 
 import Obsidian.GCDObsidian.Exp  
 import Obsidian.GCDObsidian.Types
@@ -113,25 +113,33 @@ kernelHead name ins outs =
 -- make "runnable" code 
 -- Gives a string that should be a runnable OpenCL kernel
 
-genKernel :: (InOut a, InOut b) => String -> (a -> Kernel b) -> a -> String 
+genKernel :: (InOut a, InOut b) => String -> (a -> P b) -> a -> String 
 genKernel name kernel a = opencl 
   where 
     (input,ins)  = runInOut (createInputs a) (0,[])
   
-    ((res,_),c)  = runKernel (kernel input)
-    lc = liveness c
-   
-    threadBudget = 
-      case c of 
-        Skip -> gcdThreads res
-        a  -> threadsNeeded c 
-        
-    (m,mm) = mapMemory lc sharedMem Map.empty
-    (outCode,outs)   = 
-      runInOut (writeOutputs threadBudget res) (0,[])
-      
-    c' = sc *>* outCode
-    sc = c  -- remove 
+    -- ((res,_),c)  = runKernel (kernel input)
+
+    tmpc = runP (kernel input) -- extra run!
     
-    opencl = getOpenCL (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
+    lc = liveness tmpc
+   
+   
+    (m,mm) = mapMemory lc sharedMem Map.empty
+    
+    c =  runP $ do
+            res <- kernel input
+            let threadBudget = 
+                  case tmpc of 
+                    Skip -> gcdThreads res
+                    a  -> programThreads tmpc
+            let (outCode,outs)   = 
+                  runInOut (writeOutputs threadBudget res) (0,[])
+            P (\k -> k () *>>> (return  outCode)) 
+    
+      
+    -- c' = sc *>* outCode
+    --sc = c  -- remove 
+    
+    opencl = getOpenCL (config 128{-threadBudget-} mm (size m)) c name (map fst2 ins) [("output0",Pointer Int)] -- (map fst2 outs)
     

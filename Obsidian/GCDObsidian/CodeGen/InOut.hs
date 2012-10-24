@@ -2,9 +2,8 @@
              FlexibleContexts#-}
 
 {- 
-  DONE: use a splitAt in the writeOutputs when 
-        The output array is larger than the threadbudget
-        and use two or many more levels of writes. (Possibly) 
+TODO TODO TODO
+  Everything in this module shoud be reimplemented!
 
 
 -} 
@@ -12,7 +11,7 @@
 module Obsidian.GCDObsidian.CodeGen.InOut where 
 
 
-import Obsidian.GCDObsidian.Kernel
+--import Obsidian.GCDObsidian.Kernel
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Array 
 import Obsidian.GCDObsidian.Types
@@ -21,7 +20,7 @@ import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.ModifyArray
 
 import Prelude hiding (splitAt)
-import Obsidian.GCDObsidian.Library (splitAt,concP,unzipp,zipp)
+import Obsidian.GCDObsidian.Library (splitAt,concP, unzipp,zipp)
 
 
 import Control.Monad.State
@@ -37,13 +36,16 @@ cTypeOfArray :: Scalar a =>  Array Pull (Exp a) -> Type
 cTypeOfArray arr = Pointer (typeOf (arr ! variable "X"))
 
 cTypeOfGlobalArray :: Scalar a =>  GlobalArray Pull (Exp a) -> Type 
-cTypeOfGlobalArray (GlobalArray arr _) = Pointer (typeOf (pullFun arr (variable "X")))
+cTypeOfGlobalArray (GlobalArray _ arr) = Pointer (typeOf (pullFun arr (variable "X")))
 
-globalTarget :: Scalar a => Name -> Exp Word32 -> (Exp Word32, Exp a) -> Program ()
-globalTarget nom blockSize (i,a) = Assign nom ((bid * blockSize) + i)  a 
+globalTarget :: Scalar a => Name
+                -> Exp Word32
+                -> (Exp Word32, Exp a) -> NameSupply (Program ())
+globalTarget nom blockSize (i,a) =
+  return $ Assign nom ((bid * blockSize) + i)  a 
 
-globalTargetAgain :: Scalar a => Name -> (Exp Word32, Exp a) -> Program () 
-globalTargetAgain nom (i,a) = Assign nom i a 
+globalTargetAgain :: Scalar a => Name -> (Exp Word32, Exp a) -> NameSupply (Program ()) 
+globalTargetAgain nom (i,a) = return $ Assign nom i a 
 
 class BasePush a where 
   cType :: Array p (Exp a) -> Type 
@@ -110,7 +112,7 @@ instance Scalar a => InOut (Array Pull (Exp a)) where
   createInputs arr  = do 
     name <- newInOut "input" (cTypeOfArray arr) (len arr)
     let n = fromIntegral (len arr) 
-    return$ Array (Pull (\ix -> index name (bid * n + ix)))  (len arr)
+    return$ Array (len arr) (Pull (\ix -> index name (bid * n + ix)))
     
   writeOutputs threadBudget arr {-e-} = do   
     
@@ -118,10 +120,11 @@ instance Scalar a => InOut (Array Pull (Exp a)) where
     
     if ( len arr <= threadBudget ) 
       then do 
-         let (Array (Push parr) n) = push arr
+         let (Array n (Push parr)) = push arr
          --return$ SyncUnit (len arr) {-threadBudget-}  
          --  (pushApp parr (targetArray  name)) e
-         return$ parr (globalTarget name (fromIntegral (len arr))) 
+         return$ runNSDummy $ (unP parr)
+                              (globalTarget name (fromIntegral (len arr)))
       else do 
          let n  = len arr
              tb = threadBudget 
@@ -135,12 +138,12 @@ instance Scalar a => InOut (Array Pull (Exp a)) where
              pa1     = push'' tbInN a1
              pa2     = push a2
              
-             (Array (Push parr) _) = if (rest == 0) 
+             (Array _ (Push parr)) = if (rest == 0) 
                then pa1 
                else concP (pa1,pa2)
          
          --return$ SyncUnit threadBudget (pushApp parr (targetArray  name)) e
-         return$ parr (globalTarget name (fromIntegral (len arr))) -- (targetArray  name)
+         return$ runNSDummy $ (unP parr) (globalTarget name (fromIntegral (len arr))) -- (targetArray  name)
          
          
                      
@@ -151,18 +154,19 @@ instance (BasePush a, Scalar a) => InOut (Array Push (Exp a)) where
   createInputs arr  = do 
     name <- newInOut "input" (cType arr) (len arr)
     let n = fromIntegral (len arr) 
-    return$ push$ Array (Pull (\ix -> index name (bid * n + ix)))  (len arr)
+    return$ push$ Array (len arr)
+                        (Pull (\ix -> index name (bid * n + ix)))  
     
-  writeOutputs threadBudget parr@(Array (Push pfun) _) = do   
+  writeOutputs threadBudget parr@(Array _ (Push pfun)) = do   
     
     name <- newInOut "result" (cType parr) (len parr)
    
-    return$ pfun (globalTarget name (fromIntegral (len parr))) 
+    return$ runNSDummy $ (unP pfun) (globalTarget name (fromIntegral (len parr))) 
   
          
    -- HACK HACK HACK    
-  gcdThreads (Array (Push parr) n) = programThreads prg
-    where prg = parr (globalTarget "dummy" (fromIntegral n)) 
+  gcdThreads (Array n (Push parr)) = programThreads prg
+    where prg = runNSDummy $ (unP parr) (globalTarget "dummy" (fromIntegral n)) 
 
 
 instance (InOut a, InOut b) => InOut (a, b) where 
@@ -207,20 +211,20 @@ instance (InOut (Array Pull a), InOut (Array Pull b)) => InOut (Array Pull (a,b)
 instance (BasePush a, Scalar a) => InOut (Array Modify (Exp a)) where
   createInputs arr  = error "Modify arrays cannot be inputs"
     
-  writeOutputs threadBudget parr@(Array (Modify pfun op) _) = do   
+  writeOutputs threadBudget parr@(Array _ (Modify pfun op)) = do   
     
     name <- newInOut "result" (cType parr) (len parr)
    
-    return$ pfun (globalTargetModify op name (fromIntegral (len parr))) 
+    return$ runNSDummy $ (unP pfun) (globalTargetModify op name (fromIntegral (len parr))) 
   
          
    -- HACK HACK HACK    
-  gcdThreads (Array (Modify parr op) n) = programThreads prg
-    where prg = parr (globalTargetModify op "dummy" (fromIntegral n)) 
+  gcdThreads (Array n (Modify parr op)) = programThreads prg
+    where prg = runNSDummy $ (unP parr) (globalTargetModify op "dummy" (fromIntegral n)) 
 
-globalTargetModify :: Scalar a => Atomic (Exp a) -> Name -> Exp Word32 -> Exp Word32 -> Program ()
+globalTargetModify :: Scalar a => Atomic (Exp a) -> Name -> Exp Word32 -> Exp Word32 -> NameSupply (Program ())
 globalTargetModify op nom blockSize i =
-  AtomicOp "dummy" nom ((bid * blockSize) + i) op
+  return $ AtomicOp "dummy" nom ((bid * blockSize) + i) op
 
         
 --------------------------------------------------------------------------        
@@ -243,7 +247,7 @@ instance Scalar a => GlobalInput (GlobalArray Pull (Exp a)) where
   createGlobalInput arr@(GlobalArray _ _) = do 
     (name,n) <- newGlobalInputArray (cTypeOfGlobalArray arr)
     let fun ix = index name ix 
-    return$ GlobalArray (Pull fun) (variable n)
+    return$ GlobalArray (variable n) (Pull fun) 
       
 instance Scalar a => GlobalInput (Exp a) where   
   createGlobalInput a = do 
@@ -258,9 +262,9 @@ instance (GlobalInput a, GlobalInput b)
     return (a',b')
       
 instance (BasePush a, Scalar a) => GlobalOutput (GlobalArray Push (Exp a)) where       
-  writeGlobalOutput threadBugdet parr@(GlobalArray (Push pfun) n) = do  
+  writeGlobalOutput threadBugdet parr@(GlobalArray n (Push pfun)) = do  
     name <- newInOut "result" (cTypeGlob parr) undefined 
-    return$ pfun (globalTargetAgain name)
+    return$ runNSDummy $ (unP pfun) (globalTargetAgain name)
     
 
 --------------------------------------------------------------------------
