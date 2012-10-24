@@ -120,19 +120,20 @@ printAtomic AtomicInc = "atomicInc"
 
 -- The extra Int argument is for generating fresh variable names
 
-data P a = P { unP :: (a -> NameSupply (Program ())) -> NameSupply (Program ())}
+data P a = P { unP :: forall b . (a -> NameSupply (b,Program ()))
+                                    -> NameSupply (b,Program ())}
 
 instance Monad P where
   return a  = P (\k -> k a)
   P f >>= m = P (\k -> f (\a -> unP (m a) k))
 
-runP :: P a -> Program ()
-runP (P m) = unNS (m (\_ -> return Skip)) (unsafePerformIO (newEnumSupply))
+runP :: P a -> (a,Program ())
+runP (P m) = unNS (m (\a -> return (a,Skip))) (unsafePerformIO (newEnumSupply))
 
 
-(*>>) :: Program () -> NameSupply (Program ()) -> NameSupply (Program ())
-p *>> m = do p' <- m
-             return (p *>* p')
+(*>>) :: Program () -> NameSupply (b,Program ()) -> NameSupply (b,Program ())
+p *>> m = do (b,p') <- m
+             return (b,p *>* p')
 
 
 (*>>>) :: NameSupply (Program ())
@@ -152,11 +153,13 @@ assign :: Scalar a => Name -> Data Word32 -> Data a -> P ()
 assign name ix e = P (\k -> Assign name ix e *>> k ())
 
 forAll :: Word32 -> (Data Word32 -> P ()) -> P ()
-forAll l body = P (\k -> do b <- runFunc (\i -> unP (body i) (\_ -> return Skip))
+forAll l body = P (\k -> do b <- runFunc (\i -> unP (body i)
+                                                (\_ -> return ((),Skip)))
                             ForAll b l *>> k ())
 
 forAllGlobal :: Data Word32 -> (Data Word32 -> P ()) -> P ()
-forAllGlobal l body = P (\k -> do b <- runFunc (\i -> unP (body i) (\_ -> return Skip))
+forAllGlobal l body = P (\k -> do b <- runFunc (\i -> unP (body i)
+                                                      (\_ -> return ((),Skip)))
                                   ForAllGlobal b l *>> k ())
 
 allocate :: Name -> Word32 -> Type -> P ()
@@ -185,5 +188,5 @@ instance Monad NameSupply where
 newName :: String -> NameSupply String
 newName v = NS $ \s -> v ++ show (supplyValue s)
 
-runFunc :: (a -> NameSupply b) -> NameSupply (a -> b)
-runFunc f = NS $ \s -> \a -> unNS (f a) s
+runFunc :: (a -> NameSupply (c,b)) -> NameSupply (a -> b)
+runFunc f = NS $ \s -> \a -> snd (unNS (f a) s)
