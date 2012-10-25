@@ -48,6 +48,8 @@ import Data.Word
 data Push a = Push {pushFun :: P (Exp Word32,a)}
 data Pull a = Pull {pullFun :: Exp Word32 -> a}
 
+mkPush :: (forall b. ((Exp Word32, a) -> NameSupply (b, Program ()))
+                         -> NameSupply (b, Program ())) -> Push a
 mkPush p = Push (P p)  
 
 data Array p a = Array Word32 (p a) 
@@ -55,6 +57,8 @@ data Array p a = Array Word32 (p a)
 type PushArray a = Array Push a 
 type PullArray a = Array Pull a 
 
+mkPushArray :: Word32 -> (forall b.((Exp Word32, a) -> NameSupply (b, Program ()))
+                         -> NameSupply (b, Program ())) -> PushArray a
 mkPushArray n p = Array n (Push (P p)) 
 mkPullArray n p = Array n (Pull p)  
 
