@@ -1,5 +1,5 @@
 {-# LANGUAGE     RankNTypes, 
-                 GADTs #-} 
+                 GADTs  #-} 
 module Obsidian.GCDObsidian.Program 
        (Program(..)
        ,printProgram
@@ -10,17 +10,18 @@ module Obsidian.GCDObsidian.Program
        ,Atomic(..)
        ,printAtomic
 
-       ,runP
-       ,(*>>)
-       ,(*>>>)
-       ,P(..)
-       ,runFunc
-       ,NameSupply
-       ,unNS
-       ,runNSDummy
+ --      ,runP
+ --      ,(*>>)
+ --      ,(*>>>)
+ --      ,P(..)
+ --      ,runFunc
+ --      ,NameSupply
+  --     ,unNS
+  --     ,runNSDummy
        )where 
 
 import Data.Word
+import Data.Monoid
 
 import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Types
@@ -33,76 +34,213 @@ import System.IO.Unsafe
 ----------------------------------------------------------------------------
 -- 
 -- TODO: Data a and Exp a is the same. (look at this!) 
-data Program extra
-  = Skip
+data Program extra res where 
+  Skip :: Program extra () 
     
-  | forall a. Scalar a => Assign Name (Data Word32) (Data a) 
--- Note: Writing of a scalar value into an array location.     
-  | ForAll (Data Word32 -> (Program extra)) Word32   
+  Assign :: forall extra a . Scalar a
+            => Name
+            -> (Exp Word32)
+            -> (Exp a)
+            -> Program extra ()
+           
+            
+  AtomicOp :: forall extra a . Scalar a
+              => Name 
+              -> Exp Word32
+              -> Atomic (Exp a)
+              -> Program extra (Exp a)
 
--- Could this be improved ? 
-  | ForAllGlobal (Data Word32 -> (Program extra)) (Exp Word32)
-    
--- DONE: I Think Allocate should not introduce nesting
-  | Allocate Name Word32 Type extra
--- potentially a sync is needed. 
--- DONE: Analysis will check if it is REALLY needed
-  | Synchronize Bool 
--- NOTE: Adding a synchronize statement here 
---       the sync operation can now insert a Syncronizze as a guide 
---       to the code generation 
--- TODO: What will this mean when nested inside something ? 
---       Again, to start with, I will ensure that none of my library function 
---       introduces a Synchronize nested in anything.     
-  | ProgramSeq (Program extra) 
-               (Program extra) 
+  -- Shouldnt a ForAll have a different result type.
+  -- Someting that represents an "array" 
+  ForAll :: Word32
+            -> (Exp Word32 -> Program extra ())
+            -> Program extra ()
 
-  | forall a. Scalar a => AtomicOp Name Name (Exp Word32) (Atomic (Data a))
+  --        -> Program extra [a]           
+
+  Allocate :: Word32 -> Type -> extra -> Program extra Name -- Correct type?
+  Sync     :: Program extra ()
+
+  Return :: a -> Program extra a
+  Bind   :: (a -> Program extra b) -> Program extra a -> Program extra b
+
+---------------------------------------------------------------------------
+-- Tests
+---------------------------------------------------------------------------
+
+testPrg1 :: Program () () 
+testPrg1 =
+  do
+    somewhere <- Allocate 100 Int () 
+    ForAll 100
+           (\i -> Assign somewhere i (variable "hej" :: Exp Int))
+
+testPrg2 :: Program () ()
+testPrg2 =
+  do
+    somewhere <- Allocate 175 Int () 
+    ForAll 175
+           (\i -> Assign somewhere i (variable "a" :: Exp Int))
+
+testPrg3 :: Program () ()
+testPrg3 = testPrg1 >> Sync >> testPrg2 
+
+---------------------------------------------------------------------------
+-- Small push/pull array test
+---------------------------------------------------------------------------
+data PushArray a =
+  PA (forall b. ((Exp Word32, a) -> Program () ()) -> Program () ())
+data PullArray a = PU Word32 (Exp Word32 -> a) 
+
+myPullArray :: PullArray (Exp Int) 
+myPullArray = PU 100 (\ix -> (index "input0" ix) )
+
+push1 :: PullArray (Exp Int) -> PushArray (Exp Int)
+push1 (PU n ixf) =
+  PA (\k -> do
+         ForAll n
+           (\i -> k (i,ixf i)))
+
+writeP :: PushArray (Exp Int) -> Program () ()
+writeP (PA p) =
+  do
+    name <-  Allocate 100 Int ()
+    p (target name) 
+
+target :: Name -> (Exp Word32, Exp Int) -> Program () ()
+target name (ix,x) = Assign name ix x 
+
+testPrg4 = writeP (push1 myPullArray)
+---------------------------------------------------------------------------
+-- Monad
+---------------------------------------------------------------------------
+
+instance Monad (Program extra) where
+  return = Return
+  (>>=) = flip Bind
+
+---------------------------------------------------------------------------
+-- runP 
+---------------------------------------------------------------------------
+runP :: Int -> Program extra a -> (a,Int) 
+runP i (Return a) = (a,i)
+runP i (Bind f m) =
+  let (a,i') = runP i m
+  in runP i' (f a) 
+runP i (Sync) = ((),i)
+runP i (ForAll _ _ ) = ((),i)
+runP i (Allocate _ _ _) = ("new" ++ show i,i+1)
+runP i (Assign _ _ _) = ((),i)
+runP i (AtomicOp _ _ _) = (variable ("new"++show i),i+1)
+
+runPAccm :: Monoid b
+            => Int
+            -> Program extra a
+            -> (forall a . (Program extra a -> b))
+            -> b 
+            -> (a,b,Int)
+runPAccm i p@(Return a) f b  = (a, f p `mappend` b,i) 
+runPAccm i p@(Bind mf m) f b =
+  let (a,acc,i') = runPAccm i m f b 
+  in  runPAccm i' (mf a) f acc
+runPAccm i p@(Sync) f b = ((),f p `mappend` b, i)
+runPAccm i p@(ForAll _ _) f b = ((),f p `mappend` b, i)
+runPAccm i p@(Allocate _ _ _) f b = ("arr" ++ show i,f p `mappend` b, i)
+runPAccm i p@(Assign _ _ _)  f b = ((), f p `mappend` b, i)
+runPAccm i p@(AtomicOp _ _ _) f b =
+  (variable ("new" ++ show i),f p `mappend` b,i+1);
 
 -- took same as precedence as for ++ for *>*
 infixr 5 *>* 
 
-(*>*) :: Program extra 
-         -> Program extra 
-         -> Program extra    
-(*>*) = ProgramSeq 
+(*>*) :: Program extra a 
+         -> Program extra b
+         -> Program extra b   
+(*>*) p1 p2 = p1 >> p2  
     
 
-programThreads :: Program extra -> Word32
+---------------------------------------------------------------------------
+-- Required threads (reimplement in runPAccm ?) 
+---------------------------------------------------------------------------
+programThreads :: Program extra a -> Word32
 programThreads Skip = 0
-programThreads (Synchronize _) = 0 
+programThreads (Sync) = 0 
 programThreads (Assign _ _ _) = 1
-programThreads (ForAll f n) = n -- inner ForAlls are sequential
-programThreads (Allocate _ _ _ _) = 0 -- programThreads p 
--- programThreads (Cond b p ) = programThreads p
-programThreads (p1 `ProgramSeq` p2) = max (programThreads p1) (programThreads p2)
-programThreads (AtomicOp _ _ _ _) = 1
-
-                                      
-printProgram :: Show extra => Program extra -> String 
-printProgram Skip = ";" 
-printProgram (Synchronize b) = "Sync " ++ show b ++ "\n" 
-printProgram (Assign n t e) = n ++ "[" ++ show t ++ "]" ++ " = " ++ show e ++ ";\n"  
-printProgram (ForAll f n)   = "par i " ++ show n ++ " {\n" ++ printProgram (f (variable "i")) ++ "\n}" 
--- printProgram (Cond b p)     = "cond {\n" ++ printProgram p ++ "\n}"
-printProgram (Allocate name n t e) = name ++ " = malloc(" ++ show n ++ ")\n" ++ 
-                                     "[*** " ++ show e ++ " ***]\n" 
-printProgram (ProgramSeq p1 p2) = printProgram p1 ++ printProgram p2
--- Needs fresh name generations to be correct
-printProgram (AtomicOp d n i e) = d ++ " = " ++ printAtomic e ++
-                                     "(" ++ n ++ "[" ++ show i ++ "])\n"
-
-instance Show extra => Show (Program extra) where 
-  show = printProgram 
+programThreads (ForAll n f) = n -- inner ForAlls are sequential
+programThreads (Allocate _ _ _) = 0 -- programThreads p
+programThreads (Bind f m) =
+  let (a,_) = runP 0 m
+  in max (programThreads m) (programThreads (f a)) 
+  
+--  max (programThreads p1) (programThreads p2)
+programThreads (AtomicOp _ _ _) = 1
 
 
-targetArray :: Scalar a => Name -> (Exp Word32,Exp a) -> Program ()
-targetArray n (i,a) = Assign n i a 
+
+---------------------------------------------------------------------------
+-- printProgram 
+---------------------------------------------------------------------------
+printProgram :: Int -> Program () a -> (String,Int)  
+printProgram i Skip = (";\n", i)
+printProgram i (Assign n ix e) =
+  (n ++ "[" ++ show ix ++ "] = " ++ show e ++ ";\n", i) 
+printProgram i (AtomicOp n ix e) =
+  let newname = "r" ++ show i
+  in (newname ++ " = " ++ printAtomic e ++
+      "( " ++ n ++ "[" ++ show ix ++ "])\n",i+1)
+printProgram i (Allocate n t extra) =
+  let newname = "arr" ++ show i
+  in (newname ++ " = malloc(" ++ show n ++ ");\n",i+1)
+printProgram i (ForAll n f) =
+  let (prg2,i') = printProgram i (f (variable "i"))
+  in ("par (i in 0.." ++ show n ++ ")" ++
+      "{\n" ++ prg2 ++ "\n}", i')
+printProgram i (Return a) = ("MonadReturn;\n",i)
+printProgram i (Bind f m) =
+  let (str1,i1) = printProgram i m
+      (res,_) = runP 0 m
+      (str2,i2) = printProgram i1 (f res)
+  in (str1 ++ str2, i2)
+printProgram i Sync = ("Sync;\n",i)
+
+printPrg :: Int -> Program () a -> (a,String,Int)  
+printPrg i Skip = ((),";\n", i)
+printPrg i (Assign n ix e) =
+  ((),n ++ "[" ++ show ix ++ "] = " ++ show e ++ ";\n", i) 
+printPrg i (AtomicOp n ix e) =
+  let newname = "r" ++ show i
+  in (variable newname,
+      newname ++ " = " ++ printAtomic e ++
+      "( " ++ n ++ "[" ++ show ix ++ "])\n",i+1)
+printPrg i (Allocate n t extra) =
+  let newname = "arr" ++ show i
+  in (newname,newname ++ " = malloc(" ++ show n ++ ");\n",i+1)
+printPrg i (ForAll n f) =
+  let (_,prg2,i') = printPrg i (f (variable "i"))
+  in ( (),
+       "par (i in 0.." ++ show n ++ ")" ++
+       "{\n" ++ prg2 ++ "\n}",
+       i')
+printPrg i (Return a) = (a,"MonadReturn;\n",i)
+printPrg i (Bind f m) =
+  let (a1, str1,i1) = printPrg i m
+      -- (res,_) = runP 0 m
+      (a2,str2,i2) = printPrg i1 (f a1)
+  in (a2,str1 ++ str2, i2)
+printPrg i Sync = ((),"Sync;\n",i)
 
 
-targetPair :: (Scalar a, Scalar b) => Name -> Name -> (Exp Word32,(Exp a,Exp b)) -> Program ()
-targetPair n1 n2  (i,(a,b)) = Assign n1 i a *>*
-                              Assign n2 i b
+---------------------------------------------------------------------------
+--
+---------------------------------------------------------------------------
+
+--targetArray :: Scalar a => Name -> (Exp Word32,Exp a) -> Program () ()
+--targetArray n (i,a) = Assign n i a 
+
+
+--targetPair :: (Scalar a, Scalar b) => Name -> Name -> (Exp Word32,(Exp a,Exp b)) -> Program () ()
+--targetPair n1 n2  (i,(a,b)) = Assign n1 i a *>*
+--                              Assign n2 i b
 
 -- Atomic operations
 
@@ -111,82 +249,3 @@ data Atomic a where
 
 printAtomic AtomicInc = "atomicInc"
 
-
-----------------------------------------------------------------------
--- A monadic interface to Program
-
--- I've set extra = (). I hope that's ok, but it's not a big thing. It's eays
--- to change.
-
--- The extra Int argument is for generating fresh variable names
-
-data P a = P { unP :: forall b . (a -> NameSupply (b,Program ()))
-                                    -> NameSupply (b,Program ())}
-
-instance Monad P where
-  return a  = P (\k -> k a)
-  P f >>= m = P (\k -> f (\a -> unP (m a) k))
-
-runP :: P a -> (a,Program ())
-runP (P m) = unNS (m (\a -> return (a,Skip))) (unsafePerformIO (newEnumSupply))
-
-
-(*>>) :: Program () -> NameSupply (b,Program ()) -> NameSupply (b,Program ())
-p *>> m = do (b,p') <- m
-             return (b,p *>* p')
-
-
-(*>>>) :: NameSupply (Program ())
-          -> NameSupply (Program ())
-          -> NameSupply (Program ())
-m1 *>>> m2 = do p1 <- m1
-                p2 <- m2 
-                return (p1 *>* p2)
-
-
-
-
-skip :: P ()
-skip = P (\k -> Skip *>> k ())
-
-assign :: Scalar a => Name -> Data Word32 -> Data a -> P ()
-assign name ix e = P (\k -> Assign name ix e *>> k ())
-
-forAll :: Word32 -> (Data Word32 -> P ()) -> P ()
-forAll l body = P (\k -> do b <- runFunc (\i -> unP (body i)
-                                                (\_ -> return ((),Skip)))
-                            ForAll b l *>> k ())
-
-forAllGlobal :: Data Word32 -> (Data Word32 -> P ()) -> P ()
-forAllGlobal l body = P (\k -> do b <- runFunc (\i -> unP (body i)
-                                                      (\_ -> return ((),Skip)))
-                                  ForAllGlobal b l *>> k ())
-
-allocate :: Name -> Word32 -> Type -> P ()
-allocate name ix ty = P (\k -> Allocate name ix ty () *>> k ())
-
-synchronize :: P ()
-synchronize = P (\k -> Synchronize True *>> k ())
--- TODO: what should the boolean parameter be?
-
-atomicOp :: Scalar a => Name -> Data Word32 -> Atomic (Data a) -> P (Data a)
-atomicOp name ix atomic = P (\k -> do dest <- newName "a"
-                                      AtomicOp dest name ix atomic *>> k (Index (dest,[])))
-
--- A monad to generate fresh names for the variables assigned in the atomic
--- operations
-data NameSupply a = NS { unNS :: Supply Int -> a }
-
-runNSDummy ns = unNS ns (unsafePerformIO newEnumSupply)
-
-instance Monad NameSupply where
-  return a = NS $ \_ -> a
-  NS f >>= m = NS $ \s ->
-    let (s1,s2) = split2 s in
-    unNS (m (f s1)) s2
-
-newName :: String -> NameSupply String
-newName v = NS $ \s -> v ++ show (supplyValue s)
-
-runFunc :: (a -> NameSupply (c,b)) -> NameSupply (a -> b)
-runFunc f = NS $ \s -> \a -> snd (unNS (f a) s)
