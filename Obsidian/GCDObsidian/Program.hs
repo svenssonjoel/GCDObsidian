@@ -157,6 +157,18 @@ forAll l body = P (\k -> do b <- runFunc (\i -> unP (body i)
                                                 (\_ -> return ((),Skip)))
                             ForAll b l *>> k ())
 
+{- 
+forAll' :: Word32 -> (Exp Word32 -> P a) -> P a
+forAll' l body =
+  P (\k ->
+      -- k :: (a -> NameSupply (b,Program())) 
+      do b <- runFunc2 (\i -> unP (body i)
+                             (\a -> return (a,Skip)))
+         
+         ForAll b l *>> k ())
+-} 
+
+
 forAllGlobal :: Data Word32 -> (Data Word32 -> P ()) -> P ()
 forAllGlobal l body = P (\k -> do b <- runFunc (\i -> unP (body i)
                                                       (\_ -> return ((),Skip)))
@@ -190,3 +202,6 @@ newName v = NS $ \s -> v ++ show (supplyValue s)
 
 runFunc :: (a -> NameSupply (c,b)) -> NameSupply (a -> b)
 runFunc f = NS $ \s -> \a -> snd (unNS (f a) s)
+
+runFunc2 :: (a -> NameSupply (c,b)) -> NameSupply (a -> (c,b))
+runFunc2 f = NS $ \s -> \a -> unNS (f a) s

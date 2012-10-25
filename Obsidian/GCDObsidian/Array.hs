@@ -73,18 +73,18 @@ class  PushyInternal a where
 
 
 
-
+{- 
 instance PushyInternal (Array Pull)  where   
   push' m (Array n (Pull ixf)) = 
     Array n (mkPush (\k ->
                        do
                          func <- runFunc k
-                         return $ ForAll (\i -> foldr1 (*>*) 
+                         return $ ((),ForAll (\i -> foldr1 (*>*) 
                                    [func (ix,a)
                                    | j <-  [0..m-1],
                                      let ix = (i*(fromIntegral m) + (fromIntegral j)),
                                      let a  = ixf ix
-                                   ]) (n `div` m)))
+                                   ]) (n `div` m))))
   push'' m (Array n (Pull ixf)) = 
     Array n (mkPush (\k ->
                       do
@@ -95,7 +95,8 @@ instance PushyInternal (Array Pull)  where
                                      let ix = (i+((fromIntegral ((n `div` m) * j)))),
                                      let a  = ixf ix
                                    ]) (n `div` m)))
-             
+
+-} 
 class Pushy a where 
   push :: a e -> Array Push e 
 
@@ -107,7 +108,8 @@ instance Pushy (Array Pull)  where
     Array n (mkPush (\k ->
                       do
                         func <- runFunc k 
-                        return $ ForAll (\i -> func (i,ixf i)) n)) 
+                        return $ (func (variable "X", ixf (variable "X")),
+                                  ForAll (\i -> func (i,ixf i)) n))) 
 
 
 class PushGlobal a where 
