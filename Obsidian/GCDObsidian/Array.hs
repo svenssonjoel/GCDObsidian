@@ -2,7 +2,9 @@
              FlexibleInstances,
              FlexibleContexts, 
              UndecidableInstances,  
-             GADTs #-} 
+             GADTs,
+             ScopedTypeVariables,
+             RankNTypes #-} 
 
 module Obsidian.GCDObsidian.Array ((!) -- pull array apply (index into)
                                 --   ,(!*) -- push array apply 
