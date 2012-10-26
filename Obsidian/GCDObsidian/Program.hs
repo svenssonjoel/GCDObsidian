@@ -9,7 +9,8 @@ module Obsidian.GCDObsidian.Program
 --       ,targetPair
        ,Atomic(..)
        ,printAtomic
-
+       ,P(..)
+        
  --      ,runP
  --      ,(*>>)
  --      ,(*>>>)
@@ -34,14 +35,14 @@ import System.IO.Unsafe
 ----------------------------------------------------------------------------
 -- 
 -- TODO: Try to make this happen without the extra parameter.  
-data Program res where 
+data Program a where 
   Skip :: Program () 
     
   Assign :: forall a . Scalar a
             => Name
             -> (Exp Word32)
             -> (Exp a)
-            -> Program ()
+            -> Program (Exp a)
            
             
   AtomicOp :: forall a . Scalar a
@@ -51,12 +52,14 @@ data Program res where
               -> Program (Exp a)
 
   -- Shouldnt a ForAll have a different result type.
-  -- Someting that represents an "array" 
+  -- Someting that represents an "array"
+  -- Am I mixing up the concepts here ?  (And what are those concepts
+  -- that I might be mixing up?) 
   ForAll :: Word32
-            -> (Exp Word32 -> Program ())
-            -> Program ()
+            -> (Exp Word32 -> Program a)
+            -> Program [a]
 
-  --        -> Program extra [a]           
+  --        -> Program [a]           
 
   Allocate :: Word32 -> Type -> Program Name -- Correct type?
   Sync     :: Program ()
@@ -89,6 +92,8 @@ forAll :: Word32 -> (Exp Word32 -> P ()) -> P ()
 forAll n body =
   P $ \k ->
   do
+    -- TODO: This must be incorrect..
+    --   
     let b = (\i -> unP (body i) (\_ -> Skip)) 
     ForAll n b >> k () 
 
@@ -103,11 +108,13 @@ runPrg i (Bind f m) =
   let (a,i') = runPrg i m
   in runPrg i' (f a) 
 runPrg i (Sync) = ((),i)
-runPrg i (ForAll _ _ ) = ((),i)
+runPrg i (ForAll n ixf) =
+  ([fst (runPrg i (ixf (fromIntegral j)))| j <- [0..n-1]],i) -- FIX THE i
 runPrg i (Allocate _ _) = ("new" ++ show i,i+1)
-runPrg i (Assign _ _ _) = ((),i)
+runPrg i (Assign _ _ a) = (a,i) -- Probaby wrong.. 
 runPrg i (AtomicOp _ _ _) = (variable ("new"++show i),i+1)
 
+{- 
 runPAccm :: Monoid b
             => Int
             -> Program a
@@ -124,7 +131,7 @@ runPAccm i p@(Allocate _ _) f b = ("arr" ++ show i,f p `mappend` b, i)
 runPAccm i p@(Assign _ _ _)  f b = ((), f p `mappend` b, i)
 runPAccm i p@(AtomicOp _ _ _) f b =
   (variable ("new" ++ show i),f p `mappend` b,i+1);
-
+-}
 -- took same as precedence as for ++ for *>*
 infixr 5 *>* 
 
@@ -181,7 +188,7 @@ printProgram i Sync = ("Sync;\n",i)
 printPrg :: Int -> Program a -> (a,String,Int)  
 printPrg i Skip = ((),";\n", i)
 printPrg i (Assign n ix e) =
-  ((),n ++ "[" ++ show ix ++ "] = " ++ show e ++ ";\n", i) 
+  (e,n ++ "[" ++ show ix ++ "] = " ++ show e ++ ";\n", i) 
 printPrg i (AtomicOp n ix e) =
   let newname = "r" ++ show i
   in (variable newname,
@@ -191,8 +198,9 @@ printPrg i (Allocate n t) =
   let newname = "arr" ++ show i
   in (newname,newname ++ " = malloc(" ++ show n ++ ");\n",i+1)
 printPrg i (ForAll n f) =
-  let (_,prg2,i') = printPrg i (f (variable "i"))
-  in ( (),
+  let (d,prg2,i') = printPrg i (f (variable "i"))
+      
+  in ( [d],  --CHEATING!
        "par (i in 0.." ++ show n ++ ")" ++
        "{\n" ++ prg2 ++ "\n}",
        i')
@@ -220,28 +228,28 @@ printAtomic AtomicInc = "atomicInc"
 -- Tests
 ---------------------------------------------------------------------------
 
-testPrg1 :: Program () 
+testPrg1 :: Program [Exp Int] 
 testPrg1 =
   do
     somewhere <- Allocate 100 Int 
     ForAll 100
            (\i -> Assign somewhere i (variable "hej" :: Exp Int))
 
-testPrg2 :: Program ()
+testPrg2 :: Program [Exp Int]
 testPrg2 =
   do
     somewhere <- Allocate 175 Int 
     ForAll 175
            (\i -> Assign somewhere i (variable "a" :: Exp Int))
 
-testPrg3 :: Program ()
+testPrg3 :: Program [Exp Int]
 testPrg3 = testPrg1 >> Sync >> testPrg2 
 
 ---------------------------------------------------------------------------
 -- Small push/pull array test
 ---------------------------------------------------------------------------
 data PushArray a =
-  PA (((Exp Word32, a) -> Program ()) -> Program ())
+  PA (forall b . (((Exp Word32, a) -> Program b) -> Program [b]))
   
 data PullArray a = PU Word32 (Exp Word32 -> a) 
 
@@ -250,17 +258,20 @@ myPullArray = PU 100 (\ix -> (index "input0" ix) )
 
 push1 :: PullArray (Exp Int) -> PushArray (Exp Int)
 push1 (PU n ixf) =
-  PA (\k -> do
-         ForAll n
-           (\i -> k (i,ixf i)))
+  PA (\k -> ForAll n (\i -> k (i,ixf i)))
 
-writeP :: PushArray (Exp Int) -> Program ()
-writeP (PA p) =
+
+-- Like Sync. 
+force :: PushArray (Exp Int) -> Program (PullArray (Exp Int))
+force (PA cont) = -- I Forgot to add lengths to PAs 
   do
-    name <-  Allocate 100 Int
-    p (target name) 
-
-target :: Name -> (Exp Word32, Exp Int) -> Program ()
+    imm <- Allocate 100 {- made up -} Int
+    cont (target imm)
+    return (PU 100 (\ ix -> index imm ix)) 
+    
+    
+   
+target :: Name -> (Exp Word32, Exp Int) -> Program (Exp Int)
 target name (ix,x) = Assign name ix x 
 
-testPrg4 = writeP (push1 myPullArray)
+testPrg4 = force (push1 myPullArray)

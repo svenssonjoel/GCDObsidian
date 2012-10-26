@@ -48,8 +48,8 @@ import Data.Word
 data Push a = Push {pushFun :: P (Exp Word32,a)}
 data Pull a = Pull {pullFun :: Exp Word32 -> a}
 
-mkPush :: (forall b. ((Exp Word32, a) -> NameSupply (b, Program ()))
-                         -> NameSupply (b, Program ())) -> Push a
+mkPush :: (forall b. ((Exp Word32, a) -> Program b)
+                         -> Program b) -> Push a
 mkPush p = Push (P p)  
 
 data Array p a = Array Word32 (p a) 
@@ -57,8 +57,8 @@ data Array p a = Array Word32 (p a)
 type PushArray a = Array Push a 
 type PullArray a = Array Pull a 
 
-mkPushArray :: Word32 -> (forall b.((Exp Word32, a) -> NameSupply (b, Program ()))
-                         -> NameSupply (b, Program ())) -> PushArray a
+mkPushArray :: Word32 -> (forall b.((Exp Word32, a) -> Program b)
+                         -> Program b) -> PushArray a
 mkPushArray n p = Array n (Push (P p)) 
 mkPullArray n p = Array n (Pull p)  
 
@@ -73,7 +73,7 @@ class  PushyInternal a where
 
 
 
-
+{- 
 instance PushyInternal (Array Pull)  where   
   push' m (Array n (Pull ixf)) = 
     Array n (mkPush (\k ->
@@ -95,7 +95,7 @@ instance PushyInternal (Array Pull)  where
                                      let ix = (i+((fromIntegral ((n `div` m) * j)))),
                                      let a  = ixf ix
                                    ]) (n `div` m)))
-             
+-}              
 class Pushy a where 
   push :: a e -> Array Push e 
 
@@ -104,12 +104,10 @@ instance Pushy (Array Push) where
   
 instance Pushy (Array Pull)  where   
   push (Array n (Pull ixf)) =
-    Array n (mkPush (\k ->
-                      do
-                        func <- runFunc k 
-                        return $ ForAll (\i -> func (i,ixf i)) n)) 
+    Array n $
+    mkPush $ \k -> ForAll n (\i -> (i,(unP (ixf i) (\_ -> Skip)))) >> k ()    
 
-
+{- 
 class PushGlobal a where 
   pushGlobal :: a e -> GlobalArray Push e 
 
@@ -120,6 +118,7 @@ instance PushGlobal (GlobalArray Pull) where
                               func <- runFunc k
                               return $ ForAllGlobal
                                 (\i -> func (i,ixf i)) n ))
+-} 
 ----------------------------------------------------------------------------
 --
 
