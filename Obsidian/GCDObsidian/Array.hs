@@ -6,7 +6,8 @@
              ScopedTypeVariables,
              RankNTypes #-} 
 
-module Obsidian.GCDObsidian.Array ((!) -- pull array apply (index into)
+module Obsidian.GCDObsidian.Array  where
+{- ((!) -- pull array apply (index into)
                                 --   ,(!*) -- push array apply 
                                   , mkPullArray
                                   , mkPushArray
@@ -29,7 +30,7 @@ module Obsidian.GCDObsidian.Array ((!) -- pull array apply (index into)
                                   , Pull(..)
                                   , Push(..)
                                   )where 
-
+-}
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
@@ -45,12 +46,14 @@ import Data.Word
 
 
 ------------------------------------------------------------------------------
+type P a = forall b . (( a -> Program b) -> Program [b]) 
+
 data Push a = Push {pushFun :: P (Exp Word32,a)}
 data Pull a = Pull {pullFun :: Exp Word32 -> a}
 
 mkPush :: (forall b. ((Exp Word32, a) -> Program b)
-                         -> Program b) -> Push a
-mkPush p = Push (P p)  
+                         -> Program [b]) -> Push a
+mkPush p = Push p  
 
 data Array p a = Array Word32 (p a) 
 
@@ -58,14 +61,14 @@ type PushArray a = Array Push a
 type PullArray a = Array Pull a 
 
 mkPushArray :: Word32 -> (forall b.((Exp Word32, a) -> Program b)
-                         -> Program b) -> PushArray a
-mkPushArray n p = Array n (Push (P p)) 
+                         -> Program [b]) -> PushArray a
+mkPushArray n p = Array n (Push p) 
 mkPullArray n p = Array n (Pull p)  
 
 resize m (Array n p) = Array m p 
 
 
-
+{- 
 -- TODO: Do you need (Exp e) where there is only e ? 
 class  PushyInternal a where 
   push' :: Word32 -> a e -> Array Push e  
@@ -121,7 +124,7 @@ instance PushGlobal (GlobalArray Pull) where
 -} 
 ----------------------------------------------------------------------------
 --
-
+-}
 namedArray name n = mkPullArray n (\ix -> index name ix)
 indexArray n      = mkPullArray n (\ix -> ix)
 
@@ -130,7 +133,7 @@ class Indexible a e where
   
 instance Indexible (Array Pull) a where
   access (Array _ ixf) ix = pullFun ixf ix
-
+{- 
 {- 
 class PushApp a where 
   papp :: a e -> ((Exp Word32,e) -> Program ()) -> Program ()
@@ -141,7 +144,7 @@ instance PushApp (Array Push) where
 instance PushApp (GlobalArray Push) where 
   papp (GlobalArray (Push f) n) a = f a 
   -} 
-
+-}
 class Len a where 
   len :: a e -> Word32
 
@@ -151,7 +154,7 @@ instance Len (Array p) where
 infixl 9 ! 
 (!) :: Indexible a e => a e -> Exp Word32 -> e 
 (!) = access
-
+{- 
  
 -- infixl 9 !* 
 -- (!*) :: PushApp a => a e -> ((Exp Word32,e) -> Program ()) -> Program ()
@@ -191,5 +194,5 @@ instance Indexible (GlobalArray Pull) a where
   access (GlobalArray _ ixf) ix = pullFun ixf ix
   
 globLen (GlobalArray n _) = n
-
+-} 
 

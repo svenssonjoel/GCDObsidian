@@ -9,7 +9,9 @@ module Obsidian.GCDObsidian.Program
 --       ,targetPair
        ,Atomic(..)
        ,printAtomic
-       ,P(..)
+       , runPrg
+       , printPrg
+--       ,P(..)
         
  --      ,runP
  --      ,(*>>)
@@ -78,7 +80,9 @@ instance Monad Program where
 ---------------------------------------------------------------------------
 -- Continuation 
 ---------------------------------------------------------------------------
+-- Not sure that this bit will help any. (?!)
 
+{- 
 data P a =
   P {unP :: forall b . (((a -> Program b) -> Program b))}
 
@@ -96,7 +100,7 @@ forAll n body =
     --   
     let b = (\i -> unP (body i) (\_ -> Skip)) 
     ForAll n b >> k () 
-
+-} 
 
 
 ---------------------------------------------------------------------------
