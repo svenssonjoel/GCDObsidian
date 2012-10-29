@@ -31,4 +31,3 @@ input1 = namedArray "apa" 32
 
 -- getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 -- getMapFusion_  = putStrLn$ CL.genKernel_ "mapFusion" mapFusion input1
-
