@@ -155,12 +155,11 @@ programThreads Skip = 0
 programThreads (Sync) = 0 
 programThreads (Assign _ _ _) = 1
 programThreads (ForAll n f) = n -- inner ForAlls are sequential
+programThreads (ForAllBlocks _ f) = programThreads (f (variable "X"))
 programThreads (Allocate _ _) = 0 -- programThreads p
 programThreads (Bind f m) =
   let (a,_) = runPrg 0 m
   in max (programThreads m) (programThreads (f a)) 
-  
---  max (programThreads p1) (programThreads p2)
 programThreads (AtomicOp _ _ _) = 1
 
 
@@ -209,13 +208,13 @@ printPrg i (Output t) =
 printPrg i (ForAll n f) =
   let ((),prg2,i') = printPrg i (f (variable "i"))
       
-  in ( (),  --CHEATING!
+  in ( (),  
        "par (i in 0.." ++ show n ++ ")" ++
        "{\n" ++ prg2 ++ "\n}",
        i')
 printPrg i (ForAllBlocks n f) =
   let (d,prg2,i') = printPrg i (f (variable "BIX"))
-  in ((), -- CHEATING!
+  in ((), 
       "blocks (i in 0.." ++ show n ++ ")" ++
       "{\n" ++ prg2 ++ "\n}",
       i')
@@ -235,58 +234,3 @@ data Atomic a where
 
 printAtomic AtomicInc = "atomicInc"
 
-
-
-
-
----------------------------------------------------------------------------
--- Tests
----------------------------------------------------------------------------
-
-testPrg1 :: Program ()
-testPrg1 =
-  do
-    somewhere <- Allocate 100 Int 
-    ForAll 100
-           (\i -> Assign somewhere i (variable "hej" :: Exp Int))
-
-testPrg2 :: Program ()
-testPrg2 =
-  do
-    somewhere <- Allocate 175 Int 
-    ForAll 175
-           (\i -> Assign somewhere i (variable "a" :: Exp Int))
-
-testPrg3 :: Program ()
-testPrg3 = testPrg1 >> Sync >> testPrg2 
-
----------------------------------------------------------------------------
--- Small push/pull array test
----------------------------------------------------------------------------
-data PushArray a =
-  PA (forall b . (((Exp Word32, a) -> Program ()) -> Program ()))
-  
-data PullArray a = PU Word32 (Exp Word32 -> a) 
-
-myPullArray :: PullArray (Exp Int) 
-myPullArray = PU 100 (\ix -> (index "input0" ix) )
-
-push1 :: PullArray (Exp Int) -> PushArray (Exp Int)
-push1 (PU n ixf) =
-  PA (\k -> ForAll n (\i -> k (i,ixf i)))
-
-
--- Like Sync. 
-force :: PushArray (Exp Int) -> Program (PullArray (Exp Int))
-force (PA cont) = -- I Forgot to add lengths to PAs 
-  do
-    imm <- Allocate 100 {- made up -} Int
-    cont (target imm)
-    return (PU 100 (\ ix -> index imm ix)) 
-    
-    
-   
-target :: Name -> (Exp Word32, Exp Int) -> Program ()
-target name (ix,x) = Assign name ix x 
-
-testPrg4 = force (push1 myPullArray)
