@@ -36,7 +36,6 @@ import System.IO.Unsafe
 
 ----------------------------------------------------------------------------
 -- 
--- TODO: Try to make this happen without the extra parameter.  
 data Program a where 
   Skip :: Program () 
     
