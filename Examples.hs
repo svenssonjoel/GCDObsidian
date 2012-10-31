@@ -1,5 +1,5 @@
-{-# LANGUAGE FlexibleInstances,
-             ScopedTypeVariables#-} 
+{-# LANGUAGE FlexibleInstances #-} 
+--              ScopedTypeVariables#-} 
 module Examples where 
 
 --import Obsidian.GCDObsidian
