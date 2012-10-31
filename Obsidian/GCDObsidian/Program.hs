@@ -60,9 +60,14 @@ data Program a where
             -> (Exp Word32 -> Program a)
             -> Program [a]
 
+  
+  ForAllBlocks :: (Exp Word32)
+                  -> (Exp Word32 -> Program a) 
+                  -> Program [a] 
   --        -> Program [a]           
 
   Allocate :: Word32 -> Type -> Program Name -- Correct type?
+  Output   :: Type -> Program Name
   Sync     :: Program ()
 
   Return :: a -> Program a
@@ -200,6 +205,9 @@ printPrg i (AtomicOp n ix e) =
 printPrg i (Allocate n t) =
   let newname = "arr" ++ show i
   in (newname,newname ++ " = malloc(" ++ show n ++ ");\n",i+1)
+printPrg i (Output t) =
+  let newname = "globalOut" ++ show i
+  in (newname,newname ++ " = new Global output;\n",i+1)
 printPrg i (ForAll n f) =
   let (d,prg2,i') = printPrg i (f (variable "i"))
       
@@ -207,6 +215,12 @@ printPrg i (ForAll n f) =
        "par (i in 0.." ++ show n ++ ")" ++
        "{\n" ++ prg2 ++ "\n}",
        i')
+printPrg i (ForAllBlocks n f) =
+  let (d,prg2,i') = printPrg i (f (variable "BIX"))
+  in ([d], -- CHEATING!
+      "blocks (i in 0.." ++ show n ++ ")" ++
+      "{\n" ++ prg2 ++ "\n}",
+      i')
 printPrg i (Return a) = (a,"MonadReturn;\n",i)
 printPrg i (Bind f m) =
   let (a1, str1,i1) = printPrg i m

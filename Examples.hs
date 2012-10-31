@@ -12,6 +12,7 @@ import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Types
+import Obsidian.GCDObsidian.Blocks 
 --import qualified Obsidian.GCDObsidian.Helpers as Help
 
 import Data.Word
@@ -23,8 +24,12 @@ import Prelude hiding (zipWith,sum )
 instance Functor (Array Pull) where 
   fmap f arr = Array (len arr) (Pull (\ix -> f (arr ! ix)))  
 
+
 ---------------------------------------------------------------------------
 -- MapFusion example
+---------------------------------------------------------------------------
+
+
 mapFusion :: Array Pull IntE -> Program (Array Pull IntE)
 mapFusion arr =
   do
@@ -52,5 +57,72 @@ force (Array n (Push p)) =
     where
       targetArr name (i,e) = Assign name i e 
 
+-- requires much type class magic
+mapBlocks' :: Scalar a => (Array Pull (Exp a) -> Program (Array Push (Exp b)))
+             -> Blocks (Array Pull (Exp a))
+             -> Blocks (Program (Array Push (Exp b)))
+mapBlocks' f (Blocks nb s bxf) =
+  Blocks nb newSize (\bix -> (f (bxf bix)))
+   -- how to obtain newSize ?
+   -- newSize depends on the Kernel.
+   -- But Kernels always have the same number of outputs.
+   -- so running one instance of the kernel on a dummy
+   -- array will give the answer.
+   where (Array newSize _,_)  = (runPrg 0 (f dummy))
+         dummy = Array s (Pull (\ix -> index "dummy" ix))
+
+
+
+
+-- forceBlocks :: Blocks (Program a) -> Program (Blocks a)
+-- cannot be this general.. 
+
+-- Trying a very limited form, will need type classes... 
+forceBlocks :: Blocks (Program (Array Push (Exp Int)))
+               -> Program (Blocks (Array Pull (Exp Int)))
+forceBlocks (Blocks n s bxf) =  
+  do
+    global <- Output Int -- type class magic
+    
+    ForAllBlocks n
+      (\bid ->
+        do
+          (Array _ (Push pfun)) <- bxf bid 
+          pfun (assignTo global (bid, s)))
+    return $ Blocks n s $ 
+             \bix -> Array s (Pull (\ix -> index global ((bix * (fromIntegral s)) + ix)))
+
+          where 
+            assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
+
+
+pushApp (Array n (Push p)) a = p a 
+
 -- getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 -- getMapFusion_  = putStrLn$ CL.genKernel_ "mapFusion" mapFusion input1
+
+
+---------------------------------------------------------------------------
+-- Global Array examples 
+---------------------------------------------------------------------------
+
+mapSomething :: Array Pull IntE -> Program (Array Push IntE)
+mapSomething arr =return $  push ((fmap (+1) . fmap (*2)) arr)
+
+
+
+inputG :: Blocks (Array Pull IntE) 
+inputG = namedGlobal "apa" (variable "N") 32
+
+
+
+testG1 :: Blocks (Array Pull IntE) -> Program (Blocks (Array Pull IntE))
+testG1 arr = forceBlocks ( mapBlocks' mapSomething arr )
+
+
+
+---------------------------------------------------------------------------
+-- Print Programs for test
+---------------------------------------------------------------------------
+prg0 = putStrLn$ (\(_,x,_) -> x) $ printPrg 0 (mapFusion input1)
+prg1 = putStrLn$ (\(_,x,_) -> x) $ printPrg 0 (testG1 inputG)
