@@ -43,7 +43,7 @@ data Program a where
             => Name
             -> (Exp Word32)
             -> (Exp a)
-            -> Program (Exp a)
+            -> Program ()
            
             
   AtomicOp :: forall a . Scalar a
@@ -57,13 +57,13 @@ data Program a where
   -- Am I mixing up the concepts here ?  (And what are those concepts
   -- that I might be mixing up?) 
   ForAll :: Word32
-            -> (Exp Word32 -> Program a)
-            -> Program [a]
+            -> (Exp Word32 -> Program ())
+            -> Program ()
 
   
   ForAllBlocks :: (Exp Word32)
-                  -> (Exp Word32 -> Program a) 
-                  -> Program [a] 
+                  -> (Exp Word32 -> Program ()) 
+                  -> Program () 
   --        -> Program [a]           
 
   Allocate :: Word32 -> Type -> Program Name -- Correct type?
@@ -117,9 +117,9 @@ runPrg i (Bind f m) =
   in runPrg i' (f a) 
 runPrg i (Sync) = ((),i)
 runPrg i (ForAll n ixf) =
-  ([fst (runPrg i (ixf (fromIntegral j)))| j <- [0..n-1]],i) -- FIX THE i
+  (fst (runPrg i (ixf (variable "tid"))),i) -- FIX THE i
 runPrg i (Allocate _ _) = ("new" ++ show i,i+1)
-runPrg i (Assign _ _ a) = (a,i) -- Probaby wrong.. 
+runPrg i (Assign _ _ a) = ((),i) -- Probaby wrong.. 
 runPrg i (AtomicOp _ _ _) = (variable ("new"++show i),i+1)
 
 {- 
@@ -196,7 +196,7 @@ printProgram i Sync = ("Sync;\n",i)
 printPrg :: Int -> Program a -> (a,String,Int)  
 printPrg i Skip = ((),";\n", i)
 printPrg i (Assign n ix e) =
-  (e,n ++ "[" ++ show ix ++ "] = " ++ show e ++ ";\n", i) 
+  ((),n ++ "[" ++ show ix ++ "] = " ++ show e ++ ";\n", i) 
 printPrg i (AtomicOp n ix e) =
   let newname = "r" ++ show i
   in (variable newname,
@@ -209,15 +209,15 @@ printPrg i (Output t) =
   let newname = "globalOut" ++ show i
   in (newname,newname ++ " = new Global output;\n",i+1)
 printPrg i (ForAll n f) =
-  let (d,prg2,i') = printPrg i (f (variable "i"))
+  let ((),prg2,i') = printPrg i (f (variable "i"))
       
-  in ( [d],  --CHEATING!
+  in ( (),  --CHEATING!
        "par (i in 0.." ++ show n ++ ")" ++
        "{\n" ++ prg2 ++ "\n}",
        i')
 printPrg i (ForAllBlocks n f) =
   let (d,prg2,i') = printPrg i (f (variable "BIX"))
-  in ([d], -- CHEATING!
+  in ((), -- CHEATING!
       "blocks (i in 0.." ++ show n ++ ")" ++
       "{\n" ++ prg2 ++ "\n}",
       i')
@@ -245,28 +245,28 @@ printAtomic AtomicInc = "atomicInc"
 -- Tests
 ---------------------------------------------------------------------------
 
-testPrg1 :: Program [Exp Int] 
+testPrg1 :: Program ()
 testPrg1 =
   do
     somewhere <- Allocate 100 Int 
     ForAll 100
            (\i -> Assign somewhere i (variable "hej" :: Exp Int))
 
-testPrg2 :: Program [Exp Int]
+testPrg2 :: Program ()
 testPrg2 =
   do
     somewhere <- Allocate 175 Int 
     ForAll 175
            (\i -> Assign somewhere i (variable "a" :: Exp Int))
 
-testPrg3 :: Program [Exp Int]
+testPrg3 :: Program ()
 testPrg3 = testPrg1 >> Sync >> testPrg2 
 
 ---------------------------------------------------------------------------
 -- Small push/pull array test
 ---------------------------------------------------------------------------
 data PushArray a =
-  PA (forall b . (((Exp Word32, a) -> Program b) -> Program [b]))
+  PA (forall b . (((Exp Word32, a) -> Program ()) -> Program ()))
   
 data PullArray a = PU Word32 (Exp Word32 -> a) 
 
@@ -288,7 +288,7 @@ force (PA cont) = -- I Forgot to add lengths to PAs
     
     
    
-target :: Name -> (Exp Word32, Exp Int) -> Program (Exp Int)
+target :: Name -> (Exp Word32, Exp Int) -> Program ()
 target name (ix,x) = Assign name ix x 
 
 testPrg4 = force (push1 myPullArray)
