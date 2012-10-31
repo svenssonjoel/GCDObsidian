@@ -60,14 +60,34 @@ data Program a where
             -> (Exp Word32 -> Program ())
             -> Program ()
 
-  
+
+  {-
+     I'm not sure about this constructor.
+     As I see it programs from which we generate a kernel
+     must be wrapped in one of these ForAllBlocks.
+     Programs with sequences of 'ForAllBlocks' are problematic.
+
+     Maybe a (ForAllBlocks n f *>* ForAllBlocks m g) Program
+     should be split into two kernels. 
+  -} 
   ForAllBlocks :: (Exp Word32)
                   -> (Exp Word32 -> Program ()) 
                   -> Program () 
-  --        -> Program [a]           
 
-  Allocate :: Word32 -> Type -> Program Name -- Correct type?
+  
+  Allocate :: Word32 -> Type -> Program Name
+
+
+  {- About Output (Creates a named output array). 
+     This is similar to Allocate but concerning global arrays.
+
+ 
+     Since we cannot synchronize writes to a global array inside of an
+     kernel, global arrays will only be written as outputs of the kernel
+  -} 
   Output   :: Type -> Program Name
+  
+  
   Sync     :: Program ()
 
   Return :: a -> Program a
@@ -79,33 +99,6 @@ data Program a where
 instance Monad Program where
   return = Return
   (>>=) = flip Bind
-
-
----------------------------------------------------------------------------
--- Continuation 
----------------------------------------------------------------------------
--- Not sure that this bit will help any. (?!)
-
-{- 
-data P a =
-  P {unP :: forall b . (((a -> Program b) -> Program b))}
-
-instance Monad P where
-  return a = P (\k -> k a)
-  P f >>= m = P (\k -> f (\a -> unP (m a) k))
-
-runP p = (unP p) (\_ -> Skip)
-
-forAll :: Word32 -> (Exp Word32 -> P ()) -> P ()
-forAll n body =
-  P $ \k ->
-  do
-    -- TODO: This must be incorrect..
-    --   
-    let b = (\i -> unP (body i) (\_ -> Skip)) 
-    ForAll n b >> k () 
--} 
-
 
 ---------------------------------------------------------------------------
 -- runPrg 
@@ -141,6 +134,11 @@ runPAccm i p@(AtomicOp _ _ _) f b =
   (variable ("new" ++ show i),f p `mappend` b,i+1);
 -}
 -- took same as precedence as for ++ for *>*
+
+
+---------------------------------------------------------------------------
+-- Sequence programs
+---------------------------------------------------------------------------
 infixr 5 *>* 
 
 (*>*) :: Program a 
