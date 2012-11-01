@@ -122,6 +122,17 @@ reverseG (Blocks nb s arrf) =
   Blocks nb s (\bix -> rev (arrf (nb - 1 - bix)))
 
 
+-- Permutations on the output arrays are more complicated
+-- good wrappings are needed!
+reverseGO :: Blocks (Program (Array Push IntE))
+             -> Blocks (Program (Array Push IntE))
+reverseGO (Blocks nb s prgf) =
+  Blocks nb s
+  (\bix -> do
+      a@(Array n (Push p)) <- prgf bix
+      let k' k (ix,e) = k ((fromIntegral n) - 1 - ix,e)
+      return (Array n (Push (\k -> p (k' k)))))  
+      -- k :: (Exp Word32,IntE) -> Program
 ---------------------------------------------------------------------------
 -- Global Array examples 
 ---------------------------------------------------------------------------

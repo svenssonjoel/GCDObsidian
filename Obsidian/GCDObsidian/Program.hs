@@ -7,8 +7,8 @@ module Obsidian.GCDObsidian.Program
        ,(*>*)
 --       ,targetArray
 --       ,targetPair
-       ,Atomic(..)
-       ,printAtomic
+--       ,Atomic(..)
+--       ,printAtomic
        , runPrg
        , printPrg
 --       ,P(..)
@@ -29,6 +29,7 @@ import Data.Monoid
 import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
+import Obsidian.GCDObsidian.Atomic
 
 -- Package value-supply
 import Data.Supply
@@ -37,7 +38,7 @@ import System.IO.Unsafe
 ----------------------------------------------------------------------------
 -- 
 data Program a where 
-  Skip :: Program () 
+  Skip :: Program () -- remove ( use return ()) 
     
   Assign :: forall a . Scalar a
             => Name
@@ -226,11 +227,4 @@ printPrg i (Bind f m) =
 printPrg i Sync = ((),"Sync;\n",i)
 
 
----------------------------------------------------------------------------
--- Atomic operations 
----------------------------------------------------------------------------
-data Atomic a where
-  AtomicInc :: Atomic (Data Int)
-
-printAtomic AtomicInc = "atomicInc"
 
