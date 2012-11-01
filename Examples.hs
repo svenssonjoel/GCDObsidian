@@ -71,8 +71,18 @@ mapBlocks' f (Blocks nb s bxf) =
    where (Array newSize _,_)  = (runPrg 0 (f dummy))
          dummy = Array s (Pull (\ix -> index "dummy" ix))
 
-
-
+zipBlocksWith' :: (Scalar a, Scalar b) 
+                  => (Array Pull (Exp a) -> Array Pull (Exp b) -> Program (Array Push (Exp c)))
+                  -> Blocks (Array Pull (Exp a))
+                  -> Blocks (Array Pull (Exp b))
+                  -> Blocks (Program (Array Push (Exp c)))
+zipBlocksWith' f (Blocks nb1 s1 bxf1)
+                 (Blocks nb2 s2 bxf2) =
+  Blocks (min nb1 nb2) newSize (\bix -> f (bxf1 bix) (bxf2 bix))
+    where
+      (Array newSize _,_)  = (runPrg 0 (f dummy1 dummy2))
+      dummy1 = Array s1 (Pull (\ix -> index "dummy1" ix))
+      dummy2 = Array s2 (Pull (\ix -> index "dummy2" ix))
 
 -- forceBlocks :: Blocks (Program a) -> Program (Blocks a)
 -- cannot be this general.. 
@@ -101,6 +111,16 @@ pushApp (Array n (Push p)) a = p a
 -- getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 -- getMapFusion_  = putStrLn$ CL.genKernel_ "mapFusion" mapFusion input1
 
+---------------------------------------------------------------------------
+-- Global array permutation
+---------------------------------------------------------------------------
+rev :: Array Pull IntE -> Array Pull IntE
+rev (Array n (Pull ixf)) = Array n (Pull (\ix -> ixf (ix - 1 - (fromIntegral n))))
+
+reverseG :: Blocks (Array Pull IntE) -> Blocks (Array Pull IntE)
+reverseG (Blocks nb s arrf) =
+  Blocks nb s (\bix -> rev (arrf (nb - 1 - bix)))
+
 
 ---------------------------------------------------------------------------
 -- Global Array examples 
@@ -117,7 +137,7 @@ inputG = namedGlobal "apa" (variable "N") 32
 
 
 testG1 :: Blocks (Array Pull IntE) -> Program (Blocks (Array Pull IntE))
-testG1 arr = forceBlocks ( mapBlocks' mapSomething arr )
+testG1 arr = forceBlocks ( mapBlocks' mapSomething (reverseG arr) )
 
 
 
