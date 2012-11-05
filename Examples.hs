@@ -8,7 +8,9 @@ module Examples where
 --import qualified Obsidian.GCDObsidian.CodeGen.C as C
 --import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
+import qualified Obsidian.GCDObsidian.CodeGen.Program as CGP
 import Obsidian.GCDObsidian.Program
+
 import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Types
@@ -157,3 +159,11 @@ testG1 arr = forceBlocks ( mapBlocks' mapSomething (reverseG arr) )
 ---------------------------------------------------------------------------
 prg0 = putStrLn$ (\(_,x,_) -> x) $ printPrg 0 (mapFusion input1)
 prg1 = putStrLn$ (\(_,x,_) -> x) $ printPrg 0 (testG1 inputG)
+
+
+
+---------------------------------------------------------------------------
+-- Translate and pring as CGP.Programs 
+---------------------------------------------------------------------------
+prg0' = putStrLn$ CGP.printPrg$ CGP.runPrg (mapFusion input1)
+prg1' = putStrLn$ CGP.printPrg$ CGP.runPrg (testG1 inputG) 
