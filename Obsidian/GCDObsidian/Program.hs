@@ -2,7 +2,7 @@
                  GADTs  #-} 
 module Obsidian.GCDObsidian.Program 
        (Program(..)
-       ,printProgram
+--       ,printProgram
        ,programThreads
        ,(*>*)
 --       ,targetArray
@@ -168,6 +168,7 @@ programThreads (AtomicOp _ _ _) = 1
 ---------------------------------------------------------------------------
 -- printProgram 
 ---------------------------------------------------------------------------
+{- 
 printProgram :: Int -> Program a -> (String,Int)  
 printProgram i Skip = (";\n", i)
 printProgram i (Assign n ix e) =
@@ -190,41 +191,46 @@ printProgram i (Bind f m) =
       (str2,i2) = printProgram i1 (f res)
   in (str1 ++ str2, i2)
 printProgram i Sync = ("Sync;\n",i)
+-} 
+---------------------------------------------------------------------------
+-- printPrg
+---------------------------------------------------------------------------
+printPrg prg = (\(_,x,_) -> x) $ printPrg' 0 prg
 
-printPrg :: Int -> Program a -> (a,String,Int)  
-printPrg i Skip = ((),";\n", i)
-printPrg i (Assign n ix e) =
+printPrg' :: Int -> Program a -> (a,String,Int)  
+printPrg' i Skip = ((),";\n", i)
+printPrg' i (Assign n ix e) =
   ((),n ++ "[" ++ show ix ++ "] = " ++ show e ++ ";\n", i) 
-printPrg i (AtomicOp n ix e) =
+printPrg' i (AtomicOp n ix e) =
   let newname = "r" ++ show i
   in (variable newname,
       newname ++ " = " ++ printAtomic e ++
       "( " ++ n ++ "[" ++ show ix ++ "])\n",i+1)
-printPrg i (Allocate n t) =
+printPrg' i (Allocate n t) =
   let newname = "arr" ++ show i
   in (newname,newname ++ " = malloc(" ++ show n ++ ");\n",i+1)
-printPrg i (Output t) =
+printPrg' i (Output t) =
   let newname = "globalOut" ++ show i
   in (newname,newname ++ " = new Global output;\n",i+1)
-printPrg i (ForAll n f) =
-  let ((),prg2,i') = printPrg i (f (variable "i"))
+printPrg' i (ForAll n f) =
+  let ((),prg2,i') = printPrg' i (f (variable "i"))
       
   in ( (),  
        "par (i in 0.." ++ show n ++ ")" ++
        "{\n" ++ prg2 ++ "\n}",
        i')
-printPrg i (ForAllBlocks n f) =
-  let (d,prg2,i') = printPrg i (f (variable "BIX"))
+printPrg' i (ForAllBlocks n f) =
+  let (d,prg2,i') = printPrg' i (f (variable "BIX"))
   in ((), 
       "blocks (i in 0.." ++ show n ++ ")" ++
       "{\n" ++ prg2 ++ "\n}",
       i')
-printPrg i (Return a) = (a,"MonadReturn;\n",i)
-printPrg i (Bind f m) =
-  let (a1, str1,i1) = printPrg i m
-      (a2,str2,i2) = printPrg i1 (f a1)
+printPrg' i (Return a) = (a,"MonadReturn;\n",i)
+printPrg' i (Bind f m) =
+  let (a1, str1,i1) = printPrg' i m
+      (a2,str2,i2) = printPrg' i1 (f a1)
   in (a2,str1 ++ str2, i2)
-printPrg i Sync = ((),"Sync;\n",i)
+printPrg' i Sync = ((),"Sync;\n",i)
 
 
 

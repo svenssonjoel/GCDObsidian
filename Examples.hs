@@ -163,8 +163,8 @@ testG1 arr = forceBlocks ( mapBlocks' mapSomething (reverseG arr) )
 ---------------------------------------------------------------------------
 -- Print Programs for test
 ---------------------------------------------------------------------------
-prg0 = putStrLn$ (\(_,x,_) -> x) $ printPrg 0 (mapFusion input1)
-prg1 = putStrLn$ (\(_,x,_) -> x) $ printPrg 0 (testG1 inputG)
+prg0 = putStrLn$ printPrg$ mapFusion input1
+prg1 = putStrLn$ printPrg$ testG1 inputG
 
 
 
