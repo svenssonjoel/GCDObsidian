@@ -11,10 +11,10 @@ import Data.Word
 
 
 data Blocks a = Blocks (Exp Word32)   -- number of 
-                       (Word32)       -- size of each 
+                       -- (Word32)       -- size of each 
                        (Exp Word32 -> a)
 
-namedGlobal name bn bs = Blocks bn bs
+namedGlobal name bn bs = Blocks bn {- bs -} 
                          (\bix -> (mkPullArray bs
                                    (\ix -> index name (bix * (fromIntegral bs) + ix)))) 
 

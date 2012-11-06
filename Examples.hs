@@ -23,6 +23,9 @@ import Data.Bits
 
 import Prelude hiding (zipWith,sum )
 
+---------------------------------------------------------------------------
+-- Functor instance borrowed from library.
+---------------------------------------------------------------------------
 instance Functor (Array Pull) where 
   fmap f arr = Array (len arr) (Pull (\ix -> f (arr ! ix)))  
 
@@ -63,50 +66,58 @@ force (Array n (Push p)) =
 mapBlocks' :: Scalar a => (Array Pull (Exp a) -> Program (Array Push (Exp b)))
              -> Blocks (Array Pull (Exp a))
              -> Blocks (Program (Array Push (Exp b)))
-mapBlocks' f (Blocks nb s bxf) =
-  Blocks nb newSize (\bix -> (f (bxf bix)))
+mapBlocks' f (Blocks nb bxf) =
+  Blocks nb {-newSize-} (\bix -> (f (bxf bix)))
    -- how to obtain newSize ?
    -- newSize depends on the Kernel.
    -- But Kernels always have the same number of outputs.
    -- so running one instance of the kernel on a dummy
    -- array will give the answer.
-   where (Array newSize _,_)  = (runPrg 0 (f dummy))
-         dummy = Array s (Pull (\ix -> index "dummy" ix))
+   --where (Array newSize _,_)  = (runPrg 0 (f dummy))
+   --      dummy = Array s (Pull (\ix -> index "dummy" ix))
 
 zipBlocksWith' :: (Scalar a, Scalar b) 
                   => (Array Pull (Exp a) -> Array Pull (Exp b) -> Program (Array Push (Exp c)))
                   -> Blocks (Array Pull (Exp a))
                   -> Blocks (Array Pull (Exp b))
                   -> Blocks (Program (Array Push (Exp c)))
-zipBlocksWith' f (Blocks nb1 s1 bxf1)
-                 (Blocks nb2 s2 bxf2) =
-  Blocks (min nb1 nb2) newSize (\bix -> f (bxf1 bix) (bxf2 bix))
-    where
-      (Array newSize _,_)  = (runPrg 0 (f dummy1 dummy2))
-      dummy1 = Array s1 (Pull (\ix -> index "dummy1" ix))
-      dummy2 = Array s2 (Pull (\ix -> index "dummy2" ix))
+zipBlocksWith' f (Blocks nb1 {-s1-} bxf1)
+                 (Blocks nb2 {-s2-} bxf2) =
+  Blocks (min nb1 nb2) {-newSize-} (\bix -> f (bxf1 bix) (bxf2 bix))
+    --where
+    --  (Array newSize _,_)  = (runPrg 0 (f dummy1 dummy2))
+    --  dummy1 = Array s1 (Pull (\ix -> index "dummy1" ix))
+    --  dummy2 = Array s2 (Pull (\ix -> index "dummy2" ix))
 
+
+---------------------------------------------------------------------------
+-- forceBlocks
+---------------------------------------------------------------------------
 -- forceBlocks :: Blocks (Program a) -> Program (Blocks a)
 -- cannot be this general.. 
 
 -- Trying a very limited form, will need type classes... 
 forceBlocks :: Blocks (Program (Array Push (Exp Int)))
                -> Program (Blocks (Array Pull (Exp Int)))
-forceBlocks (Blocks n s bxf) =  
+forceBlocks (Blocks n {- _ -}  bxf) =  
   do
     global <- Output Int -- type class magic
+
+    -- dryrun to get length. 
+    (Array s (Push pfun)) <- bxf (variable "dummy") -- bid 
     
     ForAllBlocks n
       (\bid ->
         do
-          (Array _ (Push pfun)) <- bxf bid 
+          (Array s (Push pfun)) <- bxf bid 
           pfun (assignTo global (bid, s)))
-    return $ Blocks n s $ 
+     
+    return $ Blocks n {- s -} $ 
              \bix -> Array s (Pull (\ix -> index global ((bix * (fromIntegral s)) + ix)))
+      where 
+        assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
 
-          where 
-            assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
-
+          
 
 pushApp (Array n (Push p)) a = p a 
 
@@ -117,19 +128,20 @@ pushApp (Array n (Push p)) a = p a
 -- Global array permutation
 ---------------------------------------------------------------------------
 rev :: Array Pull IntE -> Array Pull IntE
-rev (Array n (Pull ixf)) = Array n (Pull (\ix -> ixf (ix - 1 - (fromIntegral n))))
+rev (Array n (Pull ixf)) =
+  Array n (Pull (\ix -> ixf (ix - 1 - (fromIntegral n))))
 
 reverseG :: Blocks (Array Pull IntE) -> Blocks (Array Pull IntE)
-reverseG (Blocks nb s arrf) =
-  Blocks nb s (\bix -> rev (arrf (nb - 1 - bix)))
+reverseG (Blocks nb {- s -} arrf) =
+  Blocks nb (\bix -> rev (arrf (nb - 1 - bix)))
 
 
 -- Permutations on the output arrays are more complicated
 -- good wrappings are needed!
 reverseGO :: Blocks (Program (Array Push IntE))
              -> Blocks (Program (Array Push IntE))
-reverseGO (Blocks nb s prgf) =
-  Blocks nb s
+reverseGO (Blocks nb {-s-} prgf) =
+  Blocks nb {-s-} 
   (\bix -> do
       a@(Array n (Push p)) <- prgf bix
       let k' k (ix,e) = k ((fromIntegral n) - 1 - ix,e)
