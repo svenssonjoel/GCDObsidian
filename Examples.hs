@@ -62,34 +62,28 @@ force (Array n (Push p)) =
     where
       targetArr name (i,e) = Assign name i e 
 
+---------------------------------------------------------------------------
+-- mapBlocks
+---------------------------------------------------------------------------
 -- requires much type class magic
-mapBlocks' :: Scalar a => (Array Pull (Exp a) -> Program (Array Push (Exp b)))
+mapBlocks' :: Scalar a => (Array Pull (Exp a) -> Program b)
              -> Blocks (Array Pull (Exp a))
-             -> Blocks (Program (Array Push (Exp b)))
+             -> Blocks (Program b)
 mapBlocks' f (Blocks nb bxf) =
-  Blocks nb {-newSize-} (\bix -> (f (bxf bix)))
-   -- how to obtain newSize ?
-   -- newSize depends on the Kernel.
-   -- But Kernels always have the same number of outputs.
-   -- so running one instance of the kernel on a dummy
-   -- array will give the answer.
-   --where (Array newSize _,_)  = (runPrg 0 (f dummy))
-   --      dummy = Array s (Pull (\ix -> index "dummy" ix))
-
+  Blocks nb (\bix -> (f (bxf bix)))
+  
+---------------------------------------------------------------------------
+-- zipWith
+---------------------------------------------------------------------------
 zipBlocksWith' :: (Scalar a, Scalar b) 
-                  => (Array Pull (Exp a) -> Array Pull (Exp b) -> Program (Array Push (Exp c)))
+                  => (Array Pull (Exp a) -> Array Pull (Exp b) -> Program c)
                   -> Blocks (Array Pull (Exp a))
                   -> Blocks (Array Pull (Exp b))
-                  -> Blocks (Program (Array Push (Exp c)))
-zipBlocksWith' f (Blocks nb1 {-s1-} bxf1)
-                 (Blocks nb2 {-s2-} bxf2) =
-  Blocks (min nb1 nb2) {-newSize-} (\bix -> f (bxf1 bix) (bxf2 bix))
-    --where
-    --  (Array newSize _,_)  = (runPrg 0 (f dummy1 dummy2))
-    --  dummy1 = Array s1 (Pull (\ix -> index "dummy1" ix))
-    --  dummy2 = Array s2 (Pull (\ix -> index "dummy2" ix))
-
-
+                  -> Blocks (Program c)
+zipBlocksWith' f (Blocks nb1  bxf1)
+                 (Blocks nb2 bxf2) =
+  Blocks (min nb1 nb2) (\bix -> f (bxf1 bix) (bxf2 bix))
+   
 ---------------------------------------------------------------------------
 -- forceBlocks
 ---------------------------------------------------------------------------
@@ -99,7 +93,7 @@ zipBlocksWith' f (Blocks nb1 {-s1-} bxf1)
 -- Trying a very limited form, will need type classes... 
 forceBlocks :: Blocks (Program (Array Push (Exp Int)))
                -> Program (Blocks (Array Pull (Exp Int)))
-forceBlocks (Blocks n {- _ -}  bxf) =  
+forceBlocks (Blocks n bxf) =  
   do
     global <- Output Int -- type class magic
 
@@ -132,7 +126,7 @@ rev (Array n (Pull ixf)) =
   Array n (Pull (\ix -> ixf (ix - 1 - (fromIntegral n))))
 
 reverseG :: Blocks (Array Pull IntE) -> Blocks (Array Pull IntE)
-reverseG (Blocks nb {- s -} arrf) =
+reverseG (Blocks nb arrf) =
   Blocks nb (\bix -> rev (arrf (nb - 1 - bix)))
 
 
@@ -140,8 +134,8 @@ reverseG (Blocks nb {- s -} arrf) =
 -- good wrappings are needed!
 reverseGO :: Blocks (Program (Array Push IntE))
              -> Blocks (Program (Array Push IntE))
-reverseGO (Blocks nb {-s-} prgf) =
-  Blocks nb {-s-} 
+reverseGO (Blocks nb prgf) =
+  Blocks nb  
   (\bix -> do
       a@(Array n (Push p)) <- prgf bix
       let k' k (ix,e) = k ((fromIntegral n) - 1 - ix,e)
