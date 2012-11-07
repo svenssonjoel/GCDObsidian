@@ -3,7 +3,7 @@
 
 {- 
 TODO TODO TODO
-  Everything in this module shoud be reimplemented!
+  # Everything in this module shoud be reimplemented!
 
 
 -} 
@@ -20,7 +20,7 @@ import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.ModifyArray
 
 import Prelude hiding (splitAt)
-import Obsidian.GCDObsidian.Library (splitAt,concP, unzipp,zipp)
+-- import Obsidian.GCDObsidian.Library (splitAt,concP, unzipp,zipp)
 
 
 import Control.Monad.State

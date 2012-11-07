@@ -5,12 +5,15 @@ import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.Array
+import Obsidian.GCDObsidian.Atomic
 
 import Data.Word
 
-data Modify a = Modify { modFun :: P (Exp Word32), atomicOp :: Atomic a }
+-- TODO: Repair contents of this module 
 
-type ModArray a = Array Modify a
+--data Modify a = Modify { modFun :: P (Exp Word32), atomicOp :: Atomic a }
 
-mkModifyArray n p op = Array n (Modify p op)
+--type ModArray a = Array Modify a
+
+--mkModifyArray n p op = Array n (Modify p op)
 

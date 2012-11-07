@@ -11,12 +11,12 @@ import Data.Word
 
 import Prelude hiding (splitAt,zipWith)
 
-
+-- TODO: Update this module to new setting
 
 instance Functor (Array Pull) where 
   fmap f arr = Array (len arr) (Pull (\ix -> f (arr ! ix)))  
 
-
+{- 
 ------------------------------------------------------------------------------
 -- ForAll 
 
@@ -36,6 +36,7 @@ revTest arr = ixMap (\ix -> (m-ix)) arr
    where 
      m = fromIntegral (n-1)
      n = len arr
+-}
 ------------------------------------------------------------------------------
 -- splitAt (name clashes with Prelude.splitAt)
 splitAt :: Integral i => i -> Array Pull a -> (Array Pull a, Array Pull a) 
@@ -49,7 +50,7 @@ halve arr = splitAt n2 arr
   where 
     n = len arr
     n2 = n `div` 2
-
+{- 
 ----------------------------------------------------------------------------
 -- elements at even indices to fst output, odd to snd.
 evenOdds :: Array Pull a -> (Array Pull a, Array Pull a)
@@ -226,9 +227,7 @@ instance IxMap (GlobalArray Pull) where
 
 
 ----------------------------------------------------------------------------
--- Concatenate on Push arrays
-
-
+-- Concatenate on Push arrays 
 
 concP :: (Pushy arr1,
           Pushy arr2) => (arr1 a, arr2 a) -> Array Push a     
@@ -246,6 +245,8 @@ concP (arr1,arr2) =
      (Array n2 parr2) = push arr2
     -- n1    = len parr1
     -- n2    = len parr2
+
+
  {-     
 ----------------------------------------------------------------------------
 --
@@ -490,4 +491,5 @@ insert2Zeros :: Int -> Exp Word32 -> Exp Word32
 insert2Zeros 0 a = a `shiftL` 2
 insert2Zeros i a = a + 3*(a .&. fromIntegral (complement (oneBits (i-1) :: Word32)))
 
--} 
+-}
+-}

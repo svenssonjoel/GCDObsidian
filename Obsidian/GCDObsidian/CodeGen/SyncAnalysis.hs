@@ -1,9 +1,8 @@
-module Obsidian.GCDObsidian.CodeGen.SyncAnalysis (syncAnalysis) where
 
+module Obsidian.GCDObsidian.CodeGen.SyncAnalysis where
 
-
-
-
+-- The contents of this module is broken! 
+{- 
 import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Globs
@@ -165,4 +164,6 @@ addMappings ((nom,(ix,thread)):xs) sam =
                Nothing -> Map.insert nom (Map.insert ix thread Map.empty) sam 
                (Just m) -> Map.insert nom (Map.insert ix thread m) sam 
   in addMappings xs sam'  
-      
+
+
+-} 

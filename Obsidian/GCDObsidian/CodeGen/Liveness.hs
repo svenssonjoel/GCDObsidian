@@ -7,7 +7,7 @@ import Obsidian.GCDObsidian.Exp
 -- import Obsidian.GCDObsidian.Array
 --import Obsidian.GCDObsidian.Memory
 import Obsidian.GCDObsidian.Globs
-import Obsidian.GCDObsidian.Program
+import Obsidian.GCDObsidian.CodeGen.Program
 
 ------------------------------------------------------------------------------
 -- LIVENESS on Programs

@@ -26,6 +26,10 @@ import Obsidian.GCDObsidian.CodeGen.SyncAnalysis
 import Obsidian.GCDObsidian.CodeGen.Memory
 import Obsidian.GCDObsidian.CodeGen.Liveness
 
+-- New imports
+import Obsidian.GCDObsidian.CodeGen.Program
+import qualified Obsidian.GCDObsidian.Program as P 
+
 import Obsidian.GCDObsidian.CodeGen.SPMDC
 
 {- 
