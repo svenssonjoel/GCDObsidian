@@ -38,8 +38,6 @@ import System.IO.Unsafe
 ----------------------------------------------------------------------------
 -- 
 data Program a where 
-  Skip :: Program () -- remove ( use return ()) 
-    
   Assign :: forall a . Scalar a
             => Name
             -> (Exp Word32)
@@ -92,21 +90,21 @@ data Program a where
   Sync     :: Program ()
 
   Return :: a -> Program a
-  Bind   :: (a -> Program b) -> Program a -> Program b
+  Bind   :: Program a -> (a -> Program b) -> Program b
 
 ---------------------------------------------------------------------------
 -- Monad
 ---------------------------------------------------------------------------
 instance Monad Program where
   return = Return
-  (>>=) = flip Bind
+  (>>=) = Bind
 
 ---------------------------------------------------------------------------
 -- runPrg 
 ---------------------------------------------------------------------------
 runPrg :: Int -> Program a -> (a,Int) 
 runPrg i (Return a) = (a,i)
-runPrg i (Bind f m) =
+runPrg i (Bind m f) =
   let (a,i') = runPrg i m
   in runPrg i' (f a) 
 runPrg i (Sync) = ((),i)
@@ -149,56 +147,28 @@ infixr 5 *>*
     
 
 ---------------------------------------------------------------------------
--- Required threads (reimplement in runPAccm ?) 
+-- Required threads (reimplement in runPAccm ?)
+-- TODO: Maybe just implement this on CodeGen.Program ?? 
 ---------------------------------------------------------------------------
 programThreads :: Program a -> Word32
-programThreads Skip = 0
+-- programThreads Skip = 0
 programThreads (Sync) = 0 
 programThreads (Assign _ _ _) = 1
 programThreads (ForAll n f) = n -- inner ForAlls are sequential
 programThreads (ForAllBlocks _ f) = programThreads (f (variable "X"))
 programThreads (Allocate _ _) = 0 -- programThreads p
-programThreads (Bind f m) =
+programThreads (Bind m f) =
   let (a,_) = runPrg 0 m
   in max (programThreads m) (programThreads (f a)) 
 programThreads (AtomicOp _ _ _) = 1
-
-
-
----------------------------------------------------------------------------
--- printProgram 
----------------------------------------------------------------------------
-{- 
-printProgram :: Int -> Program a -> (String,Int)  
-printProgram i Skip = (";\n", i)
-printProgram i (Assign n ix e) =
-  (n ++ "[" ++ show ix ++ "] = " ++ show e ++ ";\n", i) 
-printProgram i (AtomicOp n ix e) =
-  let newname = "r" ++ show i
-  in (newname ++ " = " ++ printAtomic e ++
-      "( " ++ n ++ "[" ++ show ix ++ "])\n",i+1)
-printProgram i (Allocate n t) =
-  let newname = "arr" ++ show i
-  in (newname ++ " = malloc(" ++ show n ++ ");\n",i+1)
-printProgram i (ForAll n f) =
-  let (prg2,i') = printProgram i (f (variable "i"))
-  in ("par (i in 0.." ++ show n ++ ")" ++
-      "{\n" ++ prg2 ++ "\n}", i')
-printProgram i (Return a) = ("MonadReturn;\n",i)
-printProgram i (Bind f m) =
-  let (str1,i1) = printProgram i m
-      (res,_) = runPrg 0 m
-      (str2,i2) = printProgram i1 (f res)
-  in (str1 ++ str2, i2)
-printProgram i Sync = ("Sync;\n",i)
--} 
+ 
 ---------------------------------------------------------------------------
 -- printPrg
 ---------------------------------------------------------------------------
 printPrg prg = (\(_,x,_) -> x) $ printPrg' 0 prg
 
 printPrg' :: Int -> Program a -> (a,String,Int)  
-printPrg' i Skip = ((),";\n", i)
+-- printPrg' i Skip = ((),";\n", i)
 printPrg' i (Assign n ix e) =
   ((),n ++ "[" ++ show ix ++ "] = " ++ show e ++ ";\n", i) 
 printPrg' i (AtomicOp n ix e) =
@@ -226,7 +196,7 @@ printPrg' i (ForAllBlocks n f) =
       "{\n" ++ prg2 ++ "\n}",
       i')
 printPrg' i (Return a) = (a,"MonadReturn;\n",i)
-printPrg' i (Bind f m) =
+printPrg' i (Bind m f) =
   let (a1, str1,i1) = printPrg' i m
       (a2,str2,i2) = printPrg' i1 (f a1)
   in (a2,str1 ++ str2, i2)

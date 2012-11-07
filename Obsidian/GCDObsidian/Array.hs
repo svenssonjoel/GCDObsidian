@@ -68,7 +68,7 @@ mkPullArray n p = Array n (Pull p)
 resize m (Array n p) = Array m p 
 
 
-{- 
+
 -- TODO: Do you need (Exp e) where there is only e ? 
 class  PushyInternal a where 
   push' :: Word32 -> a e -> Array Push e  
@@ -76,29 +76,27 @@ class  PushyInternal a where
 
 
 
-{- 
+  
 instance PushyInternal (Array Pull)  where   
   push' m (Array n (Pull ixf)) = 
-    Array n (mkPush (\k ->
-                       do
-                         func <- runFunc k
-                         return $ ForAll (\i -> foldr1 (*>*) 
-                                   [func (ix,a)
-                                   | j <-  [0..m-1],
-                                     let ix = (i*(fromIntegral m) + (fromIntegral j)),
-                                     let a  = ixf ix
-                                   ]) (n `div` m)))
+    Array n $ mkPush $ \k ->
+                      ForAll (n `div` m)
+                      (\i -> foldr1 (*>*) 
+                             [k (ix,a)
+                             | j <-  [0..m-1],
+                               let ix = (i*(fromIntegral m) + (fromIntegral j)),
+                               let a  = ixf ix
+                             ]) 
   push'' m (Array n (Pull ixf)) = 
-    Array n (mkPush (\k ->
-                      do
-                        func <- runFunc k 
-                        return $ ForAll (\i -> foldr1 (*>*) 
-                                   [func (ix,a)
-                                   | j <-  [0..m-1],
-                                     let ix = (i+((fromIntegral ((n `div` m) * j)))),
-                                     let a  = ixf ix
-                                   ]) (n `div` m)))
--}              
+    Array n $mkPush $ \k ->
+                      ForAll (n `div` m)
+                      (\i -> foldr1 (*>*) 
+                             [k (ix,a)
+                             | j <-  [0..m-1],
+                               let ix = (i+((fromIntegral ((n `div` m) * j)))),
+                               let a  = ixf ix
+                             ]) 
+
 class Pushy a where 
   push :: a e -> Array Push e 
 
@@ -108,7 +106,9 @@ instance Pushy (Array Push) where
 instance Pushy (Array Pull)  where   
   push (Array n (Pull ixf)) =
     Array n $
-    mkPush $ \k -> ForAll n (\i -> (i,(unP (ixf i) (\_ -> Skip)))) >> k ()    
+    mkPush $ \k -> ForAll n (\i -> k (i,(ixf i)))
+
+-- (\_ -> Skip))) >> k ()    
 
 {- 
 class PushGlobal a where 
@@ -124,7 +124,6 @@ instance PushGlobal (GlobalArray Pull) where
 -} 
 ----------------------------------------------------------------------------
 --
--}
 namedArray name n = mkPullArray n (\ix -> index name ix)
 indexArray n      = mkPullArray n (\ix -> ix)
 

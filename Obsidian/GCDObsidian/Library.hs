@@ -75,7 +75,7 @@ conc (a1,a2) = mkPullArray (n1+n2)
     
 ------------------------------------------------------------------------------
 -- zipp unzipp
-
+-} 
 unzipp :: Array Pull (a,b) -> (Array Pull a, Array Pull b)       
 unzipp arr = (mkPullArray (len arr) (\ix -> fst (arr ! ix)) ,
               mkPullArray (len arr) (\ix -> snd (arr ! ix)) )
@@ -84,7 +84,7 @@ zipp :: (Array Pull a, Array Pull b) -> Array Pull (a, b)
 zipp (arr1,arr2) = Array (min (len arr1) (len arr2))
                    (Pull (\ix -> (arr1 ! ix, arr2 ! ix))) 
 
-
+{- 
 unzipp3 :: Array Pull (a,b,c) 
            -> (Array Pull a, Array Pull b, Array Pull c)       
 unzipp3 arr = (mkPullArray (len arr) (\ix -> fst3 (arr ! ix)) ,
@@ -228,25 +228,23 @@ instance IxMap (GlobalArray Pull) where
 
 ----------------------------------------------------------------------------
 -- Concatenate on Push arrays 
-
+-} 
 concP :: (Pushy arr1,
           Pushy arr2) => (arr1 a, arr2 a) -> Array Push a     
 concP (arr1,arr2) = 
   mkPushArray  (n1+n2)
                (\k ->
                  do
-                   --func <- runFunc k 
-                   (((unP . pushFun) parr1)  k)
-                     *>>> 
-                     (((unP . pushFun) parr2)  (\(i,a) -> k (fromIntegral n1 + i,a))))
+                   parr1 k
+                   parr2 (\(i,a) -> k (fromIntegral n1 + i,a)))
   
   where 
-     (Array n1 parr1) = push arr1
-     (Array n2 parr2) = push arr2
+     (Array n1 (Push parr1)) = push arr1
+     (Array n2 (Push parr2)) = push arr2
     -- n1    = len parr1
     -- n2    = len parr2
 
-
+{-
  {-     
 ----------------------------------------------------------------------------
 --

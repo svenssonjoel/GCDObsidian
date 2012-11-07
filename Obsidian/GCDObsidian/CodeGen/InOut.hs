@@ -20,7 +20,7 @@ import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.ModifyArray
 
 import Prelude hiding (splitAt)
--- import Obsidian.GCDObsidian.Library (splitAt,concP, unzipp,zipp)
+import Obsidian.GCDObsidian.Library (splitAt,concP, unzipp,zipp)
 
 
 import Control.Monad.State
@@ -35,33 +35,39 @@ bid = variable "blockIdx.x"
 cTypeOfArray :: Scalar a =>  Array Pull (Exp a) -> Type 
 cTypeOfArray arr = Pointer (typeOf (arr ! variable "X"))
 
-cTypeOfGlobalArray :: Scalar a =>  GlobalArray Pull (Exp a) -> Type 
-cTypeOfGlobalArray (GlobalArray _ arr) = Pointer (typeOf (pullFun arr (variable "X")))
+--cTypeOfGlobalArray :: Scalar a =>  GlobalArray Pull (Exp a) -> Type 
+--cTypeOfGlobalArray (GlobalArray _ arr) = Pointer (typeOf (pullFun arr (variable "X")))
 
 globalTarget :: Scalar a => Name
                 -> Exp Word32
-                -> (Exp Word32, Exp a) -> NameSupply (Program ())
-globalTarget nom blockSize (i,a) =
-  return $ Assign nom ((bid * blockSize) + i)  a 
+                -> (Exp Word32, Exp a) -> Program ()
+globalTarget nom blockSize (i,a) = Assign nom ((bid * blockSize) + i)  a 
 
-globalTargetAgain :: Scalar a => Name -> (Exp Word32, Exp a) -> NameSupply (Program ()) 
-globalTargetAgain nom (i,a) = return $ Assign nom i a 
+--globalTarget :: Scalar a => Name
+--                -> Exp Word32
+--               -> (Exp Word32, Exp a) -> NameSupply (Program ())
+--globalTarget nom blockSize (i,a) =
+--  return $ Assign nom ((bid * blockSize) + i)  a 
+
+
+--globalTargetAgain :: Scalar a => Name -> (Exp Word32, Exp a) -> NameSupply (Program ()) 
+--globalTargetAgain nom (i,a) = return $ Assign nom i a 
 
 class BasePush a where 
   cType :: Array p (Exp a) -> Type 
-  cTypeGlob :: GlobalArray p (Exp a) -> Type
+  --cTypeGlob :: GlobalArray p (Exp a) -> Type
   
 instance BasePush (Int) where 
   cType arr = Pointer Int 
-  cTypeGlob arr = Pointer Int
+  ---cTypeGlob arr = Pointer Int
   
 instance BasePush (Float) where 
   cType arr = Pointer Float
-  cTypeGlob arr = Pointer Float
+  --cTypeGlob arr = Pointer Float
 
 instance BasePush (Word32) where 
   cType arr = Pointer Word32
-  cTypeGlob arr = Pointer Word32
+  --cTypeGlob arr = Pointer Word32
 
 
 -----------------------------------------------------------------------------
@@ -123,8 +129,7 @@ instance Scalar a => InOut (Array Pull (Exp a)) where
          let (Array n (Push parr)) = push arr
          --return$ SyncUnit (len arr) {-threadBudget-}  
          --  (pushApp parr (targetArray  name)) e
-         return$ runNSDummy $ (unP parr)
-                              (globalTarget name (fromIntegral (len arr)))
+         return$ parr (globalTarget name (fromIntegral (len arr)))
       else do 
          let n  = len arr
              tb = threadBudget 
@@ -143,7 +148,7 @@ instance Scalar a => InOut (Array Pull (Exp a)) where
                else concP (pa1,pa2)
          
          --return$ SyncUnit threadBudget (pushApp parr (targetArray  name)) e
-         return$ runNSDummy $ (unP parr) (globalTarget name (fromIntegral (len arr))) -- (targetArray  name)
+         return$ parr (globalTarget name (fromIntegral (len arr))) -- (targetArray  name)
          
          
                      
@@ -161,12 +166,12 @@ instance (BasePush a, Scalar a) => InOut (Array Push (Exp a)) where
     
     name <- newInOut "result" (cType parr) (len parr)
    
-    return$ runNSDummy $ (unP pfun) (globalTarget name (fromIntegral (len parr))) 
+    return$ pfun (globalTarget name (fromIntegral (len parr))) 
   
          
    -- HACK HACK HACK    
   gcdThreads (Array n (Push parr)) = programThreads prg
-    where prg = runNSDummy $ (unP parr) (globalTarget "dummy" (fromIntegral n)) 
+    where prg = parr (globalTarget "dummy" (fromIntegral n)) 
 
 
 instance (InOut a, InOut b) => InOut (a, b) where 
@@ -207,7 +212,8 @@ instance (InOut (Array Pull a), InOut (Array Pull b)) => InOut (Array Pull (a,b)
   gcdThreads arr = 
     let (a0,a1) = unzipp arr
     in  gcd (gcdThreads a0) (gcdThreads a1)
-        
+
+{- 
 instance (BasePush a, Scalar a) => InOut (Array Modify (Exp a)) where
   createInputs arr  = error "Modify arrays cannot be inputs"
     
@@ -225,7 +231,7 @@ instance (BasePush a, Scalar a) => InOut (Array Modify (Exp a)) where
 globalTargetModify :: Scalar a => Atomic (Exp a) -> Name -> Exp Word32 -> Exp Word32 -> NameSupply (Program ())
 globalTargetModify op nom blockSize i =
   return $ AtomicOp "dummy" nom ((bid * blockSize) + i) op
-
+-} 
         
 --------------------------------------------------------------------------        
 -- New approach to input output
@@ -243,6 +249,7 @@ class GlobalOutput a where
                        
 --------------------------------------------------------------------------                       
 -- Base
+{- 
 instance Scalar a => GlobalInput (GlobalArray Pull (Exp a)) where 
   createGlobalInput arr@(GlobalArray _ _) = do 
     (name,n) <- newGlobalInputArray (cTypeOfGlobalArray arr)
@@ -266,7 +273,7 @@ instance (BasePush a, Scalar a) => GlobalOutput (GlobalArray Push (Exp a)) where
     name <- newInOut "result" (cTypeGlob parr) undefined 
     return$ runNSDummy $ (unP pfun) (globalTargetAgain name)
     
-
+-} 
 --------------------------------------------------------------------------
 -- complex inputs 
 

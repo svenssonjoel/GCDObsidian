@@ -4,7 +4,7 @@ module Examples where
 
 --import Obsidian.GCDObsidian
 
--- import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
+--import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 --import qualified Obsidian.GCDObsidian.CodeGen.C as C
 --import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
@@ -47,10 +47,10 @@ input1 = namedArray "apa" 32
 
 sync = force . push 
 
-push :: Array Pull a -> Array Push a
-push (Array n (Pull ixf)) =
-  Array n $ Push $
-  \k -> ForAll n (\i -> (k (i,ixf i)))
+--push :: Array Pull a -> Array Push a
+--push (Array n (Pull ixf)) =
+--  Array n $ Push $
+--  \k -> ForAll n (\i -> (k (i,ixf i)))
 
 
 force :: Array Push (Exp Int) -> Program (Array Pull (Exp Int))

@@ -58,7 +58,7 @@ runPrg' i (P.ForAll n f) =
 runPrg' i (P.ForAllBlocks n f) =
   let newf = (\x -> snd (runPrg' i (f x)))
   in ((),ForAllBlocks n newf)
-runPrg' i (P.Bind f p) =
+runPrg' i (P.Bind p f) =
   let (s1,s2) = split2 i
       (a,prg1) = runPrg' s1 p
       (b,prg2) = runPrg' s2 (f a)

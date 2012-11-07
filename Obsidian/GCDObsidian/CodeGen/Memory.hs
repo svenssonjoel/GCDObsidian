@@ -19,7 +19,7 @@ import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 
 import Obsidian.GCDObsidian.Exp 
-import Obsidian.GCDObsidian.Program
+import Obsidian.GCDObsidian.CodeGen.Program
 import Obsidian.GCDObsidian.CodeGen.Liveness
 
 import qualified Data.Map as Map 
@@ -105,7 +105,7 @@ mapMemory = mapMemoryProgram
 mapMemoryProgram :: Program Liveness -> Memory -> MemMap -> (Memory,MemMap)    
 mapMemoryProgram Skip m mm = (m,mm) 
 mapMemoryProgram (Assign name i a) m mm = (m,mm) 
-mapMemoryProgram (ForAll f n) m mm = mapMemoryProgram (f (variable "X")) m mm       
+mapMemoryProgram (ForAll n f) m mm = mapMemoryProgram (f (variable "X")) m mm       
 -- mapMemoryProgram (Cond c p) m mm = mapMemoryProgram p m mm 
 mapMemoryProgram (Synchronize _) m mm = (m,mm)
 mapMemoryProgram ((Allocate name size t alive) `ProgramSeq` prg2) m mm 

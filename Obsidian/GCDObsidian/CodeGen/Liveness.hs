@@ -28,7 +28,7 @@ liveness' (Allocate name size t _) s =
   where 
     alive = name `Set.delete` s
   
-liveness' (ForAll ixfToPrg n) s = (ForAll (fst . ixf') n,living)    
+liveness' (ForAll n ixfToPrg) s = (ForAll n (fst . ixf'),living)    
   where 
     ixf' = ((flip liveness') Set.empty) . ixfToPrg
     aliveInside = snd$ ixf' (variable "X") 
