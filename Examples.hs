@@ -80,7 +80,7 @@ zipBlocksWith' :: (Scalar a, Scalar b)
                   -> Blocks (Array Pull (Exp a))
                   -> Blocks (Array Pull (Exp b))
                   -> Blocks (Program c)
-zipBlocksWith' f (Blocks nb1  bxf1)
+zipBlocksWith' f (Blocks nb1 bxf1)
                  (Blocks nb2 bxf2) =
   Blocks (min nb1 nb2) (\bix -> f (bxf1 bix) (bxf2 bix))
    
