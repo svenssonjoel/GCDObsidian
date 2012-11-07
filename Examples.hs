@@ -146,7 +146,7 @@ reverseGO (Blocks nb prgf) =
 ---------------------------------------------------------------------------
 
 mapSomething :: Array Pull IntE -> Program (Array Push IntE)
-mapSomething arr =return $  push ((fmap (+1) . fmap (*2)) arr)
+mapSomething arr = return $  push ((fmap (+1) . fmap (*2)) arr)
 
 
 
