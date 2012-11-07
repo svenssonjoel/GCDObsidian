@@ -30,7 +30,7 @@ data Program extra
      | forall a. Scalar a =>
        Assign Name (Exp Word32) (Exp a) 
      | forall a. Scalar a =>
-       AtomicOp Name Name (Exp Word32) (Atomic (Exp a))
+       AtomicOp Name Name (Exp Word32) (Atomic a)
      | ForAll Word32 (Exp Word32 -> Program extra)
        -- Not present in old Program datatype
      | ForAllBlocks (Exp Word32) (Exp Word32 -> Program extra)
@@ -44,7 +44,6 @@ data Program extra
 ---------------------------------------------------------------------------
 -- Program translation from (P.Program a) to (Program ()) 
 ---------------------------------------------------------------------------
-
 runPrg p = snd$ runPrg' ns p 
   where ns = unsafePerformIO$ newEnumSupply 
       
@@ -52,7 +51,7 @@ runPrg' :: Supply Int -> P.Program a -> (a,Program ())
 runPrg' i (P.Assign name ix e) = ((),Assign name ix e)
 runPrg' i (P.AtomicOp name ix at) =
   let nom = "a" ++ show (supplyValue i)
-  in  (variable nom,AtomicOp  nom name ix at) 
+  in  (variable nom,AtomicOp nom name ix at) 
 runPrg' i (P.ForAll n f) =
   let newf = (\x -> snd (runPrg' i (f x)))
   in  ((),ForAll n newf)

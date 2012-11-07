@@ -50,7 +50,7 @@ data Program a where
   AtomicOp :: forall a . Scalar a
               => Name 
               -> Exp Word32
-              -> Atomic (Exp a)
+              -> Atomic a
               -> Program (Exp a)
 
   -- Shouldnt a ForAll have a different result type.
