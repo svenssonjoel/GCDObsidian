@@ -4,7 +4,7 @@ module Examples where
 
 --import Obsidian.GCDObsidian
 
---import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
+import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 --import qualified Obsidian.GCDObsidian.CodeGen.C as C
 --import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
@@ -21,13 +21,13 @@ import Data.Word
 import Data.Bits
 
 
-import Prelude hiding (zipWith,sum )
+import Prelude hiding (zipWith,sum)
 
 ---------------------------------------------------------------------------
 -- Functor instance borrowed from library.
 ---------------------------------------------------------------------------
-instance Functor (Array Pull) where 
-  fmap f arr = Array (len arr) (Pull (\ix -> f (arr ! ix)))  
+--instance Functor (Array Pull) where 
+--  fmap f arr = Array (len arr) (Pull (\ix -> f (arr ! ix)))  
 
 
 ---------------------------------------------------------------------------
@@ -43,6 +43,11 @@ mapFusion arr =
 
 input1 :: Array Pull IntE 
 input1 = namedArray "apa" 32
+
+-- Uses genKernel, that implicitly maps over all blocks. 
+getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
+-- getMapFusion_  = putStrLn$ CL.genKernel_ "mapFusion" mapFusion input1
+
 
 
 sync = force . push 
@@ -112,12 +117,6 @@ forceBlocks (Blocks n bxf) =
         assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
 
           
-
-pushApp (Array n (Push p)) a = p a 
-
--- getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
--- getMapFusion_  = putStrLn$ CL.genKernel_ "mapFusion" mapFusion input1
-
 ---------------------------------------------------------------------------
 -- Global array permutation
 ---------------------------------------------------------------------------

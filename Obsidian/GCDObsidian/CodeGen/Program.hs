@@ -44,9 +44,13 @@ data Program extra
 ---------------------------------------------------------------------------
 -- Program translation from (P.Program a) to (Program ()) 
 ---------------------------------------------------------------------------
-runPrg p = snd$ runPrg' ns p 
+
+evalPrg p = runPrg' ns p
   where ns = unsafePerformIO$ newEnumSupply 
-      
+
+runPrg p = snd$ runPrg' ns p 
+  where ns = unsafePerformIO$ newEnumSupply
+
 runPrg' :: Supply Int -> P.Program a -> (a,Program ())
 runPrg' i (P.Assign name ix e) = ((),Assign name ix e)
 runPrg' i (P.AtomicOp name ix at) =

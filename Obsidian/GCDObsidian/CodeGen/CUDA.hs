@@ -17,7 +17,7 @@ import Obsidian.GCDObsidian.Exp
 
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
-import Obsidian.GCDObsidian.Program
+--import Obsidian.GCDObsidian.Program
 
 import Obsidian.GCDObsidian.CodeGen.PP
 import Obsidian.GCDObsidian.CodeGen.Common
@@ -27,7 +27,7 @@ import Obsidian.GCDObsidian.CodeGen.Memory
 import Obsidian.GCDObsidian.CodeGen.Liveness
 
 -- New imports
-import Obsidian.GCDObsidian.CodeGen.Program
+import Obsidian.GCDObsidian.CodeGen.Program 
 import qualified Obsidian.GCDObsidian.Program as P 
 
 import Obsidian.GCDObsidian.CodeGen.SPMDC
@@ -108,39 +108,36 @@ genKernel_ name kernel ins outs = (cuda,threads,size m)
         
 -}      
     
-genKernel :: (InOut a, InOut b) => String -> (a -> P b) -> a -> String 
+genKernel :: (InOut a, InOut b) => String -> (a -> P.Program b) -> a -> String 
 genKernel name kernel a = cuda 
   where 
     (input,ins)  = runInOut (createInputs a) (0,[])
-  
-    -- ((res,_),c_old)  = runKernel (kernel input)
 
-    tmpc = runP (kernel input) -- extra run
-    
+    -- get result and translation into backend program. 
+    (res,tmpc)  = evalPrg (kernel input) 
+
     -- c = syncAnalysis c_old  
     lc  = liveness tmpc
-    
+
+    -- Creates (name -> memory address) map      
     (m,mm) = mapMemory lc sharedMem Map.empty
+
+    threadBudget =
+      case tmpc of
+        Skip -> gcdThreads res
+        a    -> P.programThreads (kernel input) -- tmpc
+        
+    (outCode,outs) =
+      runInOut (writeOutputs threadBudget res) (0,[])
+   
+    -- HACKITY (runPrg should be called convPrg perhaps) 
+    c = tmpc `ProgramSeq` (runPrg outCode)      
+
     
-    c = runP $
-        do
-          res <- kernel input
-          let threadBudget =
-                case tmpc of
-                  Skip -> gcdThreads res
-                  a    -> programThreads tmpc
-          let (outCode,outs) =
-                runInOut (writeOutputs threadBudget res) (0,[])
-          P (\k -> k () *>>> (return outCode))
-    threadBudget = programThreads c 
-          
-    -- TODO: Feels like doing much redundant work.
-    --       But that will clean up as going along.. 
     cuda = getCUDA (config threadBudget mm (size m))
                    c
                    name
-                   -- TODO: Need a way to get the outputs -- 
-                   (map fst2 ins) [("output0",Pointer Int)] -- (map fst2 outs)
+                   (map fst2 ins) (map fst2 outs)
                    
    {- 
     threadBudget =  
@@ -320,12 +317,12 @@ genProg mm nt (Assign name ix a) =
 --
         
         
-genProg mm nt (ForAll f n) = potentialCond gc mm n nt $ 
+genProg mm nt (ForAll n f) = potentialCond gc mm n nt $ 
                                genProg mm nt (f (ThreadIdx X) {- (variable "tid") -} )
 -- TODO: The following line is a HACK to make code generation 
 ---      for the histo function in Counting sort "work". 
 --       More thought needed here. 
-genProg mm nt (ForAllGlobal f n) = genProg mm nt (f ((BlockIdx X * BlockDim X) + ThreadIdx X))
+--genProg mm nt (ForAllGlobal f n) = genProg mm nt (f ((BlockIdx X * BlockDim X) + ThreadIdx X))
 -- error "hello world"                                
 --genProg mm nt (f (variable "gtid"))
   
@@ -352,7 +349,7 @@ ctid = cVar "tid" CWord32
 progToSPMDC :: Word32 -> Program a -> [SPMDC] 
 progToSPMDC nt (Assign name ix a) = 
   [cAssign (cVar name CWord8)[expToCExp ix] (expToCExp a)] 
-progToSPMDC nt (ForAll f n) =         
+progToSPMDC nt (ForAll n f) =         
   if (n < nt) 
   then 
     [cIf (cBinOp CLt ctid (cLiteral (Word32Val n) CWord32) CInt)

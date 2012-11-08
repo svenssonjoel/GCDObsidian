@@ -38,14 +38,14 @@ import System.IO.Unsafe
 ----------------------------------------------------------------------------
 -- 
 data Program a where 
-  Assign :: forall a . Scalar a
+  Assign :: Scalar a
             => Name
             -> (Exp Word32)
             -> (Exp a)
             -> Program ()
            
             
-  AtomicOp :: forall a . Scalar a
+  AtomicOp :: Scalar a
               => Name 
               -> Exp Word32
               -> Atomic a
@@ -159,7 +159,8 @@ programThreads (ForAllBlocks _ f) = programThreads (f (variable "X"))
 programThreads (Allocate _ _) = 0 -- programThreads p
 programThreads (Bind m f) =
   let (a,_) = runPrg 0 m
-  in max (programThreads m) (programThreads (f a)) 
+  in max (programThreads m) (programThreads (f a))
+programThreads (Return a) = 0 
 programThreads (AtomicOp _ _ _) = 1
  
 ---------------------------------------------------------------------------

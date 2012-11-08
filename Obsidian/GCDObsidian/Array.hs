@@ -132,7 +132,10 @@ class Indexible a e where
   
 instance Indexible (Array Pull) a where
   access (Array _ ixf) ix = pullFun ixf ix
-{- 
+
+
+pushApp (Array n (Push p)) a = p a 
+
 {- 
 class PushApp a where 
   papp :: a e -> ((Exp Word32,e) -> Program ()) -> Program ()
@@ -143,7 +146,7 @@ instance PushApp (Array Push) where
 instance PushApp (GlobalArray Push) where 
   papp (GlobalArray (Push f) n) a = f a 
   -} 
--}
+
 class Len a where 
   len :: a e -> Word32
 
