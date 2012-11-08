@@ -71,43 +71,9 @@ kernelHead name ins outs =
     typeList ((a,t):xs)      = (genType gc t ++ a) : typeList xs
   
   
-------------------------------------------------------------------------------    
--- CUDA Code from Kernel
-  
-{- 
-genKernel_ :: (InOut b) 
-              => String 
-              -> Kernel b 
-              -> [(String,Type)] -- Inputs
-              -> [(String,Type)] -- Outputs
-              -> (String,Word32,Word32)     
-genKernel_ name kernel ins outs = (cuda,threads,size m) 
-  where  
-    ((res,_),prg) = runKernel kernel  -- generate the "Program"
-    
-    saPrg = syncAnalysis prg -- program that only syncs where needed
-    
-    lvPrg = liveness saPrg   -- program annotated with liveness information
-    
-    threads =  
-      case saPrg of 
-        Skip -> gcdThreads res
-        a  -> threadsNeeded saPrg 
-   
-    -- Create a memory-map for the program 
-    (m,mm) = mapMemory lvPrg sharedMem  (Map.empty)
-    
-    finalPrg = saPrg 
-   
-    cuda = getCUDA (config threads mm (size m)) 
-                   finalPrg 
-                   name 
-                   ins
-                   outs
-
-        
--}      
-    
+---------------------------------------------------------------------------
+-- genKernel (String based) 
+---------------------------------------------------------------------------
 genKernel :: (InOut a, InOut b) => String -> (a -> P.Program b) -> a -> String 
 genKernel name kernel a = cuda 
   where 
@@ -140,22 +106,10 @@ genKernel name kernel a = cuda
                    name
                    (map fst2 ins) (map fst2 outs)
                    
-   {- 
-    threadBudget =  
-      case c of 
-        Skip -> gcdThreads res
-        a  -> threadsNeeded c 
-        
-    (m,mm) = mapMemory lc sharedMem  (Map.empty)
-    (outCode,outs)   = 
-      runInOut (writeOutputs threadBudget res {-nosync-}) (0,[])
 
-    c' = sc {-*>* Synchronize True-} *>* outCode 
-    sc = c -- remove
-    
-    cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs)
--}
-
+---------------------------------------------------------------------------
+-- genKernel_ (go via SPMDC and CSE) 
+--------------------------------------------------------------------------- 
     {- 
 genKernel_ :: (InOut a, InOut b) => String -> (a -> Kernel b) -> a -> String 
 genKernel_ name kernel a = cuda 
@@ -195,8 +149,9 @@ genKernel_ name kernel a = cuda
     -- cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs) 
 
 
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Global array kernels
+---------------------------------------------------------------------------
 genKernelGlob :: (GlobalInput a, GlobalOutput b)
                  => String 
                  -> (a -> Kernel b) 
@@ -264,8 +219,9 @@ genKernelGlob_ name kernel a = cuda
     cuda = printCKernel (PPConfig "__global__" "" "" "__syncthreads()") ckernel 
   
 -} 
-------------------------------------------------------------------------------
--- put together all the parts that make a CUDA kernel.     
+---------------------------------------------------------------------------
+-- put together all the parts that make a CUDA kernel.
+---------------------------------------------------------------------------
 getCUDA :: Config 
           -- -> Code Syncthreads 
            -> Program a 
@@ -296,8 +252,9 @@ genCUDABody conf prg = genProg mm nt prg
       mm = configMM conf
       nt = configThreads conf
 
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- pretty print a "Program", CUDA STYLE!
+---------------------------------------------------------------------------
 genProg :: MemMap -> Word32 ->  Program a -> PP () 
 genProg mm nt (Assign name ix a) = 
   case Map.lookup name mm of 

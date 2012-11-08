@@ -24,17 +24,8 @@ import Data.Bits
 import Prelude hiding (zipWith,sum)
 
 ---------------------------------------------------------------------------
--- Functor instance borrowed from library.
----------------------------------------------------------------------------
---instance Functor (Array Pull) where 
---  fmap f arr = Array (len arr) (Pull (\ix -> f (arr ! ix)))  
-
-
----------------------------------------------------------------------------
 -- MapFusion example
 ---------------------------------------------------------------------------
-
-
 mapFusion :: Array Pull IntE -> Program (Array Pull IntE)
 mapFusion arr =
   do
@@ -48,16 +39,12 @@ input1 = namedArray "apa" 32
 getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 -- getMapFusion_  = putStrLn$ CL.genKernel_ "mapFusion" mapFusion input1
 
-
-
+---------------------------------------------------------------------------
+-- Sync, Force. What to use? what to scrap ? 
+---------------------------------------------------------------------------
 sync = force . push 
 
---push :: Array Pull a -> Array Push a
---push (Array n (Pull ixf)) =
---  Array n $ Push $
---  \k -> ForAll n (\i -> (k (i,ixf i)))
-
-
+-- TODO: Force as a concept is also applicable to pull arrays.. (typeclass!) 
 force :: Array Push (Exp Int) -> Program (Array Pull (Exp Int))
 force (Array n (Push p)) =
   do 
