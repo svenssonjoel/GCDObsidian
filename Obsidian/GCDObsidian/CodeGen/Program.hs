@@ -48,6 +48,8 @@ data Program extra
 evalPrg p = runPrg' ns p
   where ns = unsafePerformIO$ newEnumSupply 
 
+convPrg = runPrg 
+
 runPrg p = snd$ runPrg' ns p 
   where ns = unsafePerformIO$ newEnumSupply
 
@@ -107,3 +109,43 @@ printPrg (ProgramSeq p1 p2) =
 ---------------------------------------------------------------------------
 -- Analyzing Programs
 ---------------------------------------------------------------------------
+
+threadsPerBlock :: Program e -> Word32
+threadsPerBlock (ForAll n f) = n
+threadsPerBlock (ForAllBlocks n f) = threadsPerBlock (f (variable "X"))
+threadsPerBlock (p1 `ProgramSeq` p2) =
+  max (threadsPerBlock p1)
+      (threadsPerBlock p2)
+threadsPerBlock _ = 0 -- Should be ok
+
+collectOutputs :: Program e -> [(Name,Type)]
+collectOutputs (Output nom t) = [(nom,t)]
+collectOutputs (p1 `ProgramSeq` p2) = collectOutputs p1 ++
+                                      collectOutputs p2
+collectOutputs (ForAll n f) = collectOutputs (f (variable "X"))
+collectOutputs (ForAllBlocks n f) = collectOutputs (f (variable "X"))
+collectOutputs a = []
+
+---------------------------------------------------------------------------
+-- Extract a "kernel" from a program 
+---------------------------------------------------------------------------
+{-
+   INFO: First do this in the most simple way.
+         Allow only one-kernel-programs. That is a single ForAllBlocks,
+         no sequences of them allowed.
+   TODO: In future enable turning a program into multiple kernels (perhaps). 
+-} 
+
+extract :: Program e -> Program e
+extract prg = case extract' prg of
+  Just p ->  p
+  Nothing -> error "extract: unsupported program structure"
+  
+  where
+    extract' (ForAllBlocks n f) = Just (f (BlockIdx X))
+    extract' (p1 `ProgramSeq` p2) =
+      case (extract' p1, extract' p2) of
+        (Nothing, Nothing) -> Nothing
+        (Nothing, p) -> p 
+        (p, Nothing) -> p
+    extract' p = Nothing

@@ -158,13 +158,11 @@ testG1 :: Blocks (Array Pull IntE) -> Program (Blocks (Array Pull IntE))
 testG1 arr = forceBlocks ( mapBlocks' mapSomething (reverseG arr) )
 
 
-
 ---------------------------------------------------------------------------
 -- Print Programs for test
 ---------------------------------------------------------------------------
 prg0 = putStrLn$ printPrg$ mapFusion input1
 prg1 = putStrLn$ printPrg$ testG1 inputG
-
 
 
 ---------------------------------------------------------------------------

@@ -3,7 +3,7 @@
 module Obsidian.GCDObsidian.Program 
        (Program(..)
 --       ,printProgram
-       ,programThreads
+        ,programThreads
        ,(*>*)
 --       ,targetArray
 --       ,targetPair
@@ -150,6 +150,7 @@ infixr 5 *>*
 -- Required threads (reimplement in runPAccm ?)
 -- TODO: Maybe just implement this on CodeGen.Program ?? 
 ---------------------------------------------------------------------------
+
 programThreads :: Program a -> Word32
 -- programThreads Skip = 0
 programThreads (Sync) = 0 
@@ -162,7 +163,7 @@ programThreads (Bind m f) =
   in max (programThreads m) (programThreads (f a))
 programThreads (Return a) = 0 
 programThreads (AtomicOp _ _ _) = 1
- 
+
 ---------------------------------------------------------------------------
 -- printPrg
 ---------------------------------------------------------------------------

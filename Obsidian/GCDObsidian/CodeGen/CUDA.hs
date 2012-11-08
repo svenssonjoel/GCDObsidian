@@ -125,13 +125,14 @@ genKernel name kernel a = cuda
     threadBudget =
       case tmpc of
         Skip -> gcdThreads res
-        a    -> P.programThreads (kernel input) -- tmpc
+        a    -> threadsPerBlock tmpc
+                -- P.programThreads (kernel input) -- tmpc
         
     (outCode,outs) =
       runInOut (writeOutputs threadBudget res) (0,[])
    
     -- HACKITY (runPrg should be called convPrg perhaps) 
-    c = tmpc `ProgramSeq` (runPrg outCode)      
+    c = tmpc `ProgramSeq` (convPrg outCode)      
 
     
     cuda = getCUDA (config threadBudget mm (size m))
