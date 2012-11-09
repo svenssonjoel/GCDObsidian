@@ -146,6 +146,7 @@ inputG = namedGlobal "apa" (variable "N") 256
 testG1 :: Blocks (Array Pull IntE) -> Program (Blocks (Array Pull IntE))
 testG1 arr = forceBlocks ( mapBlocks' mapSomething (reverseG arr) )
 
+getTestG1 = putStrLn$ CUDA.genKernelNew "testG1" testG1 inputG
 
 testG2 :: Blocks (Array Pull IntE)
           -> Blocks (Array Pull IntE)

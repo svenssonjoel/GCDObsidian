@@ -1,6 +1,6 @@
 
 module Obsidian.GCDObsidian.CodeGen.CUDA 
-       (genKernel) where 
+       (genKernel, genKernelNew) where 
      --  ,genKernel_ 
      --  ,genKernelGlob
      --  ,genKernelGlob_ ) where 
@@ -106,37 +106,41 @@ genKernel name kernel a = cuda
                    name
                    (map fst2 ins) (map fst2 outs)
 
-genKernelNew :: (InOut a, InOut b) => String -> (a -> P.Program b) -> a -> String 
+genKernelNew :: ToProgram a b => String -> (a -> b) -> Ips a b -> String 
 genKernelNew name kernel a = cuda 
-  where 
-    (input,ins)  = runInOut (createInputs a) (0,[])
+  where
+    (ins,prg) = toProgram 0 kernel a
+    
+    --(input,ins)  = runInOut (createInputs a) (0,[])
 
     -- get result and translation into backend program. 
-    (res,tmpc)  = evalPrg (kernel input) 
+    --(res,tmpc)  = evalPrg (kernel input) 
 
     -- c = syncAnalysis c_old  
-    lc  = liveness tmpc
+    lc  = liveness kern -- tmpc
 
     -- Creates (name -> memory address) map      
     (m,mm) = mapMemory lc sharedMem Map.empty
 
     threadBudget =
-      case tmpc of
-        Skip -> gcdThreads res
-        a    -> threadsPerBlock tmpc
-                -- P.programThreads (kernel input) -- tmpc
-        
-    (outCode,outs) =
-      runInOut (writeOutputs threadBudget res) (0,[])
+      case prg of
+        Skip -> error "empty programs not yet supported" -- gcdThreads res
+        a    -> threadsPerBlock prg 
+
+
+    outs = collectOutputs prg
+    kern = extract prg 
+    --(outCode,outs) =
+    --  runInOut (writeOutputs threadBudget res) (0,[])
    
     -- HACKITY (runPrg should be called convPrg perhaps) 
-    c = tmpc `ProgramSeq` (convPrg outCode)      
+    -- c = tmpc `ProgramSeq` (convPrg outCode)      
 
     
     cuda = getCUDA (config threadBudget mm (size m))
-                   c
+                   kern
                    name
-                   (map fst2 ins) (map fst2 outs)
+                   ins outs
 
 
 
