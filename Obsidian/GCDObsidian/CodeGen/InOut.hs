@@ -1,5 +1,8 @@
 {-# LANGUAGE FlexibleInstances, 
-             FlexibleContexts#-}
+             FlexibleContexts,
+             MultiParamTypeClasses,
+             TypeOperators,
+             TypeFamilies #-}
 
 {- 
 TODO TODO TODO
@@ -13,11 +16,13 @@ module Obsidian.GCDObsidian.CodeGen.InOut where
 
 --import Obsidian.GCDObsidian.Kernel
 import Obsidian.GCDObsidian.Exp 
-import Obsidian.GCDObsidian.Array 
+import Obsidian.GCDObsidian.Array
+import Obsidian.GCDObsidian.Blocks
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs 
 import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.ModifyArray
+import qualified Obsidian.GCDObsidian.CodeGen.Program as CG 
 
 import Prelude hiding (splitAt)
 import Obsidian.GCDObsidian.Library (splitAt,concP, unzipp,zipp)
@@ -278,3 +283,50 @@ instance (BasePush a, Scalar a) => GlobalOutput (GlobalArray Push (Exp a)) where
 -- complex inputs 
 
 -- TODO!
+
+
+
+---------------------------------------------------------------------------
+-- New approach (hopefully)
+---------------------------------------------------------------------------
+
+-- "reify" Haskell functions into CG.Programs
+
+type Inputs = [(Name,Type)] 
+
+class ToProgram a b where
+  toProgram :: Int -> (a -> b) -> Ips a b -> (Inputs,CG.Program ())
+
+instance ToProgram (Blocks (Array Pull IntE)) (Program a) where
+  toProgram i f (Blocks n blkf)  = ([(nom,Int)],CG.runPrg (f input))
+    where
+      nom = "input" ++ show i
+      var = "N" ++ show i
+      n   = len (blkf (variable "X")) 
+      input = namedGlobal  nom (variable var) n
+
+--class InputList a b where
+--  toInputs :: Int -> (a -> b) -> 
+
+---------------------------------------------------------------------------
+-- heterogeneous lists of inputs 
+---------------------------------------------------------------------------
+data head :-> tail = head :-> tail
+
+infixr 3 :->
+
+type family Ips a b
+type family Ips' a 
+
+type instance Ips' (Blocks (Array Pull IntE)) = Blocks (Array Pull IntE)
+
+type instance Ips a (Program b) = Ips' a
+type instance Ips a (b -> c) =  Ips' a :-> Ips b c
+
+
+{- TODO:
+    What about Blocks (Array p1 a1, Array p2 a2)
+     (blocks of pairs of arrays) -- limit what can live inside a block  ? 
+
+
+-} 

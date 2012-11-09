@@ -137,7 +137,7 @@ mapSomething arr = return $  push ((fmap (+1) . fmap (*2)) arr)
 
 
 inputG :: Blocks (Array Pull IntE) 
-inputG = namedGlobal "apa" (variable "N") 32
+inputG = namedGlobal "apa" (variable "N") 256
 
 
 
