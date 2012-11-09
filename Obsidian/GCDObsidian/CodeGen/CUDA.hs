@@ -105,7 +105,40 @@ genKernel name kernel a = cuda
                    c
                    name
                    (map fst2 ins) (map fst2 outs)
-                   
+
+genKernelNew :: (InOut a, InOut b) => String -> (a -> P.Program b) -> a -> String 
+genKernelNew name kernel a = cuda 
+  where 
+    (input,ins)  = runInOut (createInputs a) (0,[])
+
+    -- get result and translation into backend program. 
+    (res,tmpc)  = evalPrg (kernel input) 
+
+    -- c = syncAnalysis c_old  
+    lc  = liveness tmpc
+
+    -- Creates (name -> memory address) map      
+    (m,mm) = mapMemory lc sharedMem Map.empty
+
+    threadBudget =
+      case tmpc of
+        Skip -> gcdThreads res
+        a    -> threadsPerBlock tmpc
+                -- P.programThreads (kernel input) -- tmpc
+        
+    (outCode,outs) =
+      runInOut (writeOutputs threadBudget res) (0,[])
+   
+    -- HACKITY (runPrg should be called convPrg perhaps) 
+    c = tmpc `ProgramSeq` (convPrg outCode)      
+
+    
+    cuda = getCUDA (config threadBudget mm (size m))
+                   c
+                   name
+                   (map fst2 ins) (map fst2 outs)
+
+
 
 ---------------------------------------------------------------------------
 -- genKernel_ (go via SPMDC and CSE) 

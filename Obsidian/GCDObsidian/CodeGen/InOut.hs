@@ -7,7 +7,7 @@
 {- 
 TODO TODO TODO
   # Everything in this module shoud be reimplemented!
-
+    >>> IN PROGRESS <<< 
 
 -} 
 
@@ -217,80 +217,23 @@ instance (InOut (Array Pull a), InOut (Array Pull b)) => InOut (Array Pull (a,b)
   gcdThreads arr = 
     let (a0,a1) = unzipp arr
     in  gcd (gcdThreads a0) (gcdThreads a1)
-
-{- 
-instance (BasePush a, Scalar a) => InOut (Array Modify (Exp a)) where
-  createInputs arr  = error "Modify arrays cannot be inputs"
-    
-  writeOutputs threadBudget parr@(Array _ (Modify pfun op)) = do   
-    
-    name <- newInOut "result" (cType parr) (len parr)
-   
-    return$ runNSDummy $ (unP pfun) (globalTargetModify op name (fromIntegral (len parr))) 
-  
-         
-   -- HACK HACK HACK    
-  gcdThreads (Array n (Modify parr op)) = programThreads prg
-    where prg = runNSDummy $ (unP parr) (globalTargetModify op "dummy" (fromIntegral n)) 
-
-globalTargetModify :: Scalar a => Atomic (Exp a) -> Name -> Exp Word32 -> Exp Word32 -> NameSupply (Program ())
-globalTargetModify op nom blockSize i =
-  return $ AtomicOp "dummy" nom ((bid * blockSize) + i) op
--} 
         
---------------------------------------------------------------------------        
--- New approach to input output
-  
-        
-class GlobalInput a where
-  createGlobalInput :: a -> State (Int,[(String,Type,Word32)]) a   
-  
-class GlobalOutput a where 
-  writeGlobalOutput :: NumThreads -> 
-                       a -> 
-                       State (Int,[(String,Type,Word32)]) (Program ())
-   
-                       
-                       
---------------------------------------------------------------------------                       
--- Base
-{- 
-instance Scalar a => GlobalInput (GlobalArray Pull (Exp a)) where 
-  createGlobalInput arr@(GlobalArray _ _) = do 
-    (name,n) <- newGlobalInputArray (cTypeOfGlobalArray arr)
-    let fun ix = index name ix 
-    return$ GlobalArray (variable n) (Pull fun) 
-      
-instance Scalar a => GlobalInput (Exp a) where   
-  createGlobalInput a = do 
-    name <- newInOut "v" (typeOf a) undefined {- again no size -} 
-    return (variable name)
-      
-instance (GlobalInput a, GlobalInput b) 
-         => GlobalInput (a,b) where 
-  createGlobalInput (a,b) = do 
-    a' <- createGlobalInput a
-    b' <- createGlobalInput b
-    return (a',b')
-      
-instance (BasePush a, Scalar a) => GlobalOutput (GlobalArray Push (Exp a)) where       
-  writeGlobalOutput threadBugdet parr@(GlobalArray n (Push pfun)) = do  
-    name <- newInOut "result" (cTypeGlob parr) undefined 
-    return$ runNSDummy $ (unP pfun) (globalTargetAgain name)
-    
--} 
---------------------------------------------------------------------------
--- complex inputs 
-
--- TODO!
-
-
-
 ---------------------------------------------------------------------------
 -- New approach (hopefully)
 ---------------------------------------------------------------------------
-
 -- "reify" Haskell functions into CG.Programs
+
+{-
+   Blocks needs to be of specific sizes (a design choice we've made).
+   Because of this a prototypical input array needs to be provided
+   that has a static block size (the number of blocks is dynamic).
+
+   To make things somewhat general a heterogeneous list of input arrays
+   that has same shape as the actual parameter list of the function
+   is passed into toProgram (the reifyer). 
+
+-} 
+  
 
 type Inputs = [(Name,Type)] 
 
@@ -298,16 +241,25 @@ class ToProgram a b where
   toProgram :: Int -> (a -> b) -> Ips a b -> (Inputs,CG.Program ())
 
 instance ToProgram (Blocks (Array Pull IntE)) (Program a) where
-  toProgram i f (Blocks n blkf)  = ([(nom,Int)],CG.runPrg (f input))
+  toProgram i f (Blocks n blkf)  = ([(nom,Pointer Int)],CG.runPrg (f input))
     where
       nom = "input" ++ show i
       var = "N" ++ show i
       n   = len (blkf (variable "X")) 
       input = namedGlobal  nom (variable var) n
 
---class InputList a b where
---  toInputs :: Int -> (a -> b) -> 
-
+instance ToProgram b c =>
+         ToProgram (Blocks (Array Pull IntE)) (b -> c) where
+  toProgram i f ((Blocks n blkf) :-> rest) = ((nom,Pointer Int):ins,prg)
+    where
+      (ins,prg) = toProgram (i+1) (f input) rest
+      nom = "input" ++ show i
+      var = "N" ++ show i
+      n   = len (blkf (variable "X")) 
+      input = namedGlobal  nom (variable var) n
+    
+           
+      
 ---------------------------------------------------------------------------
 -- heterogeneous lists of inputs 
 ---------------------------------------------------------------------------

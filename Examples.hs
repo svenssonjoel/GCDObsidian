@@ -9,6 +9,8 @@ import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 --import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
 import qualified Obsidian.GCDObsidian.CodeGen.Program as CGP
+import           Obsidian.GCDObsidian.CodeGen.InOut
+
 import Obsidian.GCDObsidian.Program
 
 import Obsidian.GCDObsidian.Array
@@ -145,6 +147,12 @@ testG1 :: Blocks (Array Pull IntE) -> Program (Blocks (Array Pull IntE))
 testG1 arr = forceBlocks ( mapBlocks' mapSomething (reverseG arr) )
 
 
+testG2 :: Blocks (Array Pull IntE)
+          -> Blocks (Array Pull IntE)
+          -> Program (Blocks (Array Pull IntE))
+testG2 _ arr = forceBlocks ( mapBlocks' mapSomething (reverseG arr) )
+
+
 ---------------------------------------------------------------------------
 -- Print Programs for test
 ---------------------------------------------------------------------------
@@ -156,4 +164,9 @@ prg1 = putStrLn$ printPrg$ testG1 inputG
 -- Translate and pring as CGP.Programs 
 ---------------------------------------------------------------------------
 prg0' = putStrLn$ CGP.printPrg$ CGP.runPrg (mapFusion input1)
-prg1' = putStrLn$ CGP.printPrg$ CGP.runPrg (testG1 inputG) 
+prg1' = putStrLn$ CGP.printPrg$ CGP.runPrg (testG1 inputG)
+
+---------------------------------------------------------------------------
+-- A small test for the function "reifyer" 
+---------------------------------------------------------------------------
+reify0 = fst $ toProgram 0 testG2 (inputG :-> inputG) 
