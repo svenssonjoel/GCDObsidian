@@ -265,7 +265,7 @@ instance ToProgram b c =>
 ---------------------------------------------------------------------------
 data head :-> tail = head :-> tail
 
-infixr 3 :->
+infixr 5 :->
 
 type family Ips a b
 type family Ips' a 
