@@ -105,6 +105,27 @@ forceBlocks (Blocks n bxf) =
       where 
         assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
 
+
+forceBlocks' :: Blocks (Program (Array Push (Exp Word32)))
+               -> Program (Blocks (Array Pull (Exp Word32)))
+forceBlocks' (Blocks n bxf) =  
+  do
+    global <- Output Word32 -- type class magic
+
+    -- dryrun to get length. 
+    (Array s (Push pfun)) <- bxf (variable "dummy") -- bid 
+    
+    ForAllBlocks n
+      (\bid ->
+        do
+          (Array s (Push pfun)) <- bxf bid 
+          pfun (assignTo global (bid, s)))
+     
+    return $ Blocks n {- s -} $ 
+             \bix -> Array s (Pull (\ix -> index global ((bix * (fromIntegral s)) + ix)))
+      where 
+        assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
+
           
 ---------------------------------------------------------------------------
 -- Global array permutation
@@ -170,4 +191,37 @@ prg1' = putStrLn$ CGP.printPrg$ CGP.runPrg (testG1 inputG)
 ---------------------------------------------------------------------------
 -- A small test for the function "reifyer" 
 ---------------------------------------------------------------------------
-reify0 = fst $ toProgram 0 testG2 (inputG :-> inputG) 
+reify0 = fst $ toProgram 0 testG2 (inputG :-> inputG)
+
+
+
+
+
+
+---------------------------------------------------------------------------
+-- Counting sort experiments
+---------------------------------------------------------------------------
+
+histogram :: Exp Word32
+             -> Blocks (Array Pull (Exp Word32))
+             -> Blocks (Program (Array Push (Exp Word32))) -- Change types! 
+histogram maxLen (Blocks nb blkf)  =
+  Blocks nb blkf' 
+  where
+                -- HACKS
+    blkf' bid = return $  Array blkSize (Push (collect bid)) 
+    blkSize = len (blkf 0) -- all blocks are same size  
+    collect bid k = ForAll blkSize $ \i ->
+      k ((blkf bid) ! i,1)
+
+hist
+  :: Exp Word32
+     -> Blocks (Array Pull (Exp Word32))
+     -> Program (Blocks (Array Pull (Exp Word32)))
+hist max inp = forceBlocks'  (histogram max inp)
+
+inputWord32 :: Blocks (Array Pull (Exp Word32)) 
+inputWord32 = namedGlobal "apa" (variable "N") 256
+
+
+getHist = putStrLn$ CUDA.genKernelNew "hist" (hist 256)  inputWord32

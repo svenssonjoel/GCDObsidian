@@ -141,8 +141,8 @@ data Exp a where
 
   
 ----------------------------------------------------------------------------
--- Operations
-
+-- Operations 
+-- TODO: needs conversion operations.. (Int -> Word) etc. 
 data Op a where 
   Add :: Num a => Op ((a,a) -> a) 
   Sub :: Num a => Op ((a,a) -> a) 
@@ -290,6 +290,21 @@ instance Bits (Exp Int) where
   shiftR a i = BinOp ShiftR  a (Literal i)
   bitSize a  = sizeOf a * 8
   isSigned a = True
+
+-- TODO: change undefined to some specific error.
+instance Real (Exp Int) where
+  toRational = undefined 
+
+instance Enum (Exp Int) where
+  toEnum = undefined
+  fromEnum = undefined 
+         
+instance Integral (Exp Int) where
+  mod a b = BinOp Mod a b 
+  div a b = BinOp Div a b
+  quotRem = undefined
+  toInteger = undefined
+  
 
 ----------------------------------------------------------------------------
 -- Word32 Instances 

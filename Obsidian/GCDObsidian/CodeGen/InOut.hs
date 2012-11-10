@@ -247,6 +247,14 @@ instance ToProgram (Blocks (Array Pull IntE)) (Program a) where
       var = "N" ++ show i
       n   = len (blkf (variable "X")) 
       input = namedGlobal  nom (variable var) n
+      
+instance ToProgram (Blocks (Array Pull (Exp Word32))) (Program a) where
+  toProgram i f (Blocks n blkf)  = ([(nom,Pointer Int)],CG.runPrg (f input))
+    where
+      nom = "input" ++ show i
+      var = "N" ++ show i
+      n   = len (blkf (variable "X")) 
+      input = namedGlobal  nom (variable var) n      
 
 instance ToProgram b c =>
          ToProgram (Blocks (Array Pull IntE)) (b -> c) where
@@ -257,7 +265,17 @@ instance ToProgram b c =>
       var = "N" ++ show i
       n   = len (blkf (variable "X")) 
       input = namedGlobal  nom (variable var) n
-    
+
+instance ToProgram b c =>
+         ToProgram (Blocks (Array Pull (Exp Word32))) (b -> c) where
+  toProgram i f ((Blocks n blkf) :-> rest) = ((nom,Pointer Int):ins,prg)
+    where
+      (ins,prg) = toProgram (i+1) (f input) rest
+      nom = "input" ++ show i
+      var = "N" ++ show i
+      n   = len (blkf (variable "X")) 
+      input = namedGlobal  nom (variable var) n
+
            
       
 ---------------------------------------------------------------------------
@@ -271,6 +289,7 @@ type family Ips a b
 type family Ips' a 
 
 type instance Ips' (Blocks (Array Pull IntE)) = Blocks (Array Pull IntE)
+type instance Ips' (Blocks (Array Pull (Exp Word32))) = Blocks (Array Pull (Exp Word32))
 
 type instance Ips a (Program b) = Ips' a
 type instance Ips a (b -> c) =  Ips' a :-> Ips b c
