@@ -13,10 +13,14 @@ import           Obsidian.GCDObsidian.CodeGen.InOut
 
 import Obsidian.GCDObsidian.Program
 
-import Obsidian.GCDObsidian.Array
+
 import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Types
-import Obsidian.GCDObsidian.Blocks 
+
+import Obsidian.GCDObsidian.Blocks
+import Obsidian.GCDObsidian.Array
+
+import Obsidian.GCDObsidian.Library
 --import qualified Obsidian.GCDObsidian.Helpers as Help
 
 import Data.Word
@@ -44,7 +48,8 @@ getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 ---------------------------------------------------------------------------
 -- Sync, Force. What to use? what to scrap ? 
 ---------------------------------------------------------------------------
-sync = force . push 
+sync = force . push
+sync' = force' . push
 
 -- TODO: Force as a concept is also applicable to pull arrays.. (typeclass!) 
 force :: Array Push (Exp Int) -> Program (Array Pull (Exp Int))
@@ -52,9 +57,20 @@ force (Array n (Push p)) =
   do 
     name <- Allocate n Int  -- force needs to be in a Class of Forceables..
     p (targetArr name)
+    Sync
     return $ Array n $ Pull (\i -> index name i)
     where
-      targetArr name (i,e) = Assign name i e 
+      targetArr name (i,e) = Assign name i e
+
+force' :: Array Push (Exp Word32) -> Program (Array Pull (Exp Word32))
+force' (Array n (Push p)) =
+  do 
+    name <- Allocate n Word32  -- force needs to be in a Class of Forceables..
+    p (targetArr name)
+    Sync
+    return $ Array n $ Pull (\i -> index name i)
+    where
+      targetArr name (i,e) = Assign name i e       
 
 ---------------------------------------------------------------------------
 -- mapBlocks
@@ -202,6 +218,10 @@ reify0 = fst $ toProgram 0 testG2 (inputG :-> inputG)
 -- Counting sort experiments
 ---------------------------------------------------------------------------
 
+
+---------------------------------------------------------------------------
+-- Histogram
+---------------------------------------------------------------------------
 histogram :: Exp Word32
              -> Blocks (Array Pull (Exp Word32))
              -> Blocks (Program (Array Push (Exp Word32))) -- Change types! 
@@ -225,3 +245,31 @@ inputWord32 = namedGlobal "apa" (variable "N") 256
 
 
 getHist = putStrLn$ CUDA.genKernelNew "hist" (hist 256)  inputWord32
+
+
+---------------------------------------------------------------------------
+-- Scan 
+---------------------------------------------------------------------------
+
+sklanskyLocal 0 op arr = return (id arr)
+sklanskyLocal n op arr =
+  do 
+    let arr1 = twoK (n-1) (fan op) arr
+    arr2 <- sync' arr1
+    sklanskyLocal (n-1) op arr2
+                     
+
+fan op arr = conc (a1, fmap (op c) a2) 
+    where 
+      (a1,a2) = halve arr
+      c = a1 ! (fromIntegral (len a1 - 1))
+
+getScan n = putStrLn $ 
+            CUDA.genKernel "scan" (sklanskyLocal n (+)) 
+                    (namedArray "input" (2^n) :: Array Pull (Exp Word32))
+
+-- TODO: Rewrite Scan with BlockMap functionality.
+
+---------------------------------------------------------------------------
+-- Distribute
+---------------------------------------------------------------------------

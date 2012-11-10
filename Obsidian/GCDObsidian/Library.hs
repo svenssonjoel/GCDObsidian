@@ -63,6 +63,7 @@ evenOdds arr = (mkPullArray (n-n2) (\ix -> arr ! (2*ix)) ,
 
 ------------------------------------------------------------------------------
 --
+-} 
 conc :: Choice a => (Array Pull a, Array Pull a) -> Array Pull a 
 conc (a1,a2) = mkPullArray (n1+n2)
                (\ix -> ifThenElse (ix <* (fromIntegral n1)) 
@@ -75,7 +76,7 @@ conc (a1,a2) = mkPullArray (n1+n2)
     
 ------------------------------------------------------------------------------
 -- zipp unzipp
--} 
+
 unzipp :: Array Pull (a,b) -> (Array Pull a, Array Pull b)       
 unzipp arr = (mkPullArray (len arr) (\ix -> fst (arr ! ix)) ,
               mkPullArray (len arr) (\ix -> snd (arr ! ix)) )
@@ -131,7 +132,7 @@ unpair arr =
 
 ------------------------------------------------------------------------------    
 -- twoK (untested for proper functionality) 
-
+-}
 twoK ::Int -> (Array Pull a -> Array Pull b) -> Array Pull a -> Array Pull b 
 twoK 0 f = f  -- divide 0 times and apply f
 twoK n f =  (\arr -> 
@@ -143,7 +144,7 @@ twoK n f =  (\arr ->
                   nl2   = (len (f (mkPullArray  m (\j -> arr ! variable "X"))))
                   lt    = nl2 `shiftL` n 
               in arr')  
-
+{-
 
 
 ------------------------------------------------------------------------------    
