@@ -97,13 +97,13 @@ instance PushyInternal (Array Pull)  where
                                let a  = ixf ix
                              ]) 
 
-class Pushy a where 
+class Pushable a where 
   push :: a e -> Array Push e 
 
-instance Pushy (Array Push) where 
+instance Pushable (Array Push) where 
   push = id 
   
-instance Pushy (Array Pull)  where   
+instance Pushable (Array Pull)  where   
   push (Array n (Pull ixf)) =
     Array n $
     mkPush $ \k -> ForAll n (\i -> k (i,(ixf i)))

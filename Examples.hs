@@ -12,16 +12,13 @@ import qualified Obsidian.GCDObsidian.CodeGen.Program as CGP
 import           Obsidian.GCDObsidian.CodeGen.InOut
 
 import Obsidian.GCDObsidian.Program
-
-
 import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Types
-
 import Obsidian.GCDObsidian.Blocks
 import Obsidian.GCDObsidian.Array
-
 import Obsidian.GCDObsidian.Library
---import qualified Obsidian.GCDObsidian.Helpers as Help
+import Obsidian.GCDObsidian.Force
+
 
 import Data.Word
 import Data.Bits
@@ -49,28 +46,28 @@ getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 -- Sync, Force. What to use? what to scrap ? 
 ---------------------------------------------------------------------------
 sync = force . push
-sync' = force' . push
+sync' = force . push
 
 -- TODO: Force as a concept is also applicable to pull arrays.. (typeclass!) 
-force :: Array Push (Exp Int) -> Program (Array Pull (Exp Int))
-force (Array n (Push p)) =
-  do 
-    name <- Allocate n Int  -- force needs to be in a Class of Forceables..
-    p (targetArr name)
-    Sync
-    return $ Array n $ Pull (\i -> index name i)
-    where
-      targetArr name (i,e) = Assign name i e
+--force :: Array Push (Exp Int) -> Program (Array Pull (Exp Int))
+--force (Array n (Push p)) =
+--  do 
+--    name <- Allocate n Int  -- force needs to be in a Class of Forceables..
+--    p (targetArr name)
+--    Sync
+--    return $ Array n $ Pull (\i -> index name i)
+--    where
+--      targetArr name (i,e) = Assign name i e
 
-force' :: Array Push (Exp Word32) -> Program (Array Pull (Exp Word32))
-force' (Array n (Push p)) =
-  do 
-    name <- Allocate n Word32  -- force needs to be in a Class of Forceables..
-    p (targetArr name)
-    Sync
-    return $ Array n $ Pull (\i -> index name i)
-    where
-      targetArr name (i,e) = Assign name i e       
+--force' :: Array Push (Exp Word32) -> Program (Array Pull (Exp Word32))
+---orce' (Array n (Push p)) =
+--  do 
+--    name <- Allocate n Word32  -- force needs to be in a Class of Forceables..
+--    p (targetArr name)
+--    Sync
+--    return $ Array n $ Pull (\i -> index name i)
+--    where
+--      targetArr name (i,e) = Assign name i e       
 
 ---------------------------------------------------------------------------
 -- mapBlocks
@@ -224,7 +221,7 @@ reify0 = fst $ toProgram 0 testG2 (inputG :-> inputG)
 ---------------------------------------------------------------------------
 histogram :: Exp Word32
              -> Blocks (Array Pull (Exp Word32))
-             -> Blocks (Program (Array Push (Exp Word32))) -- Change types! 
+             -> Blocks (Program (Array Push (Exp Word32)))
 histogram maxLen (Blocks nb blkf)  =
   Blocks nb blkf' 
   where

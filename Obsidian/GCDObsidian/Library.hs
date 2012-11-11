@@ -192,7 +192,7 @@ ivDiv i j (Array (Pull ixf) n) = (Array (Pull (ixf . left)) (n-n2),
 -- ***                          PUSHY LIBRARY                        *** ---
 ----------------------------------------------------------------------------
 
---revP :: Pushy arr => arr a -> Array Push a 
+--revP :: Pushable arr => arr a -> Array Push a 
 --revP  arr = ixMap (\ix -> (fromIntegral (n-1)) - ix) parr 
 --  where
 --    parr = push arr
@@ -230,8 +230,8 @@ instance IxMap (GlobalArray Pull) where
 ----------------------------------------------------------------------------
 -- Concatenate on Push arrays 
 -} 
-concP :: (Pushy arr1,
-          Pushy arr2) => (arr1 a, arr2 a) -> Array Push a     
+concP :: (Pushable arr1,
+          Pushable arr2) => (arr1 a, arr2 a) -> Array Push a     
 concP (arr1,arr2) = 
   mkPushArray  (n1+n2)
                (\k ->
@@ -249,7 +249,7 @@ concP (arr1,arr2) =
  {-     
 ----------------------------------------------------------------------------
 --
-unpairP :: Pushy arr => arr (a,a) -> Array Push a 
+unpairP :: Pushable arr => arr (a,a) -> Array Push a 
 unpairP arr =  mkPushArray (\k -> parr !* (everyOther k))
          (2 * n)
   where 
@@ -263,7 +263,7 @@ everyOther f  = \(ix,(a,b)) -> f (ix * 2,a) *>* f (ix * 2 + 1,b)
 ----------------------------------------------------------------------------
 -- 
     
-zipP :: Pushy arr  => arr a -> arr a -> Array Push a  
+zipP :: Pushable arr  => arr a -> arr a -> Array Push a  
 zipP arr1 arr2 =
   mkPushArray (\func -> p1 !* (\(i,a) -> func (2*i,a))
                         *>*
@@ -290,7 +290,7 @@ combine p1 p2 =
   
 ----------------------------------------------------------------------------  
 -- The oposite to ivDiv    
-ivMerge :: Pushy arr => Int -> Int -> arr a -> arr a -> Array Push a
+ivMerge :: Pushable arr => Int -> Int -> arr a -> arr a -> Array Push a
 ivMerge i j arr1 arr2 = mkPushArray (\k -> a1 !* k *>* a2 !* k) (len a1 + len a2) 
   where
     left ix = ix + (ix .&. complement (oneBits (i+j)))

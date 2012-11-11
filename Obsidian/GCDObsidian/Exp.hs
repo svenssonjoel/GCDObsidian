@@ -578,10 +578,6 @@ instance ExpToCExp Int64 where
   expToCExp (Literal a) = cLiteral (Int64Val a) CInt64
   expToCExp a = expToCExpGeneral a  
 
-
-
-
-
 instance ExpToCExp Float where 
   expToCExp (Literal a) = cLiteral (FloatVal a) CFloat
   expToCExp a = expToCExpGeneral a 
