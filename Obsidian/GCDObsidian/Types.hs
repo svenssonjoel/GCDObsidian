@@ -5,7 +5,11 @@ module Obsidian.GCDObsidian.Types where
 
 data Type 
 -- The allowed scalar types
-  = Bool | Int | Word8 | Word16 | Word32 | Word64 
+  = Bool
+  | Int  | Word        -- A bit problematic since the size of
+                       -- of these are platform dependent
+  | Int8 | Int16 | Int32 | Int64 
+  | Word8 | Word16 | Word32 | Word64 
   | Float | Double                     
             
 -- Used by CUDA, C And OpenCL generators          

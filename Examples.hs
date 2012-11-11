@@ -32,13 +32,13 @@ import Prelude hiding (zipWith,sum)
 ---------------------------------------------------------------------------
 -- MapFusion example
 ---------------------------------------------------------------------------
-mapFusion :: Array Pull IntE -> Program (Array Pull IntE)
+mapFusion :: Array Pull EInt -> Program (Array Pull EInt)
 mapFusion arr =
   do
     a1 <- sync $ (fmap (+1) . fmap (*2)) arr
     sync $ (fmap (+1) . fmap (*2)) a1
 
-input1 :: Array Pull IntE 
+input1 :: Array Pull EInt 
 input1 = namedArray "apa" 32
 
 -- Uses genKernel, that implicitly maps over all blocks. 
@@ -146,48 +146,48 @@ forceBlocks' (Blocks n bxf) =
 ---------------------------------------------------------------------------
 -- Global array permutation
 ---------------------------------------------------------------------------
-rev :: Array Pull IntE -> Array Pull IntE
+rev :: Array Pull EInt -> Array Pull EInt
 rev (Array n (Pull ixf)) =
   Array n (Pull (\ix -> ixf (ix - 1 - (fromIntegral n))))
 
-reverseG :: Blocks (Array Pull IntE) -> Blocks (Array Pull IntE)
+reverseG :: Blocks (Array Pull EInt) -> Blocks (Array Pull EInt)
 reverseG (Blocks nb arrf) =
   Blocks nb (\bix -> rev (arrf (nb - 1 - bix)))
 
 
 -- Permutations on the output arrays are more complicated
 -- good wrappings are needed!
-reverseGO :: Blocks (Program (Array Push IntE))
-             -> Blocks (Program (Array Push IntE))
+reverseGO :: Blocks (Program (Array Push EInt))
+             -> Blocks (Program (Array Push EInt))
 reverseGO (Blocks nb prgf) =
   Blocks nb  
   (\bix -> do
       a@(Array n (Push p)) <- prgf bix
       let k' k (ix,e) = k ((fromIntegral n) - 1 - ix,e)
       return (Array n (Push (\k -> p (k' k)))))  
-      -- k :: (Exp Word32,IntE) -> Program
+      -- k :: (Exp Word32,EInt) -> Program
 ---------------------------------------------------------------------------
 -- Global Array examples 
 ---------------------------------------------------------------------------
 
-mapSomething :: Array Pull IntE -> Program (Array Push IntE)
+mapSomething :: Array Pull EInt -> Program (Array Push EInt)
 mapSomething arr = return $  push ((fmap (+1) . fmap (*2)) arr)
 
 
 
-inputG :: Blocks (Array Pull IntE) 
+inputG :: Blocks (Array Pull EInt) 
 inputG = namedGlobal "apa" (variable "N") 256
 
 
 
-testG1 :: Blocks (Array Pull IntE) -> Program (Blocks (Array Pull IntE))
+testG1 :: Blocks (Array Pull EInt) -> Program (Blocks (Array Pull EInt))
 testG1 arr = forceBlocks ( mapBlocks' mapSomething (reverseG arr) )
 
 getTestG1 = putStrLn$ CUDA.genKernelNew "testG1" testG1 inputG
 
-testG2 :: Blocks (Array Pull IntE)
-          -> Blocks (Array Pull IntE)
-          -> Program (Blocks (Array Pull IntE))
+testG2 :: Blocks (Array Pull EInt)
+          -> Blocks (Array Pull EInt)
+          -> Program (Blocks (Array Pull EInt))
 testG2 _ arr = forceBlocks ( mapBlocks' mapSomething (reverseG arr) )
 
 

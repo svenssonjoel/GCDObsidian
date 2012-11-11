@@ -12,7 +12,8 @@ module Obsidian.GCDObsidian.Exp
 
 
 import Data.List
-import Data.Word 
+import Data.Word
+import Data.Int
 import Data.Bits
 
 import qualified Foreign.Storable as Storable
@@ -30,14 +31,26 @@ import Obsidian.GCDObsidian.CodeGen.SPMDC
 -- some synonyms
 type Data a = Exp a 
 
-type IntE    = Exp Int      
-type FloatE  = Exp Float  
-type DoubleE = Exp Double 
-type BoolE   = Exp Bool    
-type UByteE  = Exp Word8   
-type UShortE = Exp Word16 
-type UWordE  = Exp Word32 
-type ULongE  = Exp Word64 
+
+type EInt    = Exp Int      
+type EWord   = Exp Word
+
+type EInt8   = Exp Int8
+type EInt16  = Exp Int16
+type EInt32  = Exp Int32
+type EInt64  = Exp Int64
+
+type EWord8  = Exp Word8   
+type EWord16 = Exp Word16 
+type EWord32  = Exp Word32 
+type EWord64  = Exp Word64 
+
+type EFloat  = Exp Float  
+type EDouble = Exp Double 
+type EBool   = Exp Bool    
+
+
+
 ------------------------------------------------------------------------------
 -- Class Scalar. All the things we can handle code generation for 
 
@@ -46,15 +59,31 @@ class (ExpToCExp a, Show a) => Scalar a where
   typeOf :: Exp a -> Type  --   Good enough for me ... 
 
 
-instance Scalar Bool where 
-  --sizeOf _ = Storable.sizeOf (undefined :: Int)
-  sizeOf _ = 4
+instance Scalar Bool where  
+  sizeOf _ = Storable.sizeOf (undefined :: Int)
   typeOf _ = Bool 
 
 instance Scalar Int where 
-  --sizeOf _ = Storable.sizeOf (undefined :: Int)
-  sizeOf _ = 4
+  sizeOf _ = Storable.sizeOf (undefined :: Int)
   typeOf _ = Int
+
+instance Scalar Int8 where 
+  sizeOf _ = 1
+  typeOf _ = Int8
+
+instance Scalar Int16 where 
+  sizeOf _ = 2
+  typeOf _ = Int16
+
+instance Scalar Int32 where 
+  sizeOf _ = 4
+  typeOf _ = Int32
+
+instance Scalar Int64 where 
+  sizeOf _ = 8 
+  typeOf _ = Int64
+
+
   
 instance Scalar Float where
   sizeOf _ = Storable.sizeOf (undefined :: Float)
@@ -532,6 +561,26 @@ instance  ExpToCExp Bool where
 instance ExpToCExp Int where 
   expToCExp (Literal a) = cLiteral (IntVal a) CInt
   expToCExp a = expToCExpGeneral a  
+
+instance ExpToCExp Int8 where 
+  expToCExp (Literal a) = cLiteral (Int8Val a) CInt8
+  expToCExp a = expToCExpGeneral a  
+
+instance ExpToCExp Int16 where 
+  expToCExp (Literal a) = cLiteral (Int16Val a) CInt16
+  expToCExp a = expToCExpGeneral a  
+
+instance ExpToCExp Int32 where 
+  expToCExp (Literal a) = cLiteral (Int32Val a) CInt32
+  expToCExp a = expToCExpGeneral a  
+
+instance ExpToCExp Int64 where 
+  expToCExp (Literal a) = cLiteral (Int64Val a) CInt64
+  expToCExp a = expToCExpGeneral a  
+
+
+
+
 
 instance ExpToCExp Float where 
   expToCExp (Literal a) = cLiteral (FloatVal a) CFloat

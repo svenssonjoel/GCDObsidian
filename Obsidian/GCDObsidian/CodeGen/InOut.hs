@@ -240,7 +240,7 @@ type Inputs = [(Name,Type)]
 class ToProgram a b where
   toProgram :: Int -> (a -> b) -> Ips a b -> (Inputs,CG.Program ())
 
-instance ToProgram (Blocks (Array Pull IntE)) (Program a) where
+instance ToProgram (Blocks (Array Pull (Exp Int))) (Program a) where
   toProgram i f (Blocks n blkf)  = ([(nom,Pointer Int)],CG.runPrg (f input))
     where
       nom = "input" ++ show i
@@ -257,7 +257,7 @@ instance ToProgram (Blocks (Array Pull (Exp Word32))) (Program a) where
       input = namedGlobal  nom (variable var) n      
 
 instance ToProgram b c =>
-         ToProgram (Blocks (Array Pull IntE)) (b -> c) where
+         ToProgram (Blocks (Array Pull (Exp Int))) (b -> c) where
   toProgram i f ((Blocks n blkf) :-> rest) = ((nom,Pointer Int):ins,prg)
     where
       (ins,prg) = toProgram (i+1) (f input) rest
@@ -288,8 +288,10 @@ infixr 5 :->
 type family Ips a b
 type family Ips' a 
 
-type instance Ips' (Blocks (Array Pull IntE)) = Blocks (Array Pull IntE)
-type instance Ips' (Blocks (Array Pull (Exp Word32))) = Blocks (Array Pull (Exp Word32))
+type instance Ips' (Blocks (Array Pull (Exp Int))) =
+  Blocks (Array Pull (Exp Int))
+type instance Ips' (Blocks (Array Pull (Exp Word32))) =
+  Blocks (Array Pull (Exp Word32))
 
 type instance Ips a (Program b) = Ips' a
 type instance Ips a (b -> c) =  Ips' a :-> Ips b c

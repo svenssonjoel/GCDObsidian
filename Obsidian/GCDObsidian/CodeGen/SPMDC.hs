@@ -8,6 +8,8 @@ import Obsidian.GCDObsidian.CodeGen.PP
 
 
 import Data.Word
+import Data.Int
+
 import qualified Data.List as List
 import qualified Data.Map as Map
 
@@ -28,6 +30,10 @@ import Data.Maybe
 ----------------------------------------------------------------------------
 -- 
 data Value = IntVal Int
+           | Int8Val Int8
+           | Int16Val Int16
+           | Int32Val Int32
+           | Int64Val Int64
            | FloatVal Float 
            | DoubleVal Double
            | Word8Val  Word8
@@ -36,7 +42,8 @@ data Value = IntVal Int
            | Word64Val Word64
            deriving (Eq,Ord,Show)
              
-data CType = CVoid | CInt | CFloat | CDouble              
+data CType = CVoid | CInt | CFloat | CDouble
+           | CInt8 | CInt16 | CInt32 | CInt64 
            | CWord8 | CWord16 | CWord32 | CWord64
            | CPointer CType -- *type
            | CArray [CExpr] CType -- type[e1][e2][e3]..[en] or type[] 
