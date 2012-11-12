@@ -85,10 +85,10 @@ forceBlocks :: forall a. Scalar a => Blocks (Array Push (Exp a))
                -> Program (Blocks (Array Pull (Exp a)))
 forceBlocks (Blocks n bxf) =  
   do
-    global <- Output (typeOf (undefined :: (Exp a))) --Word32 -- type class magic
+    global <- Output (typeOf (undefined :: (Exp a))) 
 
     -- dryrun to get length. 
-    let (Array s (Push pfun)) =  bxf (variable "dummy") -- bid 
+    let (Array s (Push pfun)) =  bxf (variable "dummy") 
     
     ForAllBlocks n
       (\bid ->
@@ -96,7 +96,7 @@ forceBlocks (Blocks n bxf) =
           let (Array s (Push pfun)) = bxf bid 
           pfun (assignTo global (bid, s)))
      
-    return $ Blocks n {- s -} $ 
+    return $ Blocks n  $ 
              \bix -> Array s (Pull (\ix -> index global ((bix * (fromIntegral s)) + ix)))
       where 
         assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
