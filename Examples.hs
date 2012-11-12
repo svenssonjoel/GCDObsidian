@@ -78,51 +78,10 @@ zipBlocksWith' f (Blocks nb1 bxf1)
 -- cannot be this general.. 
 
 -- Trying a very limited form, will need type classes... 
-forceBlocks :: Blocks (Program (Array Push (Exp Int)))
-               -> Program (Blocks (Array Pull (Exp Int)))
-forceBlocks (Blocks n bxf) =  
-  do
-    global <- Output Int -- type class magic
-
-    -- dryrun to get length. 
-    (Array s (Push pfun)) <- bxf (variable "dummy") -- bid 
-    
-    ForAllBlocks n
-      (\bid ->
-        do
-          (Array s (Push pfun)) <- bxf bid 
-          pfun (assignTo global (bid, s)))
-     
-    return $ Blocks n {- s -} $ 
-             \bix -> Array s (Pull (\ix -> index global ((bix * (fromIntegral s)) + ix)))
-      where 
-        assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
-
-
-forceBlocks' :: Blocks (Program (Array Push (Exp Word32)))
-               -> Program (Blocks (Array Pull (Exp Word32)))
-forceBlocks' (Blocks n bxf) =  
-  do
-    global <- Output Word32 -- type class magic
-
-    -- dryrun to get length. 
-    (Array s (Push pfun)) <- bxf (variable "dummy") -- bid 
-    
-    ForAllBlocks n
-      (\bid ->
-        do
-          (Array s (Push pfun)) <- bxf bid 
-          pfun (assignTo global (bid, s)))
-     
-    return $ Blocks n {- s -} $ 
-             \bix -> Array s (Pull (\ix -> index global ((bix * (fromIntegral s)) + ix)))
-      where 
-        assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
-
 -- Sometimes a forall is needed. I don't really see a pattern in when. 
-forceBlocks'' :: forall a. Scalar a => Blocks (Array Push (Exp a))
+forceBlocks :: forall a. Scalar a => Blocks (Array Push (Exp a))
                -> Program (Blocks (Array Pull (Exp a)))
-forceBlocks'' (Blocks n bxf) =  
+forceBlocks (Blocks n bxf) =  
   do
     global <- Output (typeOf (undefined :: (Exp a))) --Word32 -- type class magic
 
@@ -191,14 +150,14 @@ inputG = namedGlobal "apa" (variable "N") 256
 
 
 testG1 :: Blocks (Array Pull EInt) -> Program (Blocks (Array Pull EInt))
-testG1 arr = forceBlocks'' ( mapBlocks' mapSomething (reverseG arr) )
+testG1 arr = forceBlocks ( mapBlocks' mapSomething (reverseG arr) )
 
 getTestG1 = putStrLn$ CUDA.genKernelNew "testG1" testG1 inputG
 
 testG2 :: Blocks (Array Pull EInt)
           -> Blocks (Array Pull EInt)
           -> Program (Blocks (Array Pull EInt))
-testG2 _ arr = forceBlocks'' ( mapBlocks' mapSomething (reverseG arr) )
+testG2 _ arr = forceBlocks ( mapBlocks' mapSomething (reverseG arr) )
 
 
 ---------------------------------------------------------------------------
@@ -248,7 +207,7 @@ hist
   :: Exp Word32
      -> Blocks (Array Pull (Exp Word32))
      -> Program (Blocks (Array Pull (Exp Word32)))
-hist max inp = forceBlocks''  (histogram max inp)
+hist max inp = forceBlocks  (histogram max inp)
 
 inputWord32 :: Blocks (Array Pull (Exp Word32)) 
 inputWord32 = namedGlobal "apa" (variable "N") 256
