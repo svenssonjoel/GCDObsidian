@@ -25,7 +25,7 @@ class Forceable a p e where
 instance Scalar a => Forceable Array Pull (Exp a) where
   force arr =
     do 
-    name <- Allocate n (typeOf (undefined :: (Exp a)))
+    name <- Allocate n $ Pointer (typeOf (undefined :: (Exp a)))
     p (targetArr name)
     Sync
     return $ Array n $ Pull (\i -> index name i)
@@ -36,7 +36,7 @@ instance Scalar a => Forceable Array Pull (Exp a) where
 instance Scalar a => Forceable Array Push (Exp a) where
   force (Array n (Push p)) =
     do 
-    name <- Allocate n (typeOf (undefined :: (Exp a)))
+    name <- Allocate n $ Pointer (typeOf (undefined :: (Exp a)))
     p (targetArr name)
     Sync
     return $ Array n $ Pull (\i -> index name i)

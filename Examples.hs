@@ -6,6 +6,9 @@ module Examples where
 --import Obsidian.GCDObsidian
 
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
+import Obsidian.GCDObsidian.CodeGen.CUDA.WithCUDA
+import Obsidian.GCDObsidian.CodeGen.CUDA.Compile
+import qualified Foreign.CUDA.Driver as CUDA
 --import qualified Obsidian.GCDObsidian.CodeGen.C as C
 --import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
@@ -22,8 +25,10 @@ import Obsidian.GCDObsidian.Force
 
 
 import Data.Word
+import Data.Int
 import Data.Bits
 
+import Control.Monad.State
 
 import Prelude hiding (zipWith,sum)
 
@@ -85,7 +90,7 @@ forceBlocks :: forall a. Scalar a => Blocks (Array Push (Exp a))
                -> Program (Blocks (Array Pull (Exp a)))
 forceBlocks (Blocks n bxf) =  
   do
-    global <- Output (typeOf (undefined :: (Exp a))) 
+    global <- Output $ Pointer (typeOf (undefined :: (Exp a))) 
 
     -- dryrun to get length. 
     let (Array s (Push pfun)) =  bxf (variable "dummy") 
@@ -105,26 +110,17 @@ forceBlocks (Blocks n bxf) =
 ---------------------------------------------------------------------------
 -- Global array permutation
 ---------------------------------------------------------------------------
-rev :: Array Pull EInt -> Array Pull EInt
+rev :: Array Pull a -> Array Pull a
 rev (Array n (Pull ixf)) =
-  Array n (Pull (\ix -> ixf (ix - 1 - (fromIntegral n))))
+  Array n (Pull (\ix -> ixf ((fromIntegral n) - 1 - ix)))
 
-reverseG :: Blocks (Array Pull EInt) -> Blocks (Array Pull EInt)
+reverseG :: Blocks (Array Pull a) -> Blocks (Array Pull a)
 reverseG (Blocks nb arrf) =
   Blocks nb (\bix -> rev (arrf (nb - 1 - bix)))
 
 
 -- Permutations on the output arrays are more complicated
 -- good wrappings are needed!
-{-reverseGO :: Blocks (Program (Array Push EInt))
-             -> Blocks (Program (Array Push EInt))
-reverseGO (Blocks nb prgf) =
-  Blocks nb  
-  (\bix -> do
-      a@(Array n (Push p)) <- prgf bix
-      let k' k (ix,e) = k ((fromIntegral n) - 1 - ix,e)
-      return (Array n (Push (\k -> p (k' k)))))  
-      -- k :: (Exp Word32,EInt) -> Program-} 
 reverseGO :: Blocks (Array Push EInt)
              -> Blocks (Array Push EInt)
 reverseGO (Blocks nb prgf) =
@@ -235,8 +231,7 @@ fan op arr = conc (a1, fmap (op c) a2)
       (a1,a2) = halve arr
       c = a1 ! (fromIntegral (len a1 - 1))
 
-getScan n = putStrLn $ 
-            CUDA.genKernel "scan" (sklanskyLocal n (+)) 
+getScan n = CUDA.genKernel "scan" (sklanskyLocal n (+)) 
                     (namedArray "input" (2^n) :: Array Pull (Exp Word32))
 
 -- TODO: Rewrite Scan with BlockMap functionality.
@@ -244,3 +239,46 @@ getScan n = putStrLn $
 ---------------------------------------------------------------------------
 -- Distribute
 ---------------------------------------------------------------------------
+
+
+
+---------------------------------------------------------------------------
+-- Testing WithCUDA aspects
+---------------------------------------------------------------------------
+
+testGRev :: Blocks (Array Pull EWord32)
+            -> Program (Blocks (Array Pull EWord32))
+testGRev arr = forceBlocks ( mapBlocks (push . rev) arr )
+
+
+wc1 = 
+  withCUDA $
+  do
+    -- Capture, compile and link the Obsidian program
+    -- into a CUDA function 
+    myCudaFun <- capture testGRev inputWord32
+
+    -- Set up data and launch the kernel!
+    r <-
+      lift $ CUDA.allocaArray 256 $ \(inp :: CUDA.DevicePtr Word32) ->
+        CUDA.allocaArray 256 $ \(out :: CUDA.DevicePtr Word32) ->
+        do
+          CUDA.pokeListArray [0..255::Word32] inp 
+          CUDA.launchKernel myCudaFun
+                            (1,1,1)
+                            (256,1,1)
+                            0
+                            Nothing
+                            [CUDA.VArg inp, CUDA.VArg out]
+          CUDA.peekListArray 256 out
+
+    -- Show the result of computing on the GPU 
+    lift $ putStrLn $ show  r 
+
+t2 =
+  do
+    let str = getScan 8
+    fp <- storeAndCompile "scan.cu" (header ++ str)
+    putStrLn fp
+    where
+      header = "#include <stdint.h>\n"

@@ -10,8 +10,6 @@ import Data.Word
 import Data.Monoid
 import qualified Data.Map as Map
 
-
-
 import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Exp 
 
@@ -35,7 +33,11 @@ import Obsidian.GCDObsidian.CodeGen.SPMDC
 {- 
    TODO: 
     + phase out the old string based codegen 
-
+    + Ideally there should be a Program -> SPMDC
+      and SPMDC -> CUDA
+          SPMDC -> OpenCL
+          SPMDC -> X
+      functions. 
 -} 
 
 ----------------------------------------------------------------------------
@@ -107,7 +109,7 @@ genKernel name kernel a = cuda
                    (map fst2 ins) (map fst2 outs)
 
 genKernelNew :: ToProgram a b => String -> (a -> b) -> Ips a b -> String 
-genKernelNew name kernel a = cuda 
+genKernelNew name kernel a = proto ++ cuda 
   where
     (ins,prg) = toProgram 0 kernel a
     
@@ -136,7 +138,7 @@ genKernelNew name kernel a = cuda
     -- HACKITY (runPrg should be called convPrg perhaps) 
     -- c = tmpc `ProgramSeq` (convPrg outCode)      
 
-    
+    proto = getProto name ins outs 
     cuda = getCUDA (config threadBudget mm (size m))
                    kern
                    name
@@ -274,8 +276,16 @@ getCUDA conf c name ins outs =
          -- bidLine >> newline >>
          sBase (configLocalMem conf) >> newline >> 
          genCUDABody conf c >>
-         end ) 0 
-
+         end ) 0
+  
+getProto :: Name -> [(String,Type)] -> [(String,Type)] -> String
+getProto name ins outs =
+  runPP (
+    do 
+      line "extern \"C\" "
+      kernelHead name ins outs
+      line ";"
+      newline) 0 
 
 ----------------------------------------------------------------------------
 -- Code to a CUDA kernel Body

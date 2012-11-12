@@ -249,7 +249,7 @@ instance ToProgram (Blocks (Array Pull (Exp Int))) (Program a) where
       input = namedGlobal  nom (variable var) n
       
 instance ToProgram (Blocks (Array Pull (Exp Word32))) (Program a) where
-  toProgram i f (Blocks n blkf)  = ([(nom,Pointer Int)],CG.runPrg (f input))
+  toProgram i f (Blocks n blkf)  = ([(nom,Pointer Word32)],CG.runPrg (f input))
     where
       nom = "input" ++ show i
       var = "N" ++ show i
@@ -268,7 +268,7 @@ instance ToProgram b c =>
 
 instance ToProgram b c =>
          ToProgram (Blocks (Array Pull (Exp Word32))) (b -> c) where
-  toProgram i f ((Blocks n blkf) :-> rest) = ((nom,Pointer Int):ins,prg)
+  toProgram i f ((Blocks n blkf) :-> rest) = ((nom,Pointer Word32):ins,prg)
     where
       (ins,prg) = toProgram (i+1) (f input) rest
       nom = "input" ++ show i
