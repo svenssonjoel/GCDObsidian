@@ -30,6 +30,7 @@ import Prelude hiding (zipWith,sum)
 ---------------------------------------------------------------------------
 -- MapFusion example
 ---------------------------------------------------------------------------
+
 mapFusion :: Array Pull EInt -> Program (Array Pull EInt)
 mapFusion arr =
   do
@@ -46,29 +47,30 @@ getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 ---------------------------------------------------------------------------
 -- Sync, Force. What to use? what to scrap ? 
 ---------------------------------------------------------------------------
+-- very limiting type.. 
+sync :: Scalar a => Array Pull (Exp a) -> Program (Array Pull (Exp a))
 sync = force . push
-sync' = force . push
 
 ---------------------------------------------------------------------------
 -- mapBlocks
 ---------------------------------------------------------------------------
 -- requires much type class magic
-mapBlocks' :: Scalar a => (Array Pull (Exp a) -> b)
+mapBlocks :: Scalar a => (Array Pull (Exp a) -> b)
              -> Blocks (Array Pull (Exp a))
              -> Blocks b
-mapBlocks' f (Blocks nb bxf) =
+mapBlocks f (Blocks nb bxf) =
   Blocks nb (\bix -> (f (bxf bix)))
   
 ---------------------------------------------------------------------------
 -- zipWith
 ---------------------------------------------------------------------------
-zipBlocksWith' :: (Scalar a, Scalar b) 
+zipBlocksWith :: (Scalar a, Scalar b) 
                   => (Array Pull (Exp a) -> Array Pull (Exp b) -> c)
                   -> Blocks (Array Pull (Exp a))
                   -> Blocks (Array Pull (Exp b))
                   -> Blocks c
-zipBlocksWith' f (Blocks nb1 bxf1)
-                 (Blocks nb2 bxf2) =
+zipBlocksWith f (Blocks nb1 bxf1)
+                (Blocks nb2 bxf2) =
   Blocks (min nb1 nb2) (\bix -> f (bxf1 bix) (bxf2 bix))
    
 ---------------------------------------------------------------------------
@@ -150,14 +152,14 @@ inputG = namedGlobal "apa" (variable "N") 256
 
 
 testG1 :: Blocks (Array Pull EInt) -> Program (Blocks (Array Pull EInt))
-testG1 arr = forceBlocks ( mapBlocks' mapSomething (reverseG arr) )
+testG1 arr = forceBlocks ( mapBlocks mapSomething (reverseG arr) )
 
 getTestG1 = putStrLn$ CUDA.genKernelNew "testG1" testG1 inputG
 
 testG2 :: Blocks (Array Pull EInt)
           -> Blocks (Array Pull EInt)
           -> Program (Blocks (Array Pull EInt))
-testG2 _ arr = forceBlocks ( mapBlocks' mapSomething (reverseG arr) )
+testG2 _ arr = forceBlocks ( mapBlocks mapSomething (reverseG arr) )
 
 
 ---------------------------------------------------------------------------
@@ -224,7 +226,7 @@ sklanskyLocal 0 op arr = return (id arr)
 sklanskyLocal n op arr =
   do 
     let arr1 = twoK (n-1) (fan op) arr
-    arr2 <- sync' arr1
+    arr2 <- sync arr1
     sklanskyLocal (n-1) op arr2
                      
 
