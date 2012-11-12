@@ -235,11 +235,11 @@ getScan n = CUDA.genKernel "scan" (sklanskyLocal n (+))
                     (namedArray "input" (2^n) :: Array Pull (Exp Word32))
 
 -- TODO: Rewrite Scan with BlockMap functionality.
-
+--       Also add the output of blockmaxs, and tweak code generation to
+--       allow such kernels. 
 ---------------------------------------------------------------------------
 -- Distribute
 ---------------------------------------------------------------------------
-
 
 
 ---------------------------------------------------------------------------
@@ -260,17 +260,17 @@ wc1 =
 
     -- Set up data and launch the kernel!
     r <-
-      lift $ CUDA.allocaArray 256 $ \(inp :: CUDA.DevicePtr Word32) ->
-        CUDA.allocaArray 256 $ \(out :: CUDA.DevicePtr Word32) ->
+      lift $ CUDA.allocaArray 512 $ \(inp :: CUDA.DevicePtr Word32) ->
+        CUDA.allocaArray 512 $ \(out :: CUDA.DevicePtr Word32) ->
         do
-          CUDA.pokeListArray [0..255::Word32] inp 
+          CUDA.pokeListArray [0..511::Word32] inp 
           CUDA.launchKernel myCudaFun
-                            (1,1,1)
+                            (2,1,1)
                             (256,1,1)
                             0
                             Nothing
                             [CUDA.VArg inp, CUDA.VArg out]
-          CUDA.peekListArray 256 out
+          CUDA.peekListArray 512 out
 
     -- Show the result of computing on the GPU 
     lift $ putStrLn $ show  r 
