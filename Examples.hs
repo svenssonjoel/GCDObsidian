@@ -1,5 +1,6 @@
-{-# LANGUAGE FlexibleInstances #-} 
---              ScopedTypeVariables#-} 
+{-# LANGUAGE FlexibleInstances, 
+             ScopedTypeVariables,
+             RankNTypes  #-} 
 module Examples where 
 
 --import Obsidian.GCDObsidian
@@ -48,34 +49,13 @@ getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 sync = force . push
 sync' = force . push
 
--- TODO: Force as a concept is also applicable to pull arrays.. (typeclass!) 
---force :: Array Push (Exp Int) -> Program (Array Pull (Exp Int))
---force (Array n (Push p)) =
---  do 
---    name <- Allocate n Int  -- force needs to be in a Class of Forceables..
---    p (targetArr name)
---    Sync
---    return $ Array n $ Pull (\i -> index name i)
---    where
---      targetArr name (i,e) = Assign name i e
-
---force' :: Array Push (Exp Word32) -> Program (Array Pull (Exp Word32))
----orce' (Array n (Push p)) =
---  do 
---    name <- Allocate n Word32  -- force needs to be in a Class of Forceables..
---    p (targetArr name)
---    Sync
---    return $ Array n $ Pull (\i -> index name i)
---    where
---      targetArr name (i,e) = Assign name i e       
-
 ---------------------------------------------------------------------------
 -- mapBlocks
 ---------------------------------------------------------------------------
 -- requires much type class magic
-mapBlocks' :: Scalar a => (Array Pull (Exp a) -> Program b)
+mapBlocks' :: Scalar a => (Array Pull (Exp a) -> b)
              -> Blocks (Array Pull (Exp a))
-             -> Blocks (Program b)
+             -> Blocks b
 mapBlocks' f (Blocks nb bxf) =
   Blocks nb (\bix -> (f (bxf bix)))
   
@@ -83,10 +63,10 @@ mapBlocks' f (Blocks nb bxf) =
 -- zipWith
 ---------------------------------------------------------------------------
 zipBlocksWith' :: (Scalar a, Scalar b) 
-                  => (Array Pull (Exp a) -> Array Pull (Exp b) -> Program c)
+                  => (Array Pull (Exp a) -> Array Pull (Exp b) -> c)
                   -> Blocks (Array Pull (Exp a))
                   -> Blocks (Array Pull (Exp b))
-                  -> Blocks (Program c)
+                  -> Blocks c
 zipBlocksWith' f (Blocks nb1 bxf1)
                  (Blocks nb2 bxf2) =
   Blocks (min nb1 nb2) (\bix -> f (bxf1 bix) (bxf2 bix))
@@ -139,6 +119,27 @@ forceBlocks' (Blocks n bxf) =
       where 
         assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
 
+-- Sometimes a forall is needed. I don't really see a pattern in when. 
+forceBlocks'' :: forall a. Scalar a => Blocks (Array Push (Exp a))
+               -> Program (Blocks (Array Pull (Exp a)))
+forceBlocks'' (Blocks n bxf) =  
+  do
+    global <- Output (typeOf (undefined :: (Exp a))) --Word32 -- type class magic
+
+    -- dryrun to get length. 
+    let (Array s (Push pfun)) =  bxf (variable "dummy") -- bid 
+    
+    ForAllBlocks n
+      (\bid ->
+        do
+          let (Array s (Push pfun)) = bxf bid 
+          pfun (assignTo global (bid, s)))
+     
+    return $ Blocks n {- s -} $ 
+             \bix -> Array s (Pull (\ix -> index global ((bix * (fromIntegral s)) + ix)))
+      where 
+        assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
+
           
 ---------------------------------------------------------------------------
 -- Global array permutation
@@ -154,7 +155,7 @@ reverseG (Blocks nb arrf) =
 
 -- Permutations on the output arrays are more complicated
 -- good wrappings are needed!
-reverseGO :: Blocks (Program (Array Push EInt))
+{-reverseGO :: Blocks (Program (Array Push EInt))
              -> Blocks (Program (Array Push EInt))
 reverseGO (Blocks nb prgf) =
   Blocks nb  
@@ -162,13 +163,25 @@ reverseGO (Blocks nb prgf) =
       a@(Array n (Push p)) <- prgf bix
       let k' k (ix,e) = k ((fromIntegral n) - 1 - ix,e)
       return (Array n (Push (\k -> p (k' k)))))  
-      -- k :: (Exp Word32,EInt) -> Program
+      -- k :: (Exp Word32,EInt) -> Program-} 
+reverseGO :: Blocks (Array Push EInt)
+             -> Blocks (Array Push EInt)
+reverseGO (Blocks nb prgf) =
+  Blocks nb $ 
+   \bix ->
+    let a@(Array n (Push p)) =  prgf bix
+    in  Array n $
+        Push  (\k ->
+               let k' k (ix,e) = k ((fromIntegral n) - 1 - ix,e)
+               in  p (k' k))
+               -- k :: (Exp Word32,EInt) -> Program
+
 ---------------------------------------------------------------------------
 -- Global Array examples 
 ---------------------------------------------------------------------------
 
-mapSomething :: Array Pull EInt -> Program (Array Push EInt)
-mapSomething arr = return $  push ((fmap (+1) . fmap (*2)) arr)
+mapSomething :: Array Pull EInt -> Array Push EInt
+mapSomething arr = push ((fmap (+1) . fmap (*2)) arr)
 
 
 
@@ -178,14 +191,14 @@ inputG = namedGlobal "apa" (variable "N") 256
 
 
 testG1 :: Blocks (Array Pull EInt) -> Program (Blocks (Array Pull EInt))
-testG1 arr = forceBlocks ( mapBlocks' mapSomething (reverseG arr) )
+testG1 arr = forceBlocks'' ( mapBlocks' mapSomething (reverseG arr) )
 
 getTestG1 = putStrLn$ CUDA.genKernelNew "testG1" testG1 inputG
 
 testG2 :: Blocks (Array Pull EInt)
           -> Blocks (Array Pull EInt)
           -> Program (Blocks (Array Pull EInt))
-testG2 _ arr = forceBlocks ( mapBlocks' mapSomething (reverseG arr) )
+testG2 _ arr = forceBlocks'' ( mapBlocks' mapSomething (reverseG arr) )
 
 
 ---------------------------------------------------------------------------
@@ -221,12 +234,12 @@ reify0 = fst $ toProgram 0 testG2 (inputG :-> inputG)
 ---------------------------------------------------------------------------
 histogram :: Exp Word32
              -> Blocks (Array Pull (Exp Word32))
-             -> Blocks (Program (Array Push (Exp Word32)))
+             -> Blocks (Array Push (Exp Word32))
 histogram maxLen (Blocks nb blkf)  =
   Blocks nb blkf' 
   where
-                -- HACKS
-    blkf' bid = return $  Array blkSize (Push (collect bid)) 
+                
+    blkf' bid = Array blkSize (Push (collect bid)) 
     blkSize = len (blkf 0) -- all blocks are same size  
     collect bid k = ForAll blkSize $ \i ->
       k ((blkf bid) ! i,1)
@@ -235,7 +248,7 @@ hist
   :: Exp Word32
      -> Blocks (Array Pull (Exp Word32))
      -> Program (Blocks (Array Pull (Exp Word32)))
-hist max inp = forceBlocks'  (histogram max inp)
+hist max inp = forceBlocks''  (histogram max inp)
 
 inputWord32 :: Blocks (Array Pull (Exp Word32)) 
 inputWord32 = namedGlobal "apa" (variable "N") 256
