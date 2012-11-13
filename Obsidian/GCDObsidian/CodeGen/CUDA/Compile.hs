@@ -17,6 +17,8 @@ storeAndCompile fp code =
   do
     writeFile fp code
     let nfp = fp ++  ".cubin"
-    createProcess (shell ("nvcc -cubin -o " ++ nfp ++ " " ++ fp))
+    -- Somehow ensure that the file has been written successfully
+    -- before trying to compile it. (problem on the fast machine) 
+    createProcess (shell ("nvcc -arch=sm_30 -cubin -o " ++ nfp ++ " " ++ fp))
     return nfp
 
