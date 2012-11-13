@@ -13,6 +13,9 @@ import Obsidian.GCDObsidian.CodeGen.InOut
 
 import Control.Monad.State
 
+import qualified Data.Vector.Storable as V
+import Foreign.Marshal.Array
+import Foreign.ForeignPtr
 {- first attempt at running Obsidian/CUDA computations
    from within Haskell -}
 
@@ -47,7 +50,19 @@ propsSummary props = unlines
 -- Environment to run CUDA computations in.
 --  # Needs to keep track of generated and loaded functions etc. 
 ---------------------------------------------------------------------------
--- Very sketchy first attempt.
+
+data CUDAState = CUDAState { csIdent :: Int,
+                             csCtx   :: CUDA.Context }
+
+type CUDA a =  StateT CUDAState IO a
+
+newIdent :: CUDA Int
+newIdent =
+  do
+    i <- return . csIdent =<< get
+    modify (\s -> s {csIdent = i+1 }) 
+    return i
+  
 withCUDA p =
   do
     CUDA.initialise []
@@ -61,16 +76,13 @@ withCUDA p =
           CUDA.destroy ctx
 
 
-data CUDAState = CUDAState { csIdent :: Int,
-                             csCtx   :: CUDA.Context }
-
-type CUDA a =  StateT CUDAState IO a
-
+---------------------------------------------------------------------------
+-- Capture and compile a Obsidian function into a CUDA Function
+---------------------------------------------------------------------------
 capture :: ToProgram a b => (a -> b) -> Ips a b -> CUDA CUDA.Fun 
 capture f inputs =
   do
-    i <- return . csIdent =<< get
-    modify (\s -> s {csIdent = i+1 }) 
+    i <- newIdent
     let kn     = "gen" ++ show i
         fn     = kn ++ ".cu"
         cub    = fn ++ ".cubin" 
@@ -81,5 +93,39 @@ capture f inputs =
 
     mod <- liftIO $ CUDA.loadFile cub
     fun <- liftIO $ CUDA.getFun mod kn 
-    
+
+    {- After loading the binary into the running process
+       can I delete the .cu and the .cu.cubin ? -} 
+           
     return fun
+
+
+---------------------------------------------------------------------------
+-- useVector: Copies a Data.Vector from "Haskell" onto the GPU Global mem 
+--------------------------------------------------------------------------- 
+useVector :: V.Storable a =>
+             V.Vector a -> (CUDA.DevicePtr a -> CUDA b) -> CUDA b
+useVector v f =
+  do
+    let (hfptr,n) = V.unsafeToForeignPtr0 v
+    
+    dptr <- lift $ CUDA.mallocArray n
+    let hptr = unsafeForeignPtrToPtr hfptr
+    lift $ CUDA.pokeArray n hptr dptr
+    b <- f dptr     
+    lift $ CUDA.free dptr
+    return b
+
+---------------------------------------------------------------------------
+-- allocaVector: allocates room for a vector in the GPU Global mem
+---------------------------------------------------------------------------
+allocaVector :: V.Storable a => 
+                Int -> (CUDA.DevicePtr a -> CUDA b) -> CUDA b
+allocaVector n f =
+  do
+    dptr <- lift $ CUDA.mallocArray n
+    b <- f dptr
+    lift $ CUDA.free dptr
+    return b 
+
+
