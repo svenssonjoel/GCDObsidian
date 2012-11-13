@@ -13,7 +13,7 @@ import qualified Foreign.CUDA.Driver as CUDA
 --import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
 import qualified Obsidian.GCDObsidian.CodeGen.Program as CGP
-import           Obsidian.GCDObsidian.CodeGen.InOuts
+import           Obsidian.GCDObsidian.CodeGen.InOut
 
 import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.Exp
@@ -59,23 +59,16 @@ sync :: Scalar a => Array Pull (Exp a) -> Program (Array Pull (Exp a))
 sync = force . push
 
 ---------------------------------------------------------------------------
--- mapBlocks
+-- map over blocks. Normal Functor instance is fine! 
 ---------------------------------------------------------------------------
--- requires much type class magic
-mapBlocks :: Scalar a => (Array Pull (Exp a) -> b)
-             -> Blocks (Array Pull (Exp a))
-             -> Blocks b
-mapBlocks f (Blocks nb bxf) =
-  Blocks nb (\bix -> (f (bxf bix)))
-  
+instance Functor Blocks where
+  fmap f (Blocks nb bxf) = Blocks nb (\bix -> (f (bxf bix)))
+
 ---------------------------------------------------------------------------
--- zipWith
+-- zipWith. (Normal zipWith)
 ---------------------------------------------------------------------------
-zipBlocksWith :: (Scalar a, Scalar b) 
-                  => (Array Pull (Exp a) -> Array Pull (Exp b) -> c)
-                  -> Blocks (Array Pull (Exp a))
-                  -> Blocks (Array Pull (Exp b))
-                  -> Blocks c
+zipBlocksWith :: (a -> b -> c)
+                 -> Blocks a -> Blocks b -> Blocks c
 zipBlocksWith f (Blocks nb1 bxf1)
                 (Blocks nb2 bxf2) =
   Blocks (min nb1 nb2) (\bix -> f (bxf1 bix) (bxf2 bix))
@@ -123,8 +116,8 @@ reverseG (Blocks nb arrf) =
 
 -- Permutations on the output arrays are more complicated
 -- good wrappings are needed!
-reverseGO :: Blocks (Array Push EInt)
-             -> Blocks (Array Push EInt)
+reverseGO :: Blocks (Array Push a)
+             -> Blocks (Array Push a)
 reverseGO (Blocks nb prgf) =
   Blocks nb $ 
    \bix ->
@@ -150,14 +143,14 @@ inputG = namedGlobal "apa" (variable "N") 256
 
 
 testG1 :: Blocks (Array Pull EInt) -> Program (Blocks (Array Pull EInt))
-testG1 arr = forceBlocks ( mapBlocks mapSomething (reverseG arr) )
+testG1 arr = forceBlocks ( fmap mapSomething (reverseG arr) )
 
 getTestG1 = putStrLn$ CUDA.genKernelNew "testG1" testG1 inputG
 
 testG2 :: Blocks (Array Pull EInt)
           -> Blocks (Array Pull EInt)
           -> Program (Blocks (Array Pull EInt))
-testG2 _ arr = forceBlocks ( mapBlocks mapSomething (reverseG arr) )
+testG2 _ arr = forceBlocks ( fmap mapSomething (reverseG arr) )
 
 
 ---------------------------------------------------------------------------
@@ -250,7 +243,7 @@ getScan n = CUDA.genKernel "scan" (sklanskyLocal n (+))
 
 testGRev :: Blocks (Array Pull EWord32)
             -> Program (Blocks (Array Pull EWord32))
-testGRev arr = forceBlocks ( mapBlocks (push . rev) arr )
+testGRev arr = forceBlocks ( fmap (push . rev) arr )
 
 
 wc1 = 
