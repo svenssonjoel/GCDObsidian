@@ -261,20 +261,19 @@ wc1 =
     myCudaFun <- capture testGRev inputWord32
 
     -- Set up data and launch the kernel!
-
-    r <- useVector (V.fromList [0..511::Word32]) $ \ inp -> 
+    useVector (V.fromList [0..511::Word32]) $ \ inp -> 
       allocaVector 512 $ \out ->
         do
           lift$ CUDA.launchKernel myCudaFun
                                   (2,1,1)   -- number of Blocks
                                   (256,1,1) -- Threads per block
-                                  0
+                                  0         -- amount of shared mem
                                   Nothing
                                   [CUDA.VArg inp, CUDA.VArg out]
-          lift$ CUDA.peekListArray 512 out
+          r <- lift$ CUDA.peekListArray 512 out
+          lift $ putStrLn $ show  (r :: [Word32])
 
-    -- Show the result of computing on the GPU 
-    lift $ putStrLn $ show  (r :: [Word32]) 
+
 
 t2 =
   do

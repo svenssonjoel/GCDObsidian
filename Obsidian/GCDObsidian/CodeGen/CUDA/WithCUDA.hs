@@ -15,9 +15,7 @@ import Control.Monad.State
 
 import qualified Data.Vector.Storable as V
 import Foreign.Marshal.Array
-import Foreign.ForeignPtr
-{- first attempt at running Obsidian/CUDA computations
-   from within Haskell -}
+import Foreign.ForeignPtr.Unsafe -- (req GHC 7.6 ?) 
 
 ---------------------------------------------------------------------------
 -- Get a list of devices from the CUDA driver
@@ -87,7 +85,7 @@ capture f inputs =
         fn     = kn ++ ".cu"
         cub    = fn ++ ".cubin" 
         prgstr = genKernelNew kn f inputs 
-        header = "#include <stdint.h>\n"
+        header = "#include <stdint.h>\n" -- more includes ? 
          
     lift $ storeAndCompile (fn) (header ++ prgstr)
 
