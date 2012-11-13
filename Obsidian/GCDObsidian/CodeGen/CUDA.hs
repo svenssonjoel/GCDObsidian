@@ -1,6 +1,6 @@
 
 module Obsidian.GCDObsidian.CodeGen.CUDA 
-       (genKernel, genKernelNew) where 
+       (genKernel) where 
      --  ,genKernel_ 
      --  ,genKernelGlob
      --  ,genKernelGlob_ ) where 
@@ -76,6 +76,7 @@ kernelHead name ins outs =
 ---------------------------------------------------------------------------
 -- genKernel (String based) 
 ---------------------------------------------------------------------------
+{-
 genKernel :: (InOut a, InOut b) => String -> (a -> P.Program b) -> a -> String 
 genKernel name kernel a = cuda 
   where 
@@ -107,9 +108,9 @@ genKernel name kernel a = cuda
                    c
                    name
                    (map fst2 ins) (map fst2 outs)
-
-genKernelNew :: ToProgram a b => String -> (a -> b) -> Ips a b -> String 
-genKernelNew name kernel a = proto ++ cuda 
+-} 
+genKernel :: ToProgram a b => String -> (a -> b) -> Ips a b -> String 
+genKernel name kernel a = proto ++ cuda 
   where
     (ins,prg) = toProgram 0 kernel a
     

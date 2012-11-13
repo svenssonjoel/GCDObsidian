@@ -48,7 +48,7 @@ input1 :: Array Pull EInt
 input1 = namedArray "apa" 32
 
 -- Uses genKernel, that implicitly maps over all blocks. 
-getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
+-- getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
 -- getMapFusion_  = putStrLn$ CL.genKernel_ "mapFusion" mapFusion input1
 
 ---------------------------------------------------------------------------
@@ -145,7 +145,7 @@ inputG = namedGlobal "apa" (variable "N") 256
 testG1 :: Blocks (Array Pull EInt) -> Program (Blocks (Array Pull EInt))
 testG1 arr = forceBlocks ( fmap mapSomething (reverseG arr) )
 
-getTestG1 = putStrLn$ CUDA.genKernelNew "testG1" testG1 inputG
+getTestG1 = putStrLn$ CUDA.genKernel "testG1" testG1 inputG
 
 testG2 :: Blocks (Array Pull EInt)
           -> Blocks (Array Pull EInt)
@@ -206,7 +206,7 @@ inputWord32 :: Blocks (Array Pull (Exp Word32))
 inputWord32 = namedGlobal "apa" (variable "N") 256
 
 
-getHist = putStrLn$ CUDA.genKernelNew "hist" (hist 256)  inputWord32
+-- getHist = putStrLn$ CUDA.genKernel "hist" (hist 256)  inputWord32
 
 
 ---------------------------------------------------------------------------
@@ -226,8 +226,8 @@ fan op arr = conc (a1, fmap (op c) a2)
       (a1,a2) = halve arr
       c = a1 ! (fromIntegral (len a1 - 1))
 
-getScan n = CUDA.genKernel "scan" (sklanskyLocal n (+)) 
-                    (namedArray "input" (2^n) :: Array Pull (Exp Word32))
+--getScan n = CUDA.genKernel "scan" (sklanskyLocal n (+)) 
+--                    (namedArray "input" (2^n) :: Array Pull (Exp Word32))
 
 -- TODO: Rewrite Scan with BlockMap functionality.
 --       Also add the output of blockmaxs, and tweak code generation to
@@ -266,8 +266,7 @@ wc1 =
           r <- lift$ CUDA.peekListArray 512 out
           lift $ putStrLn $ show  (r :: [Word32])
 
-
-
+{- 
 t2 =
   do
     let str = getScan 8
@@ -275,3 +274,4 @@ t2 =
     putStrLn fp
     where
       header = "#include <stdint.h>\n"
+-} 

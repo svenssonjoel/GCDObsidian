@@ -84,7 +84,7 @@ capture f inputs =
     let kn     = "gen" ++ show i
         fn     = kn ++ ".cu"
         cub    = fn ++ ".cubin" 
-        prgstr = genKernelNew kn f inputs 
+        prgstr = genKernel kn f inputs 
         header = "#include <stdint.h>\n" -- more includes ? 
          
     lift $ storeAndCompile (fn) (header ++ prgstr)

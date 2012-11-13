@@ -29,13 +29,14 @@ import Data.Maybe
 
 ----------------------------------------------------------------------------
 -- 
-data Value = IntVal Int
+data Value = IntVal Int         -- allow ? 
            | Int8Val Int8
            | Int16Val Int16
            | Int32Val Int32
            | Int64Val Int64
            | FloatVal Float 
            | DoubleVal Double
+           | WordVal   Word     -- allow ? 
            | Word8Val  Word8
            | Word16Val Word16
            | Word32Val Word32
@@ -44,7 +45,7 @@ data Value = IntVal Int
              
 data CType = CVoid | CInt | CFloat | CDouble
            | CInt8 | CInt16 | CInt32 | CInt64 
-           | CWord8 | CWord16 | CWord32 | CWord64
+           | CWord | CWord8 | CWord16 | CWord32 | CWord64
            | CPointer CType -- *type
            | CArray [CExpr] CType -- type[e1][e2][e3]..[en] or type[] 
            | CQualified CQualifyer CType 

@@ -94,6 +94,10 @@ instance Scalar Double where
   sizeOf _ = Storable.sizeOf (undefined :: Double) 
   typeOf _ = Double
 
+instance Scalar Word where
+  sizeOf _ = Storable.sizeOf (undefined :: Word) 
+  typeOf _ = Word
+
   
 instance Scalar Word8 where
   sizeOf _ = 1
@@ -584,6 +588,10 @@ instance ExpToCExp Float where
 
 instance ExpToCExp Double where 
   expToCExp (Literal a) = cLiteral (DoubleVal a) CDouble
+  expToCExp a = expToCExpGeneral a 
+
+instance ExpToCExp Word where 
+  expToCExp (Literal a) = cLiteral (WordVal a) CWord
   expToCExp a = expToCExpGeneral a 
 
 instance ExpToCExp Word8 where 
