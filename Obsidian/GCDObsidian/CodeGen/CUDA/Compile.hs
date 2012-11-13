@@ -18,6 +18,7 @@ storeAndCompile fp code =
     writeFile fp code
     
     let nfp = fp ++  ".cubin"
+
     (_,_,_,pid) <-
       createProcess (shell ("nvcc -cubin -o " ++ nfp ++ " " ++ fp))
     exitCode <- waitForProcess pid
