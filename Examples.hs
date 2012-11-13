@@ -13,7 +13,7 @@ import qualified Foreign.CUDA.Driver as CUDA
 --import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
 import qualified Obsidian.GCDObsidian.CodeGen.Program as CGP
-import           Obsidian.GCDObsidian.CodeGen.InOut
+import           Obsidian.GCDObsidian.CodeGen.InOuts
 
 import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.Exp

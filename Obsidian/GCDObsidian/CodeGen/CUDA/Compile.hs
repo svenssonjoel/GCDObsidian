@@ -16,7 +16,10 @@ storeAndCompile :: FilePath -> String -> IO FilePath
 storeAndCompile fp code =
   do
     writeFile fp code
+    
     let nfp = fp ++  ".cubin"
-    createProcess (shell ("nvcc -cubin -o " ++ nfp ++ " " ++ fp))
+    (_,_,_,pid) <-
+      createProcess (shell ("nvcc -cubin -o " ++ nfp ++ " " ++ fp))
+    exitCode <- waitForProcess pid
     return nfp
 
