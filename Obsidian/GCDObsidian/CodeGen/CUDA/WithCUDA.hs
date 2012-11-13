@@ -50,7 +50,8 @@ propsSummary props = unlines
 ---------------------------------------------------------------------------
 
 data CUDAState = CUDAState { csIdent :: Int,
-                             csCtx   :: CUDA.Context }
+                             csCtx   :: CUDA.Context,
+                             csProps :: CUDA.DeviceProperties}
 
 type CUDA a =  StateT CUDAState IO a
 
@@ -70,7 +71,7 @@ withCUDA p =
       (x:xs) ->
         do 
           ctx <- CUDA.create (fst x) [CUDA.SchedAuto] 
-          runStateT p (CUDAState 0 ctx) 
+          runStateT p (CUDAState 0 ctx (snd x)) 
           CUDA.destroy ctx
 
 
@@ -81,13 +82,16 @@ capture :: ToProgram a b => (a -> b) -> Ips a b -> CUDA CUDA.Fun
 capture f inputs =
   do
     i <- newIdent
+
+    props <- return . csProps =<< get
+    
     let kn     = "gen" ++ show i
         fn     = kn ++ ".cu"
         cub    = fn ++ ".cubin" 
         prgstr = genKernel kn f inputs 
         header = "#include <stdint.h>\n" -- more includes ? 
          
-    lift $ storeAndCompile (fn) (header ++ prgstr)
+    lift $ storeAndCompile (archStr props) (fn) (header ++ prgstr)
 
     mod <- liftIO $ CUDA.loadFile cub
     fun <- liftIO $ CUDA.getFun mod kn 
@@ -97,6 +101,15 @@ capture f inputs =
            
     return fun
 
+archStr :: CUDA.DeviceProperties -> String
+archStr props = "-arch=sm_" ++ archStr' (CUDA.computeCapability props)
+  where
+    archStr' (1.0) = "10"
+    archStr' (1.2) = "12"
+    archStr' (2.0) = "20" 
+    archStr' (3.0) = "30"
+    -- archStr' x = error $ show x 
+    
 
 ---------------------------------------------------------------------------
 -- useVector: Copies a Data.Vector from "Haskell" onto the GPU Global mem 
