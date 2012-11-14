@@ -38,13 +38,18 @@ tid :: Exp Word32
 tid = variable "tid" 
 
 genType _ Int = "int "
+genType _ Int8 = "int8_t "
+genType _ Int16 = "int16_t "
+genType _ Int32 = "int32_t "
+genType _ Int64 = "int64_t "
 genType _ Float = "float "
 genType _ Double = "double "
 genType _ Bool = "int " 
 genType _ Word8 = "uint8_t "
 genType _ Word16 = "uint16_t "
 genType _ Word32 = "uint32_t "
-genType _ Word64 = "uint64_t " 
+genType _ Word64 = "uint64_t "
+
 genType gc (Pointer t) = genType gc t ++ "*"
 genType gc (Global t) = global gc ++" "++ genType gc t  -- "__global " ++ genType t
 genType gc (Local t)  = local gc  ++" "++ genType gc t 

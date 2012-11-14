@@ -281,8 +281,9 @@ instance (Scalar a, Ord a) => Ord (Exp a) where
     min a b = BinOp Min a b
     max a b = BinOp Max a b
 
-------------------------------------------------------------------------------
--- INT Instances 
+---------------------------------------------------------------------------
+-- INT Instances
+---------------------------------------------------------------------------
 instance Num (Exp Int) where 
   (+) a (Literal 0) = a
   (+) (Literal 0) a = a
@@ -337,7 +338,65 @@ instance Integral (Exp Int) where
   div a b = BinOp Div a b
   quotRem = undefined
   toInteger = undefined
+
+---------------------------------------------------------------------------
+-- Int32
+---------------------------------------------------------------------------
+instance Num (Exp Int32) where 
+  (+) a (Literal 0) = a
+  (+) (Literal 0) a = a
+  (+) (Literal a) (Literal b) = Literal (a+b)
+  -- Added 2 Oct 2012
+  (+) (BinOp Sub b (Literal a)) (Literal c) | a == c  = b 
+  (+) (Literal b) (BinOp Sub a (Literal c)) | b == c  = a 
+  (+) a b = BinOp Add a b  
   
+  (-) a (Literal 0) = a 
+  (-) (Literal a) (Literal b) = Literal (a - b) 
+  (-) a b = BinOp Sub a b 
+  
+  (*) a (Literal 1) = a 
+  (*) (Literal 1) a = a
+  (*) a b = BinOp Mul a b 
+  
+  signum = undefined 
+  abs = undefined
+  fromInteger a = Literal (fromInteger a) 
+  
+-- Added new cases for literal 0 (2012/09/25)
+instance Bits (Exp Int32) where  
+  (.&.) x (Literal 0) = Literal 0
+  (.&.) (Literal 0) x = Literal 0 
+  (.&.) (Literal a) (Literal b) = Literal (a .&. b) 
+  (.&.) a b = BinOp BitwiseAnd a b
+  (.|.) (Literal a) (Literal b) = Literal (a .|. b)
+  (.|.) a b = BinOp BitwiseOr  a b
+  xor (Literal a) (Literal b) = Literal (a `xor` b) 
+  xor   a b = BinOp BitwiseXor a b 
+  
+  --TODO: See that this is not breaking something (32/64 bit, CUDA/Haskell)
+  complement (Literal i) = Literal (complement i)
+  
+  complement a = UnOp BitwiseNeg a
+  shiftL a i = BinOp ShiftL  a (Literal i)
+  shiftR a i = BinOp ShiftR  a (Literal i)
+  bitSize a  = sizeOf a * 8
+  isSigned a = True
+
+-- TODO: change undefined to some specific error.
+instance Real (Exp Int32) where
+  toRational = undefined 
+
+instance Enum (Exp Int32) where
+  toEnum = undefined
+  fromEnum = undefined 
+         
+instance Integral (Exp Int32) where
+  mod a b = BinOp Mod a b 
+  div a b = BinOp Div a b
+  quotRem = undefined
+  toInteger = undefined
+
 
 ----------------------------------------------------------------------------
 -- Word32 Instances 

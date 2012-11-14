@@ -101,6 +101,28 @@ forceBlocks (Blocks n bxf) =
       where 
         assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
 
+
+forceBlocks' :: forall a. Scalar a => Blocks (Program (Array Pull (Exp a)))
+               -> Program (Blocks (Array Pull (Exp a)))
+forceBlocks' (Blocks n bxf) =  
+  do
+    global <- Output $ Pointer (typeOf (undefined :: (Exp a))) 
+
+    -- dryrun to get length. 
+    (Array s (Pull pfun)) <- bxf (variable "dummy") 
+    
+    ForAllBlocks n
+      (\bid ->
+        do
+          arr <- bxf bid
+          let (Array s (Push pfun)) = push arr 
+          pfun (assignTo global (bid, s)))
+     
+    return $ Blocks n  $ 
+             \bix -> Array s (Pull (\ix -> index global ((bix * (fromIntegral s)) + ix)))
+      where 
+        assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
+
           
 ---------------------------------------------------------------------------
 -- Global array permutation
@@ -212,7 +234,12 @@ inputWord32 = namedGlobal "apa" (variable "N") 256
 ---------------------------------------------------------------------------
 -- Scan 
 ---------------------------------------------------------------------------
-
+sklanskyLocal
+  :: Scalar a =>
+     Int
+     -> (Exp a -> Exp a -> Exp a)
+     -> Array Pull (Exp a)
+     -> Program (Array Pull (Exp a))
 sklanskyLocal 0 op arr = return (id arr)
 sklanskyLocal n op arr =
   do 
@@ -226,8 +253,14 @@ fan op arr = conc (a1, fmap (op c) a2)
       (a1,a2) = halve arr
       c = a1 ! (fromIntegral (len a1 - 1))
 
---getScan n = CUDA.genKernel "scan" (sklanskyLocal n (+)) 
---                    (namedArray "input" (2^n) :: Array Pull (Exp Word32))
+
+sklanskyAllBlocks :: Int -> Blocks (Array Pull (Exp Int32)) -> Program (Blocks (Array Pull (Exp Int32)))
+sklanskyAllBlocks logbsize arr = forceBlocks' $ fmap (sklanskyLocal logbsize (+)) arr
+   
+
+
+getScan n = CUDA.genKernel "scan" (sklanskyAllBlocks n) 
+                    (namedGlobal "apa" (variable "N") (2^n) :: Blocks (Array Pull (Exp Int32)))
 
 -- TODO: Rewrite Scan with BlockMap functionality.
 --       Also add the output of blockmaxs, and tweak code generation to
@@ -266,12 +299,12 @@ wc1 =
           r <- lift$ CUDA.peekListArray 512 out
           lift $ putStrLn $ show  (r :: [Word32])
 
-{- 
+ 
 t2 =
   do
     let str = getScan 8
-    fp <- storeAndCompile "scan.cu" (header ++ str)
+    fp <- storeAndCompile "-arch=sm_30" "scan.cu" (header ++ str)
     putStrLn fp
     where
       header = "#include <stdint.h>\n"
--} 
+ 
