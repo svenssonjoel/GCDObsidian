@@ -707,6 +707,10 @@ expToCExpGeneral e@(UnOp  op e1)     = cUnOp  (unOpToCUnOp op) (expToCExp e1) (t
 
 typeToCType Bool = CInt 
 typeToCType Int  = CInt
+typeToCType Int8  = CInt8
+typeToCType Int16  = CInt16
+typeToCType Int32  = CInt32
+typeToCType Int64  = CInt64
 typeToCType Float = CFloat
 typeToCType Double = CDouble
 typeToCType Word8 = CWord8

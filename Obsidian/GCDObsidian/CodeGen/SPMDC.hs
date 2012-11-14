@@ -181,6 +181,10 @@ ppCAttrib ppc (CAttribAligned x) = line$ "__attribute__ ((aligned(" ++ show x ++
 ----------------------------------------------------------------------------
 ppCType ppc CVoid    = line "void"
 ppCType ppc CInt     = line "int"
+ppCType ppc CInt8    = line "int8_t"
+ppCType ppc CInt16   = line "int16_t"
+ppCType ppc CInt32   = line "int32_t"
+ppCType ppc CInt64   = line "int64_t"
 ppCType ppc CFloat   = line "float"
 ppCType ppc CDouble  = line "double"            
 ppCType ppc CWord8   = line "uint8_t"

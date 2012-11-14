@@ -228,7 +228,7 @@ inputWord32 :: Blocks (Array Pull (Exp Word32))
 inputWord32 = namedGlobal "apa" (variable "N") 256
 
 
--- getHist = putStrLn$ CUDA.genKernel "hist" (hist 256)  inputWord32
+getHist = putStrLn$ CUDA.genKernel "hist" (hist 256)  inputWord32
 
 
 ---------------------------------------------------------------------------
@@ -260,6 +260,10 @@ sklanskyAllBlocks logbsize arr = forceBlocks' $ fmap (sklanskyLocal logbsize (+)
 
 
 getScan n = CUDA.genKernel "scan" (sklanskyAllBlocks n) 
+                    (namedGlobal "apa" (variable "N") (2^n) :: Blocks (Array Pull (Exp Int32)))
+
+
+getScan_ n = CUDA.genKernel_ "scan" (sklanskyAllBlocks n) 
                     (namedGlobal "apa" (variable "N") (2^n) :: Blocks (Array Pull (Exp Int32)))
 
 -- TODO: Rewrite Scan with BlockMap functionality.

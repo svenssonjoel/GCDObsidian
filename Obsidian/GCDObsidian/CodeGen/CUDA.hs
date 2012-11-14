@@ -1,7 +1,7 @@
 
 module Obsidian.GCDObsidian.CodeGen.CUDA 
-       (genKernel) where 
-     --  ,genKernel_ 
+       (genKernel
+       ,genKernel_ ) where  
      --  ,genKernelGlob
      --  ,genKernelGlob_ ) where 
 
@@ -72,56 +72,20 @@ kernelHead name ins outs =
     typeList []              = [] 
     typeList ((a,t):xs)      = (genType gc t ++ a) : typeList xs
   
-  
 ---------------------------------------------------------------------------
--- genKernel (String based) 
+-- genKernel 
 ---------------------------------------------------------------------------
-{-
-genKernel :: (InOut a, InOut b) => String -> (a -> P.Program b) -> a -> String 
-genKernel name kernel a = cuda 
-  where 
-    (input,ins)  = runInOut (createInputs a) (0,[])
-
-    -- get result and translation into backend program. 
-    (res,tmpc)  = evalPrg (kernel input) 
-
-    -- c = syncAnalysis c_old  
-    lc  = liveness tmpc
-
-    -- Creates (name -> memory address) map      
-    (m,mm) = mapMemory lc sharedMem Map.empty
-
-    threadBudget =
-      case tmpc of
-        Skip -> gcdThreads res
-        a    -> threadsPerBlock tmpc
-                -- P.programThreads (kernel input) -- tmpc
-        
-    (outCode,outs) =
-      runInOut (writeOutputs threadBudget res) (0,[])
-   
-    -- HACKITY (runPrg should be called convPrg perhaps) 
-    c = tmpc `ProgramSeq` (convPrg outCode)      
-
-    
-    cuda = getCUDA (config threadBudget mm (size m))
-                   c
-                   name
-                   (map fst2 ins) (map fst2 outs)
--} 
 genKernel :: ToProgram a b => String -> (a -> b) -> Ips a b -> String 
 genKernel name kernel a = proto ++ cuda 
   where
     (ins,prg) = toProgram 0 kernel a
+
+    -- collect outputs and extract the "actual" kernel
+    outs = collectOutputs prg
+    kern = extract prg 
     
-    --(input,ins)  = runInOut (createInputs a) (0,[])
-
-    -- get result and translation into backend program. 
-    --(res,tmpc)  = evalPrg (kernel input) 
-
-    -- c = syncAnalysis c_old  
     lc  = liveness kern -- tmpc
-
+    
     -- Creates (name -> memory address) map      
     (m,mm) = mapMemory lc sharedMem Map.empty
 
@@ -130,22 +94,38 @@ genKernel name kernel a = proto ++ cuda
         Skip -> error "empty programs not yet supported" -- gcdThreads res
         a    -> threadsPerBlock prg 
 
-
-    outs = collectOutputs prg
-    kern = extract prg 
-    --(outCode,outs) =
-    --  runInOut (writeOutputs threadBudget res) (0,[])
-   
-    -- HACKITY (runPrg should be called convPrg perhaps) 
-    -- c = tmpc `ProgramSeq` (convPrg outCode)      
-
     proto = getProto name ins outs 
     cuda = getCUDA (config threadBudget mm (size m))
                    kern
                    name
                    ins outs
 
+genKernel_ :: ToProgram a b => String -> (a -> b) -> Ips a b -> String 
+genKernel_ name kernel a = {-proto ++ -} cuda
+  where
+    (ins,prg) = toProgram 0 kernel a
+    -- collect outputs and extract the "actual" kernel
+    outs = collectOutputs prg
+    kern = extract prg 
+    lc  = liveness kern 
+    (m,mm) = mapMemory lc sharedMem Map.empty
+    threadBudget =
+      case prg of
+        Skip -> error "empty programs not yet supported" -- gcdThreads res
+        a    -> threadsPerBlock prg 
 
+    spmd = performCSE2  (progToSPMDC threadBudget kern)
+    body = shared : mmSPMDC mm spmd
+
+
+    swap (x,y) = (y,x)
+    inputs = map ((\(t,n) -> (typeToCType t,n)) . swap) ins
+    outputs = map ((\(t,n) -> (typeToCType t,n)) . swap) outs 
+    
+    ckernel = CKernel CQualifyerKernel CVoid name (inputs++outputs) body
+    shared = CDecl (CQualified CQualifyerExtern (CQualified CQualifyerShared ((CQualified (CQualifyerAttrib (CAttribAligned 16)) (CArray []  (CWord8)))))) "sbase"
+    
+    cuda = printCKernel (PPConfig "__global__" "" "" "__syncthreads()") ckernel 
 
 ---------------------------------------------------------------------------
 -- genKernel_ (go via SPMDC and CSE) 
