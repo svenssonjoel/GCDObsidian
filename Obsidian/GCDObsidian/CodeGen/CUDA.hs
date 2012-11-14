@@ -54,8 +54,9 @@ sBase size = if size > 0
 sbaseStr 0 t    = parens$ genCast gc t ++ "sbase" 
 sbaseStr addr t = parens$ genCast gc t ++ "(sbase + " ++ show addr ++ ")" 
 
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- C style function "header"
+---------------------------------------------------------------------------
 kernelHead :: Name -> 
               [(String,Type)] -> 
               [(String,Type)] -> 
@@ -101,7 +102,7 @@ genKernel name kernel a = proto ++ cuda
                    ins outs
 
 genKernel_ :: ToProgram a b => String -> (a -> b) -> Ips a b -> String 
-genKernel_ name kernel a = {-proto ++ -} cuda
+genKernel_ name kernel a = proto ++  cuda
   where
     (ins,prg) = toProgram 0 kernel a
     -- collect outputs and extract the "actual" kernel
@@ -124,7 +125,8 @@ genKernel_ name kernel a = {-proto ++ -} cuda
     
     ckernel = CKernel CQualifyerKernel CVoid name (inputs++outputs) body
     shared = CDecl (CQualified CQualifyerExtern (CQualified CQualifyerShared ((CQualified (CQualifyerAttrib (CAttribAligned 16)) (CArray []  (CWord8)))))) "sbase"
-    
+
+    proto = getProto name ins outs 
     cuda = printCKernel (PPConfig "__global__" "" "" "__syncthreads()") ckernel 
 
  
