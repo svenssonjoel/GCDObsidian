@@ -2,8 +2,6 @@
 module Obsidian.GCDObsidian.CodeGen.CUDA 
        (genKernel
        ,genKernel_ ) where  
-     --  ,genKernelGlob
-     --  ,genKernelGlob_ ) where 
 
 import Data.List
 import Data.Word 
@@ -15,7 +13,6 @@ import Obsidian.GCDObsidian.Exp
 
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
---import Obsidian.GCDObsidian.Program
 
 import Obsidian.GCDObsidian.CodeGen.PP
 import Obsidian.GCDObsidian.CodeGen.Common
@@ -127,118 +124,7 @@ genKernel_ name kernel a = {-proto ++ -} cuda
     
     cuda = printCKernel (PPConfig "__global__" "" "" "__syncthreads()") ckernel 
 
----------------------------------------------------------------------------
--- genKernel_ (go via SPMDC and CSE) 
---------------------------------------------------------------------------- 
-    {- 
-genKernel_ :: (InOut a, InOut b) => String -> (a -> Kernel b) -> a -> String 
-genKernel_ name kernel a = cuda 
-  where 
-    (input,ins)  = runInOut (createInputs a) (0,[])
-  
-    ((res,_),c_old)  = runKernel (kernel input)
-    
-    c = syncAnalysis c_old  
-    lc  = liveness c
-    
-    
-    threadBudget =  
-      case c of 
-        Skip -> gcdThreads res
-        a  -> threadsNeeded c 
-        
-    (m,mm) = mapMemory lc sharedMem  (Map.empty)
-    (outCode,outs)   = 
-      runInOut (writeOutputs threadBudget res {-nosync-}) (0,[])
-
-    c' = c  *>* outCode 
-    
-    swap (x,y) = (y,x)
-    inputs = map ((\(t,n) -> (typeToCType t,n)) . swap . fst2) ins
-    outputs = map ((\(t,n) -> (typeToCType t,n)) . swap . fst2) outs 
-    
-   
-    spmd = performCSE2  (progToSPMDC threadBudget c')
-    body = shared : mmSPMDC mm spmd
-    ckernel = CKernel CQualifyerKernel CVoid name (inputs++outputs) body
-    shared = CDecl (CQualified CQualifyerExtern (CQualified CQualifyerShared ((CQualified (CQualifyerAttrib (CAttribAligned 16)) (CArray []  (CWord8)))))) "sbase"
-    
-    cuda = printCKernel (PPConfig "__global__" "" "" "__syncthreads()") ckernel 
-  
-    
-    -- cuda = getCUDA (config threadBudget mm (size m)) c' name (map fst2 ins) (map fst2 outs) 
-
-
----------------------------------------------------------------------------
--- Global array kernels
----------------------------------------------------------------------------
-genKernelGlob :: (GlobalInput a, GlobalOutput b)
-                 => String 
-                 -> (a -> Kernel b) 
-                 -> a 
-                 -> String
-genKernelGlob name kernel a = cuda 
-  where 
-    (input,ins) = runInOut_ (createGlobalInput a)                             
-    ((res,_),c_old) = runKernel (kernel input) 
-    
-    -- TODO: *ERROR* will only work if there 
-    --       is atleast one sync in the kernel. 
-    --  + Maybe not an error. This kind of globalKernel 
-    --    must push at some point since only push arrays are 
-    --    acceptable global outputs
-    threadBudget = threadsNeeded c 
-    
-    lc = liveness c_old 
-    
-    (m,mm) = mapMemory lc sharedMem Map.empty
-    (outcode,outs) = 
-      runInOut_ (writeGlobalOutput threadBudget res) 
-      
-    c = c_old *>* outcode
-     
-    cuda = getCUDA (config threadBudget mm (size m)) 
-                   c  
-                   name
-                   (map fst2 ins) 
-                   (map fst2 outs)
  
-
-
-genKernelGlob_ :: (GlobalInput a, GlobalOutput b)
-                 => String 
-                 -> (a -> Kernel b) 
-                 -> a 
-                 -> String
-genKernelGlob_ name kernel a = cuda 
-  where 
-    (input,ins) = runInOut_ (createGlobalInput a)                             
-    ((res,_),c_old) = runKernel (kernel input) 
-    
-    -- TODO: *ERROR* will only work if there 
-    --       is atleast one sync in the kernel. 
-    --       (This kind of kernel always will have) 
-    threadBudget = threadsNeeded c 
-    
-    lc = liveness c_old 
-    
-    (m,mm) = mapMemory lc sharedMem Map.empty
-    (outcode,outs) = 
-      runInOut_ (writeGlobalOutput threadBudget res) 
-      
-    c = c_old *>* outcode
-    
-
-    swap (x,y) = (y,x)
-    inputs = map ((\(t,n) -> (typeToCType t,n)) . swap . fst2) ins
-    outputs = map ((\(t,n) -> (typeToCType t,n)) . swap . fst2) outs 
-    
-    spmd = performCSE2 (progToSPMDC threadBudget c)
-    body =  mmSPMDC mm spmd
-    ckernel = CKernel CQualifyerKernel CVoid name (inputs++outputs) body
-    cuda = printCKernel (PPConfig "__global__" "" "" "__syncthreads()") ckernel 
-  
--} 
 ---------------------------------------------------------------------------
 -- put together all the parts that make a CUDA kernel.
 ---------------------------------------------------------------------------
@@ -304,21 +190,10 @@ genProg mm nt (Assign name ix a) =
         
         
 genProg mm nt (ForAll n f) = potentialCond gc mm n nt $ 
-                               genProg mm nt (f (ThreadIdx X) {- (variable "tid") -} )
--- TODO: The following line is a HACK to make code generation 
----      for the histo function in Counting sort "work". 
---       More thought needed here. 
---genProg mm nt (ForAllGlobal f n) = genProg mm nt (f ((BlockIdx X * BlockDim X) + ThreadIdx X))
--- error "hello world"                                
---genProg mm nt (f (variable "gtid"))
-  
-  -- TODO: Many details missing here, think about nested ForAlls 
-  -- TODO: Sync only if needed here                              
-  --      ++ Might help to add information to Program type that a "sync is requested"                              
-                             
-genProg mm nt (Allocate name size t _) = return () -- genProg mm nt prg
+                               genProg mm nt (f (ThreadIdx X)  )
+genProg mm nt (Allocate name size t _) = return () 
 genProg mm nt (Synchronize True) = syncLine >> newline 
-genProg mm nt (Synchronize False) = return () -- line "\\\\__synchthreads();" >> newline 
+genProg mm nt (Synchronize False) = return () 
 genProg mm nt Skip = return ()
 genProg mm nt (ProgramSeq p1 p2) = 
   do 
@@ -327,9 +202,9 @@ genProg mm nt (ProgramSeq p1 p2) =
 
 
 
----------------------------------------------------------------------------- 
--- genProgSPMDC 
-    
+---------------------------------------------------------------------------
+-- progToSPMDC  
+--------------------------------------------------------------------------- 
 ctid = cVar "tid" CWord32
   
 progToSPMDC :: Word32 -> Program a -> [SPMDC] 
@@ -351,15 +226,16 @@ progToSPMDC nt (Synchronize False) = []
 progToSPMDC nt Skip = []
 progToSPMDC nt (ProgramSeq p1 p2) = progToSPMDC nt p1 ++ progToSPMDC nt p2
 
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- generate a sbase CExpr
-
+---------------------------------------------------------------------------
 sbaseCExpr 0    = cVar "sbase" (CPointer CWord8) 
 sbaseCExpr addr = cBinOp CAdd (cVar "sbase" (CPointer CWord8)) 
                               (cLiteral (Word32Val addr) CWord32) 
                               (CPointer CWord8) 
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Memory map the arrays in an SPMDC
+---------------------------------------------------------------------------
 mmSPMDC :: MemMap -> [SPMDC] -> [SPMDC] 
 mmSPMDC mm [] = [] 
 mmSPMDC mm (x:xs) = mmSPMDC' mm x : mmSPMDC mm xs
@@ -373,8 +249,9 @@ mmSPMDC' mm (CFunc name es) = cFunc name (map (mmCExpr mm) es)
 mmSPMDC' mm CSync           = CSync
 mmSPMDC' mm (CIf   e s1 s2) = cIf (mmCExpr mm e) (mmSPMDC mm s1) (mmSPMDC mm s2)
 mmSPMDC' mm (CDeclAssign t nom e) = cDeclAssign t nom (mmCExpr mm e)
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Memory map the arrays in an CExpr
+---------------------------------------------------------------------------
 mmCExpr mm (CExpr (CVar nom t)) =  
   case Map.lookup nom mm of 
     Just (addr,t) -> 
@@ -391,5 +268,6 @@ mmCExpr mm (CExpr (CCast e t)) = cCast (mmCExpr mm e) t
 mmCExpr mm a = a 
           
   
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- 
+---------------------------------------------------------------------------
