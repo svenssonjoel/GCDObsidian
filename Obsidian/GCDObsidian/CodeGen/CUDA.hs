@@ -88,7 +88,10 @@ genKernel name kernel a = proto ++ cuda
 
     threadBudget =
       case prg of
-        Skip -> error "empty programs not yet supported" -- gcdThreads res
+        -- The skip case should not really happen
+        -- but if we change our mind about that then
+        -- it should use sizes of "result" to decide number of threads.
+        Skip -> error "empty programs not yet supported"
         a    -> threadsPerBlock prg 
 
     proto = getProto name ins outs 
@@ -108,7 +111,7 @@ genKernel_ name kernel a = {-proto ++ -} cuda
     (m,mm) = mapMemory lc sharedMem Map.empty
     threadBudget =
       case prg of
-        Skip -> error "empty programs not yet supported" -- gcdThreads res
+        Skip -> error "empty programs not yet supported" 
         a    -> threadsPerBlock prg 
 
     spmd = performCSE2  (progToSPMDC threadBudget kern)
@@ -187,8 +190,7 @@ genProg mm nt (Assign name ix a) =
 --        # CSE
 --        # Liveness
 --
-        
-        
+                
 genProg mm nt (ForAll n f) = potentialCond gc mm n nt $ 
                                genProg mm nt (f (ThreadIdx X)  )
 genProg mm nt (Allocate name size t _) = return () 
