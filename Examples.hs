@@ -254,8 +254,11 @@ fan op arr = conc (a1, fmap (op c) a2)
       c = a1 ! (fromIntegral (len a1 - 1))
 
 
-sklanskyAllBlocks :: Int -> Blocks (Array Pull (Exp Int32)) -> Program (Blocks (Array Pull (Exp Int32)))
-sklanskyAllBlocks logbsize arr = forceBlocks' $ fmap (sklanskyLocal logbsize (+)) arr
+sklanskyAllBlocks :: Int
+                     -> Blocks (Array Pull (Exp Int32))
+                     -> Program (Blocks (Array Pull (Exp Int32)))
+sklanskyAllBlocks logbsize arr =
+  forceBlocks' $ fmap (sklanskyLocal logbsize (+)) arr
    
 
 
@@ -270,9 +273,39 @@ getScan_ n = CUDA.genKernel_ "scan" (sklanskyAllBlocks n)
 --       Also add the output of blockmaxs, and tweak code generation to
 --       allow such kernels. 
 ---------------------------------------------------------------------------
--- Distribute
+-- Reconstruct
 ---------------------------------------------------------------------------
 
+type GlobalArray p a = Blocks (Array p a) 
+
+reconstruct :: Exp Word32
+               -> GlobalArray Pull (Exp Word32)
+               -> GlobalArray Pull (Exp Word32)
+               -> Program (GlobalArray Pull (Exp Word32))
+reconstruct nb inp pos = forceBlocks $ 
+  Blocks nb (\bix -> -- nb seems totally unimportant
+                     -- (does appear in code). rethink this.
+    Array bsize
+    $ Push (\k -> do
+        ForAll bsize
+          (\ix -> k ((pos !| bix) ! ix , 
+                     (inp !| bix) ! ix))))
+  where
+    bsize = len (inp !| 0) 
+-- Check that reconstruct does what it is suppoed to
+-- TODO: Needs type convertion functionality if this is
+--       to be implemented for anything else than Word32.
+--         (indices are Word32)
+getReconstruct n =
+  CUDA.genKernel "reconstruct"
+                 (reconstruct (variable "N"))
+                 (inG n :-> inG n)
+                 
+inG n = namedGlobal "apa" (variable "N") (2^n)
+        :: Blocks (Array Pull (Exp Word32))
+
+
+    
 
 ---------------------------------------------------------------------------
 -- Testing WithCUDA aspects

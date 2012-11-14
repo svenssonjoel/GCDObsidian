@@ -18,6 +18,7 @@ namedGlobal name bn bs = Blocks bn {- bs -}
                          (\bix -> (mkPullArray bs
                                    (\ix -> index name (bix * (fromIntegral bs) + ix)))) 
 
+(!|) (Blocks bn blkf) bix = blkf bix 
 
 {-
 similar to a pull array but represents the division
