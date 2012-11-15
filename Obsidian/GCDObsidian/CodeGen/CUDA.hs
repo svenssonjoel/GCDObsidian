@@ -1,7 +1,8 @@
 
 module Obsidian.GCDObsidian.CodeGen.CUDA 
        (genKernel
-       ,genKernel_ ) where  
+       ,genKernel_
+       ,getNThreads ) where  
 
 import Data.List
 import Data.Word 
@@ -69,7 +70,16 @@ kernelHead name ins outs =
     typeList :: [(String,Type)] -> [String] 
     typeList []              = [] 
     typeList ((a,t):xs)      = (genType gc t ++ a) : typeList xs
-  
+
+---------------------------------------------------------------------------
+-- getNThreads 
+---------------------------------------------------------------------------
+getNThreads :: ToProgram a b => (a -> b) -> Ips a b -> Word32
+getNThreads kernel a = threadsPerBlock prg
+  where
+    (ins,prg) = toProgram 0 kernel a
+    
+
 ---------------------------------------------------------------------------
 -- genKernel 
 ---------------------------------------------------------------------------

@@ -304,9 +304,6 @@ getReconstruct n =
 inG n = namedGlobal "apa" (variable "N") (2^n)
         :: Blocks (Array Pull (Exp Word32))
 
-
-    
-
 ---------------------------------------------------------------------------
 -- Testing WithCUDA aspects
 ---------------------------------------------------------------------------
@@ -327,12 +324,11 @@ wc1 =
     useVector (V.fromList [0..511::Word32]) $ \ inp -> 
       allocaVector 512 $ \out ->
         do
-          lift$ CUDA.launchKernel myCudaFun
-                                  (2,1,1)   -- number of Blocks
-                                  (256,1,1) -- Threads per block
-                                  0         -- amount of shared mem
-                                  Nothing
-                                  [CUDA.VArg inp, CUDA.VArg out]
+          execute myCudaFun
+                  2   -- how many blocks 
+                  0   -- how much shared mem (will come from an analysis later) 
+                  Nothing -- is a stream involved (learn about this) 
+                  [CUDA.VArg inp, CUDA.VArg out] -- the inputs and outputs 
           r <- lift$ CUDA.peekListArray 512 out
           lift $ putStrLn $ show  (r :: [Word32])
 
@@ -344,4 +340,3 @@ t2 =
     putStrLn fp
     where
       header = "#include <stdint.h>\n"
- 

@@ -5,7 +5,7 @@ module Obsidian.GCDObsidian.CodeGen.CUDA.WithCUDA where
 import qualified Foreign.CUDA.Driver as CUDA
 import qualified Foreign.CUDA.Driver.Device as CUDA
 import qualified Foreign.CUDA.Analysis.Device as CUDA
-
+import qualified Foreign.CUDA.Driver.Stream as CUDAStream 
 
 import Obsidian.GCDObsidian.CodeGen.CUDA
 import Obsidian.GCDObsidian.CodeGen.CUDA.Compile
@@ -17,6 +17,8 @@ import qualified Data.Vector.Storable as V
 import Foreign.Marshal.Array
 import Foreign.ForeignPtr.Unsafe -- (req GHC 7.6 ?) 
 
+
+import Data.Word
 ---------------------------------------------------------------------------
 -- Get a list of devices from the CUDA driver
 ---------------------------------------------------------------------------
@@ -55,6 +57,9 @@ data CUDAState = CUDAState { csIdent :: Int,
 
 type CUDA a =  StateT CUDAState IO a
 
+data Kernel = Kernel {kFun :: CUDA.Fun,
+                      kThreadsPerBlock :: Word32 } 
+
 newIdent :: CUDA Int
 newIdent =
   do
@@ -78,7 +83,7 @@ withCUDA p =
 ---------------------------------------------------------------------------
 -- Capture and compile a Obsidian function into a CUDA Function
 ---------------------------------------------------------------------------
-capture :: ToProgram a b => (a -> b) -> Ips a b -> CUDA CUDA.Fun 
+capture :: ToProgram a b => (a -> b) -> Ips a b -> CUDA Kernel 
 capture f inputs =
   do
     i <- newIdent
@@ -87,7 +92,8 @@ capture f inputs =
     
     let kn     = "gen" ++ show i
         fn     = kn ++ ".cu"
-        cub    = fn ++ ".cubin" 
+        cub    = fn ++ ".cubin"
+        prgThreads = getNThreads f inputs
         prgstr = genKernel kn f inputs 
         header = "#include <stdint.h>\n" -- more includes ? 
          
@@ -99,7 +105,7 @@ capture f inputs =
     {- After loading the binary into the running process
        can I delete the .cu and the .cu.cubin ? -} 
            
-    return fun
+    return $ Kernel fun prgThreads
 
 archStr :: CUDA.DeviceProperties -> String
 archStr props = "-arch=sm_" ++ archStr' (CUDA.computeCapability props)
@@ -140,3 +146,19 @@ allocaVector n f =
     return b 
 
 
+---------------------------------------------------------------------------
+-- execute Kernels on the GPU 
+---------------------------------------------------------------------------
+execute :: Kernel
+           -> Word32 -- Number of blocks 
+           -> Word32 -- Amount of Shared mem (get from an analysis) 
+           -> Maybe CUDAStream.Stream
+           -> [CUDA.FunParam]
+           -> CUDA ()
+execute k nb sm stream params = lift $ 
+  CUDA.launchKernel (kFun k)
+                    (fromIntegral nb,1,1)
+                    (fromIntegral (kThreadsPerBlock k), 1, 1)
+                    (fromIntegral sm)
+                    stream
+                    params 
