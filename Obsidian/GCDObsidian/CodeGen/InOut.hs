@@ -129,7 +129,6 @@ ipsBase(Bool)
 type instance Ips a (Program b) = Ips' a
 type instance Ips a (b -> c) =  Ips' a :-> Ips b c
 
-
 {- TODO:
     What about Blocks (Array p1 a1, Array p2 a2)
      (blocks of pairs of arrays) -- limit what can live inside a block  ? 

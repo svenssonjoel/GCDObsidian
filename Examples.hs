@@ -274,10 +274,10 @@ wc1 =
       allocaVector 512 $ \out ->
         do
           execute myCudaFun
-                  2   -- how many blocks 
+                  2  -- how many blocks 
                   0   -- how much shared mem (will come from an analysis later) 
                   Nothing -- is a stream involved (learn about this) 
-                  [CUDA.VArg inp, CUDA.VArg out] -- the inputs and outputs 
+                  inp out 
           r <- lift$ CUDA.peekListArray 512 out
           lift $ putStrLn $ show  (r :: [Word32])
 

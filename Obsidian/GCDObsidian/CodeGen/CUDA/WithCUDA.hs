@@ -1,5 +1,4 @@
-
-
+{-# LANGUAGE TypeFamilies, CPP, TypeOperators #-} 
 module Obsidian.GCDObsidian.CodeGen.CUDA.WithCUDA where
 
 import qualified Foreign.CUDA.Driver as CUDA
@@ -149,16 +148,26 @@ allocaVector n f =
 ---------------------------------------------------------------------------
 -- execute Kernels on the GPU 
 ---------------------------------------------------------------------------
-execute :: Kernel
+execute :: (ParamList a, ParamList b) => Kernel
            -> Word32 -- Number of blocks 
            -> Word32 -- Amount of Shared mem (get from an analysis) 
            -> Maybe CUDAStream.Stream
-           -> [CUDA.FunParam]
+           -> a -> b
            -> CUDA ()
-execute k nb sm stream params = lift $ 
+execute k nb sm stream a b = lift $ 
   CUDA.launchKernel (kFun k)
                     (fromIntegral nb,1,1)
                     (fromIntegral (kThreadsPerBlock k), 1, 1)
                     (fromIntegral sm)
                     stream
-                    params 
+                    (toParamList a ++ toParamList b) -- params
+
+class ParamList a where
+  toParamList :: a -> [CUDA.FunParam]
+
+instance ParamList (CUDA.DevicePtr a) where
+  toParamList a = [CUDA.VArg a]
+
+
+instance (ParamList a, ParamList b) => ParamList (a :-> b) where
+  toParamList (a :-> b) = toParamList a ++ toParamList b 
