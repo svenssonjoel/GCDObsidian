@@ -56,7 +56,7 @@ input1 = namedArray "apa" 32
 ---------------------------------------------------------------------------
 -- very limiting type.. 
 sync :: Scalar a => Array Pull (Exp a) -> Program (Array Pull (Exp a))
-sync = force . push
+sync = force'
 
 ---------------------------------------------------------------------------
 -- map over blocks. Normal Functor instance is fine! 
@@ -72,58 +72,7 @@ zipBlocksWith :: (a -> b -> c)
 zipBlocksWith f (Blocks nb1 bxf1)
                 (Blocks nb2 bxf2) =
   Blocks (min nb1 nb2) (\bix -> f (bxf1 bix) (bxf2 bix))
-   
----------------------------------------------------------------------------
--- forceBlocks
----------------------------------------------------------------------------
--- forceBlocks :: Blocks (Program a) -> Program (Blocks a)
--- cannot be this general.. 
-
--- Trying a very limited form, will need type classes... 
--- Sometimes a forall is needed. I don't really see a pattern in when. 
-forceBlocks :: forall a. Scalar a => Blocks (Array Push (Exp a))
-               -> Program (Blocks (Array Pull (Exp a)))
-forceBlocks (Blocks n bxf) =  
-  do
-    global <- Output $ Pointer (typeOf (undefined :: (Exp a))) 
-
-    -- dryrun to get length. 
-    let (Array s (Push pfun)) =  bxf (variable "dummy") 
-    
-    ForAllBlocks n
-      (\bid ->
-        do
-          let (Array s (Push pfun)) = bxf bid 
-          pfun (assignTo global (bid, s)))
-     
-    return $ Blocks n  $ 
-             \bix -> Array s (Pull (\ix -> index global ((bix * (fromIntegral s)) + ix)))
-      where 
-        assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
-
-
-forceBlocks' :: forall a. Scalar a => Blocks (Program (Array Pull (Exp a)))
-               -> Program (Blocks (Array Pull (Exp a)))
-forceBlocks' (Blocks n bxf) =  
-  do
-    global <- Output $ Pointer (typeOf (undefined :: (Exp a))) 
-
-    -- dryrun to get length. 
-    (Array s (Pull pfun)) <- bxf (variable "dummy") 
-    
-    ForAllBlocks n
-      (\bid ->
-        do
-          arr <- bxf bid
-          let (Array s (Push pfun)) = push arr 
-          pfun (assignTo global (bid, s)))
-     
-    return $ Blocks n  $ 
-             \bix -> Array s (Pull (\ix -> index global ((bix * (fromIntegral s)) + ix)))
-      where 
-        assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
-
-          
+             
 ---------------------------------------------------------------------------
 -- Global array permutation
 ---------------------------------------------------------------------------
@@ -165,14 +114,14 @@ inputG = namedGlobal "apa" (variable "N") 256
 
 
 testG1 :: Blocks (Array Pull EInt) -> Program (Blocks (Array Pull EInt))
-testG1 arr = forceBlocks ( fmap mapSomething (reverseG arr) )
+testG1 arr = force' ( fmap mapSomething (reverseG arr) )
 
 getTestG1 = putStrLn$ CUDA.genKernel "testG1" testG1 inputG
 
 testG2 :: Blocks (Array Pull EInt)
           -> Blocks (Array Pull EInt)
           -> Program (Blocks (Array Pull EInt))
-testG2 _ arr = forceBlocks ( fmap mapSomething (reverseG arr) )
+testG2 _ arr = force' ( fmap mapSomething (reverseG arr) )
 
 
 ---------------------------------------------------------------------------
@@ -222,7 +171,7 @@ hist
   :: Exp Word32
      -> Blocks (Array Pull (Exp Word32))
      -> Program (Blocks (Array Pull (Exp Word32)))
-hist max inp = forceBlocks  (histogram max inp)
+hist max inp = force'  (histogram max inp)
 
 inputWord32 :: Blocks (Array Pull (Exp Word32)) 
 inputWord32 = namedGlobal "apa" (variable "N") 256
@@ -258,7 +207,7 @@ sklanskyAllBlocks :: Int
                      -> Blocks (Array Pull (Exp Int32))
                      -> Program (Blocks (Array Pull (Exp Int32)))
 sklanskyAllBlocks logbsize arr =
-  forceBlocks' $ fmap (sklanskyLocal logbsize (+)) arr
+  force' $ fmap (sklanskyLocal logbsize (+)) arr
    
 
 
@@ -282,7 +231,7 @@ reconstruct :: Exp Word32
                -> GlobalArray Pull (Exp Word32)
                -> GlobalArray Pull (Exp Word32)
                -> Program (GlobalArray Pull (Exp Word32))
-reconstruct nb inp pos = forceBlocks $ 
+reconstruct nb inp pos = force' $ 
   Blocks nb (\bix -> -- nb seems totally unimportant
                      -- (does appear in code). rethink this.
     Array bsize
@@ -310,7 +259,7 @@ inG n = namedGlobal "apa" (variable "N") (2^n)
 
 testGRev :: Blocks (Array Pull EWord32)
             -> Program (Blocks (Array Pull EWord32))
-testGRev arr = forceBlocks ( fmap (push . rev) arr )
+testGRev arr = force' ( fmap (push . rev) arr )
 
 
 wc1 = 
