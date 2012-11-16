@@ -56,22 +56,8 @@ input1 = namedArray "apa" 32
 ---------------------------------------------------------------------------
 -- very limiting type.. 
 sync :: Scalar a => Array Pull (Exp a) -> Program (Array Pull (Exp a))
-sync = force'
+sync = force
 
----------------------------------------------------------------------------
--- map over blocks. Normal Functor instance is fine! 
----------------------------------------------------------------------------
-instance Functor Blocks where
-  fmap f (Blocks nb bxf) = Blocks nb (\bix -> (f (bxf bix)))
-
----------------------------------------------------------------------------
--- zipWith. (Normal zipWith)
----------------------------------------------------------------------------
-zipBlocksWith :: (a -> b -> c)
-                 -> Blocks a -> Blocks b -> Blocks c
-zipBlocksWith f (Blocks nb1 bxf1)
-                (Blocks nb2 bxf2) =
-  Blocks (min nb1 nb2) (\bix -> f (bxf1 bix) (bxf2 bix))
              
 ---------------------------------------------------------------------------
 -- Global array permutation
@@ -114,14 +100,14 @@ inputG = namedGlobal "apa" (variable "N") 256
 
 
 testG1 :: Blocks (Array Pull EInt) -> Program (Blocks (Array Pull EInt))
-testG1 arr = force' ( fmap mapSomething (reverseG arr) )
+testG1 arr = force ( fmap mapSomething (reverseG arr) )
 
 getTestG1 = putStrLn$ CUDA.genKernel "testG1" testG1 inputG
 
 testG2 :: Blocks (Array Pull EInt)
           -> Blocks (Array Pull EInt)
           -> Program (Blocks (Array Pull EInt))
-testG2 _ arr = force' ( fmap mapSomething (reverseG arr) )
+testG2 _ arr = force ( fmap mapSomething (reverseG arr) )
 
 
 ---------------------------------------------------------------------------
@@ -171,7 +157,7 @@ hist
   :: Exp Word32
      -> Blocks (Array Pull (Exp Word32))
      -> Program (Blocks (Array Pull (Exp Word32)))
-hist max inp = force'  (histogram max inp)
+hist max inp = force  (histogram max inp)
 
 inputWord32 :: Blocks (Array Pull (Exp Word32)) 
 inputWord32 = namedGlobal "apa" (variable "N") 256
@@ -207,16 +193,18 @@ sklanskyAllBlocks :: Int
                      -> Blocks (Array Pull (Exp Int32))
                      -> Program (Blocks (Array Pull (Exp Int32)))
 sklanskyAllBlocks logbsize arr =
-  force' $ fmap (sklanskyLocal logbsize (+)) arr
+  force $ fmap (sklanskyLocal logbsize (+)) arr
    
 
 
 getScan n = CUDA.genKernel "scan" (sklanskyAllBlocks n) 
-                    (namedGlobal "apa" (variable "N") (2^n) :: Blocks (Array Pull (Exp Int32)))
+                    (namedGlobal "apa" (variable "N") (2^n)
+                     :: Blocks (Array Pull (Exp Int32)))
 
 
 getScan_ n = CUDA.genKernel_ "scan" (sklanskyAllBlocks n) 
-                    (namedGlobal "apa" (variable "N") (2^n) :: Blocks (Array Pull (Exp Int32)))
+                    (namedGlobal "apa" (variable "N") (2^n)
+                     :: Blocks (Array Pull (Exp Int32)))
 
 -- TODO: Rewrite Scan with BlockMap functionality.
 --       Also add the output of blockmaxs, and tweak code generation to
@@ -231,7 +219,7 @@ reconstruct :: Exp Word32
                -> GlobalArray Pull (Exp Word32)
                -> GlobalArray Pull (Exp Word32)
                -> Program (GlobalArray Pull (Exp Word32))
-reconstruct nb inp pos = force' $ 
+reconstruct nb inp pos = force $ 
   Blocks nb (\bix -> -- nb seems totally unimportant
                      -- (does appear in code). rethink this.
     Array bsize
@@ -259,7 +247,7 @@ inG n = namedGlobal "apa" (variable "N") (2^n)
 
 testGRev :: Blocks (Array Pull EWord32)
             -> Program (Blocks (Array Pull EWord32))
-testGRev arr = force' ( fmap (push . rev) arr )
+testGRev arr = force ( fmap (push . rev) arr )
 
 
 wc1 = 

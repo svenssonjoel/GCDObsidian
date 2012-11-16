@@ -1,3 +1,4 @@
+{- Joel Svensson 2012 -}
 {-# LANGUAGE MultiParamTypeClasses,
              FlexibleInstances,
              ScopedTypeVariables,
@@ -12,6 +13,7 @@ import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Blocks
 import Obsidian.GCDObsidian.Types
 
+{- 
 ---------------------------------------------------------------------------
 -- Class of Forceables
 --------------------------------------------------------------------------- 
@@ -44,36 +46,31 @@ instance Scalar a => Forceable Array Push (Exp a) where
     where
       targetArr name (i,e) = Assign name i e
 
+-} 
 
 ---------------------------------------------------------------------------
 -- Also deal with pairs etc.. (future work)
 ---------------------------------------------------------------------------
 
 
-class Forceable' a where
+---------------------------------------------------------------------------
+-- New Approach to Forceable. 
+---------------------------------------------------------------------------
+class Forceable a where
   type Forced a 
-  force' :: a -> Forced a
+  force :: a -> Forced a
 
 
 ---------------------------------------------------------------------------
 -- Force local
 ---------------------------------------------------------------------------
-instance Scalar a => Forceable' (Array Pull (Exp a)) where
+instance Scalar a => Forceable (Array Pull (Exp a)) where
   type Forced (Array Pull (Exp a)) = Program (Array Pull (Exp a))
-  force' arr =
-    do 
-    name <- Allocate n $ Pointer (typeOf (undefined :: (Exp a)))
-    p (targetArr name)
-    Sync
-    return $ Array n $ Pull (\i -> index name i)
-    where
-      (Array n (Push p)) = push arr 
-      targetArr name (i,e) = Assign name i e
+  force arr = force (push arr) 
 
-
-instance Scalar a => Forceable' (Array Push (Exp a)) where
+instance Scalar a => Forceable (Array Push (Exp a)) where
   type Forced (Array Push (Exp a)) = Program (Array Pull (Exp a)) 
-  force' (Array n (Push p)) =
+  force (Array n (Push p)) =
     do 
     name <- Allocate n $ Pointer (typeOf (undefined :: (Exp a)))
     p (targetArr name)
@@ -83,14 +80,22 @@ instance Scalar a => Forceable' (Array Push (Exp a)) where
       targetArr name (i,e) = Assign name i e
 
 ---------------------------------------------------------------------------
--- Force Global
+-- Force Global Pull Array 
 ---------------------------------------------------------------------------
 
-instance Scalar a => Forceable' (Blocks (Array Push (Exp a))) where 
+instance Scalar a => Forceable (Blocks (Array Pull (Exp a))) where 
+  type Forced (Blocks (Array Pull (Exp a))) = 
+    Program (Blocks (Array Pull (Exp a)))
+  force bs = force (fmap push bs)
+
+---------------------------------------------------------------------------
+-- Force Global Push Array 
+---------------------------------------------------------------------------
+instance Scalar a => Forceable (Blocks (Array Push (Exp a))) where 
   type Forced (Blocks (Array Push (Exp a))) = 
     Program (Blocks (Array Pull (Exp a)))
 
-  force' (Blocks n bxf) =  
+  force (Blocks n bxf) =  
     do
       global <- Output $ Pointer (typeOf (undefined :: (Exp a))) 
 
@@ -106,15 +111,17 @@ instance Scalar a => Forceable' (Blocks (Array Push (Exp a))) where
       return $ Blocks n  $ 
         \bix -> Array s (Pull (\ix -> index global ((bix * (fromIntegral s)) + ix)))
     where 
-      assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
+      assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e       
 
-
+---------------------------------------------------------------------------
+-- Force Global Program of Pull Array 
+---------------------------------------------------------------------------
 instance Scalar a =>
-         Forceable' (Blocks (Program (Array Pull (Exp a)))) where
+         Forceable (Blocks (Program (Array Pull (Exp a)))) where
   type Forced (Blocks (Program (Array Pull (Exp a)))) =
     Program (Blocks (Array Pull (Exp a)))
 
-  force' (Blocks n bxf) =  
+  force (Blocks n bxf) =  
     do
       global <- Output $ Pointer (typeOf (undefined :: (Exp a))) 
 
