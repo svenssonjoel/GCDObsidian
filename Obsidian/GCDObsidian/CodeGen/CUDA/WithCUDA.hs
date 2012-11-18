@@ -151,16 +151,20 @@ allocaVector n f =
 execute :: (ParamList a, ParamList b) => Kernel
            -> Word32 -- Number of blocks 
            -> Word32 -- Amount of Shared mem (get from an analysis) 
-           -> Maybe CUDAStream.Stream
+         --  -> Maybe CUDAStream.Stream
            -> a -> b
            -> CUDA ()
-execute k nb sm stream a b = lift $ 
+execute k nb sm {- stream -} a b = lift $ 
   CUDA.launchKernel (kFun k)
                     (fromIntegral nb,1,1)
                     (fromIntegral (kThreadsPerBlock k), 1, 1)
                     (fromIntegral sm)
-                    stream
+                    Nothing -- stream
                     (toParamList a ++ toParamList b) -- params
+
+---------------------------------------------------------------------------
+-- ParamList
+---------------------------------------------------------------------------
 
 class ParamList a where
   toParamList :: a -> [CUDA.FunParam]
