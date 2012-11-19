@@ -256,7 +256,7 @@ wc1 =
     -- Capture, compile and link the Obsidian program
     -- into a CUDA function 
     myCudaFun <- capture testGRev inputWord32
-
+    
     -- Set up data and launch the kernel!
     useVector (V.fromList [0..511::Word32]) $ \ inp -> 
       allocaVector 512 $ \out ->
@@ -276,3 +276,21 @@ t2 =
     putStrLn fp
     where
       header = "#include <stdint.h>\n"
+
+
+cs =
+  withCUDA $
+  do
+    skl <- capture (sklanskyAllBlocks 7) (sizedGlobal (variable "N") 128)
+
+    lift $putStrLn $ show $ kThreadsPerBlock skl
+    
+    useVector (V.fromList (replicate 128 (1::Word32))) $ \ inp -> 
+      useVector (V.fromList (replicate 128 (0::Word32))) $ \out ->
+        do
+          execute skl
+                  1  -- how many blocks 
+                  (2*128*4)  
+                  inp out 
+          r <- lift$ CUDA.peekListArray 128 out
+          lift $ putStrLn $ show  (r :: [Word32])

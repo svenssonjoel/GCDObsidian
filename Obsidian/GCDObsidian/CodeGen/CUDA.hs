@@ -48,7 +48,8 @@ tidLine = line "unsigned int tid = threadIdx.x;"
 bidLine = line "unsigned int bid = blockIdx.x;" 
 
 
-sBase size = if size > 0 
+sBase size = if size > 0
+            --     then line "extern __shared__ unsigned char sbase[];"
                 then line "extern __shared__ __attribute__ ((aligned (16))) unsigned char sbase[];" 
                 else return ()     
                      
