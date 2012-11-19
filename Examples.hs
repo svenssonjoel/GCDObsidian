@@ -281,16 +281,16 @@ t2 =
 cs =
   withCUDA $
   do
+    hist <- capture (hist 255) (sizedGlobal (variable "N") 256)  
     skl <- capture (sklanskyAllBlocks 8) (sizedGlobal (variable "N") 256)
-
-    lift $putStrLn $ show $ kThreadsPerBlock skl
     
-    useVector (V.fromList (replicate 256 (1::Word32))) $ \ inp -> 
+    useVector (V.fromList [0..255::Word32]) $ \ inp -> 
       useVector (V.fromList (replicate 256 (0::Word32))) $ \out ->
         do
+          execute hist 1 0 inp out 
           execute skl
                   1  -- how many blocks 
                   (2*256*4)  
-                  inp out 
+                  out out 
           r <- lift$ CUDA.peekListArray 256 out
           lift $ putStrLn $ show  (r :: [Word32])
