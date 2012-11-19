@@ -1,4 +1,4 @@
-{-# LANGUAGE TypeFamilies, CPP, TypeOperators #-} 
+{-# LANGUAGE TypeOperators #-} 
 module Obsidian.GCDObsidian.CodeGen.CUDA.WithCUDA where
 
 import qualified Foreign.CUDA.Driver as CUDA
