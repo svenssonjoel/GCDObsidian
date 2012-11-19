@@ -71,8 +71,11 @@ instance Scalar a => Forceable (Array Pull (Exp a)) where
 instance Scalar a => Forceable (Array Push (Exp a)) where
   type Forced (Array Push (Exp a)) = Program (Array Pull (Exp a)) 
   force (Array n (Push p)) =
-    do 
-    name <- Allocate n $ Pointer (typeOf (undefined :: (Exp a)))
+    do
+      -- Allocate is a bit strange since
+      -- it wants the n in bytes! But also knows the type. 
+    name <- Allocate (n * fromIntegral (sizeOf (undefined :: Exp a)))
+                     (Pointer (typeOf (undefined :: (Exp a))))
     p (targetArr name)
     Sync
     return $ Array n $ Pull (\i -> index name i)
