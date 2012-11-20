@@ -1,4 +1,5 @@
-{-# LANGUAGE FlexibleInstances, 
+{-# LANGUAGE FlexibleInstances,
+             FlexibleContexts, 
              ScopedTypeVariables,
              RankNTypes  #-} 
 module Examples where 
@@ -32,7 +33,8 @@ import qualified Data.Vector.Storable as V
 
 import Control.Monad.State
 
-import Prelude hiding (zipWith,sum)
+import Prelude hiding (zipWith,sum,replicate)
+import qualified Prelude as P 
 
 ---------------------------------------------------------------------------
 -- MapFusion example
@@ -170,12 +172,12 @@ getHist = putStrLn$ CUDA.genKernel "hist" (hist 256)  inputWord32
 -- Scan  (TODO: Rewrite as a exclusive scan (0 as first elem in result) 
 ---------------------------------------------------------------------------
 sklanskyLocal
-  :: Scalar a =>
+  :: (Num (Exp a), Scalar a) =>
      Int
      -> (Exp a -> Exp a -> Exp a)
      -> Array Pull (Exp a)
      -> Program (Array Pull (Exp a))
-sklanskyLocal 0 op arr = return (id arr)
+sklanskyLocal 0 op arr = return (shiftRight 1 0 arr)
 sklanskyLocal n op arr =
   do 
     let arr1 = twoK (n-1) (fan op) arr
@@ -183,7 +185,7 @@ sklanskyLocal n op arr =
     sklanskyLocal (n-1) op arr2
                      
 
-fan op arr = conc (a1, fmap (op c) a2) 
+fan op arr =  a1 `conc`  fmap (op c) a2 
     where 
       (a1,a2) = halve arr
       c = a1 ! (fromIntegral (len a1 - 1))
@@ -295,9 +297,9 @@ cs =
                        (sizedGlobal (variable "N") 256))
                       
     
-    useVector (V.fromList (replicate 256 (1::Word32))) $ \ inp -> 
-      useVector (V.fromList (replicate 256 (0::Word32))) $ \tmp ->
-        useVector (V.fromList (replicate 256 (0::Word32))) $ \ out -> 
+    useVector (V.fromList (P.replicate 10 (1::Word32) ++ [10..255])) $ \ inp -> 
+      useVector (V.fromList (P.replicate 256 (0::Word32))) $ \tmp ->
+        useVector (V.fromList (P.replicate 256 (0::Word32))) $ \ out -> 
           do
             -- Create histogram
             execute hist 1 0 inp tmp

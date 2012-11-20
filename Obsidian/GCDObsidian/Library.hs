@@ -6,10 +6,10 @@ import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Program
 
-import Data.Bits
+import Data.Bits 
 import Data.Word
 
-import Prelude hiding (splitAt,zipWith)
+import Prelude hiding (splitAt,zipWith,replicate)
 
 -- TODO: Update this module to new setting
 
@@ -17,14 +17,8 @@ instance Functor (Array Pull) where
   fmap f arr = Array (len arr) (Pull (\ix -> f (arr ! ix)))  
 
 {- 
-------------------------------------------------------------------------------
--- ForAll 
 
-forAll = flip ForAll
-forAllGlobal = flip ForAllGlobal
-
-
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Reverse an array by indexing in it backwards
 rev :: Array Pull a -> Array Pull a 
 rev arr = mkPullArray n (\ix -> arr ! (m - ix))  
@@ -37,7 +31,7 @@ revTest arr = ixMap (\ix -> (m-ix)) arr
      m = fromIntegral (n-1)
      n = len arr
 -}
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- splitAt (name clashes with Prelude.splitAt)
 splitAt :: Integral i => i -> Array Pull a -> (Array Pull a, Array Pull a) 
 splitAt n arr = (mkPullArray m (\ix -> arr ! ix), 
@@ -50,6 +44,26 @@ halve arr = splitAt n2 arr
   where 
     n = len arr
     n2 = n `div` 2
+
+---------------------------------------------------------------------------
+-- replicate 
+---------------------------------------------------------------------------
+replicate n a = mkPullArray n (\ix -> a)
+
+
+
+---------------------------------------------------------------------------
+-- Shift arrays
+---------------------------------------------------------------------------
+shiftRight :: Choice a => Word32 -> a -> Array Pull a -> Array Pull a
+shiftRight dist elt arr = resize (len arr)
+                          $ replicate dist elt `conc` arr
+
+shiftLeft :: Choice a => Word32 -> a -> Array Pull a -> Array Pull a
+shiftLeft dist elt arr = resize (len arr)
+                         $ arr `conc`  replicate dist elt
+                          
+    
 {- 
 ----------------------------------------------------------------------------
 -- elements at even indices to fst output, odd to snd.
@@ -64,11 +78,13 @@ evenOdds arr = (mkPullArray (n-n2) (\ix -> arr ! (2*ix)) ,
 ------------------------------------------------------------------------------
 --
 -} 
-conc :: Choice a => (Array Pull a, Array Pull a) -> Array Pull a 
-conc (a1,a2) = mkPullArray (n1+n2)
-               (\ix -> ifThenElse (ix <* (fromIntegral n1)) 
+
+
+conc :: Choice a => Array Pull a -> Array Pull a -> Array Pull a 
+conc a1 a2 = mkPullArray (n1+n2)
+               $ \ix -> ifThenElse (ix <* (fromIntegral n1)) 
                        (a1 ! ix) 
-                       (a2 ! (ix - (fromIntegral n1)))) 
+                       (a2 ! (ix - (fromIntegral n1)))
   where 
     n1 = len a1
     n2 = len a2 
@@ -147,7 +163,7 @@ twoK n f =  (\arr ->
 {-
 
 
-------------------------------------------------------------------------------    
+---------------------------------------------------------------------------
 -- ivt (untested)
 {- 
 ivt :: Int -> Int -> (Array Pull a -> Array Pull b) -> Array Pull a -> Array Pull b
@@ -161,7 +177,7 @@ ivt i j f arr = Array (Pull g) nl
     ij = i+j
 
 
-------------------------------------------------------------------------------    
+---------------------------------------------------------------------------
 -- Improved ivDiv    
     
 -- TODO: is a "select" operation useful. 
