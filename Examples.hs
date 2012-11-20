@@ -295,7 +295,7 @@ cs =
                        (sizedGlobal (variable "N") 256))
                       
     
-    useVector (V.fromList (reverse [0..255::Word32])) $ \ inp -> 
+    useVector (V.fromList (replicate 256 (1::Word32))) $ \ inp -> 
       useVector (V.fromList (replicate 256 (0::Word32))) $ \tmp ->
         useVector (V.fromList (replicate 256 (0::Word32))) $ \ out -> 
           do
@@ -311,5 +311,5 @@ cs =
                     1
                     0
                     (inp :-> tmp) out 
-            r <- lift$ CUDA.peekListArray 256 tmp
+            r <- lift$ CUDA.peekListArray 256 out
             lift $ putStrLn $ show  (r :: [Word32])
