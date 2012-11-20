@@ -1,5 +1,5 @@
-
 {-# LANGUAGE FlexibleInstances #-}
+
 module Obsidian.GCDObsidian.Library where 
 
 import Obsidian.GCDObsidian.Array 
@@ -11,28 +11,24 @@ import Data.Word
 
 import Prelude hiding (splitAt,zipWith,replicate)
 
--- TODO: Update this module to new setting
-
+---------------------------------------------------------------------------
+-- Functor instance Pull arrays
+---------------------------------------------------------------------------
 instance Functor (Array Pull) where 
   fmap f arr = Array (len arr) (Pull (\ix -> f (arr ! ix)))  
 
-{- 
-
 ---------------------------------------------------------------------------
 -- Reverse an array by indexing in it backwards
+---------------------------------------------------------------------------
+  
 rev :: Array Pull a -> Array Pull a 
 rev arr = mkPullArray n (\ix -> arr ! (m - ix))  
    where m = fromIntegral (n-1)
          n = len arr
          
-revTest :: Array Pull a -> Array Pull a 
-revTest arr = ixMap (\ix -> (m-ix)) arr
-   where 
-     m = fromIntegral (n-1)
-     n = len arr
--}
 ---------------------------------------------------------------------------
 -- splitAt (name clashes with Prelude.splitAt)
+---------------------------------------------------------------------------
 splitAt :: Integral i => i -> Array Pull a -> (Array Pull a, Array Pull a) 
 splitAt n arr = (mkPullArray m (\ix -> arr ! ix), 
                  mkPullArray  (len arr - m) (\ix -> arr ! (ix + pos)))
@@ -62,11 +58,10 @@ shiftRight dist elt arr = resize (len arr)
 shiftLeft :: Choice a => Word32 -> a -> Array Pull a -> Array Pull a
 shiftLeft dist elt arr = resize (len arr)
                          $ arr `conc`  replicate dist elt
-                          
-    
-{- 
-----------------------------------------------------------------------------
+                         
+---------------------------------------------------------------------------
 -- elements at even indices to fst output, odd to snd.
+---------------------------------------------------------------------------
 evenOdds :: Array Pull a -> (Array Pull a, Array Pull a)
 evenOdds arr = (mkPullArray (n-n2) (\ix -> arr ! (2*ix)) ,
                 mkPullArray n2     (\ix -> arr ! (2*ix + 1)))
@@ -74,12 +69,9 @@ evenOdds arr = (mkPullArray (n-n2) (\ix -> arr ! (2*ix)) ,
     n = fromIntegral (len arr)
     n2 = div n 2
 
-
-------------------------------------------------------------------------------
---
--} 
-
-
+---------------------------------------------------------------------------
+-- Concatenate the arrays
+---------------------------------------------------------------------------
 conc :: Choice a => Array Pull a -> Array Pull a -> Array Pull a 
 conc a1 a2 = mkPullArray (n1+n2)
                $ \ix -> ifThenElse (ix <* (fromIntegral n1)) 

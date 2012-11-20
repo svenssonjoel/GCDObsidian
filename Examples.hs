@@ -64,9 +64,6 @@ sync = force
 ---------------------------------------------------------------------------
 -- Global array permutation
 ---------------------------------------------------------------------------
-rev :: Array Pull a -> Array Pull a
-rev (Array n (Pull ixf)) =
-  Array n (Pull (\ix -> ixf ((fromIntegral n) - 1 - ix)))
 
 reverseG :: Blocks (Array Pull a) -> Blocks (Array Pull a)
 reverseG (Blocks nb arrf) =
