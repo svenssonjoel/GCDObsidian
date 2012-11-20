@@ -1,36 +1,8 @@
-{-# LANGUAGE MultiParamTypeClasses, 
-             FlexibleInstances,
-             FlexibleContexts, 
-             UndecidableInstances,  
-             GADTs,
-             ScopedTypeVariables,
-             RankNTypes #-} 
+{-# LANGUAGE MultiParamTypeClasses,  
+             FlexibleInstances  #-} 
 
 module Obsidian.GCDObsidian.Array  where
-{- ((!) -- pull array apply (index into)
-                                --   ,(!*) -- push array apply 
-                                  , mkPullArray
-                                  , mkPushArray
-                                  , resize
-                                  , namedArray
-                                  , indexArray
-                                  , len 
-                                  , globLen
-                                  , Array(..)  
-                                  , Pushy
-                                  , PushyInternal
-                                  , pushGlobal
-                                  , push
-                                  , push' -- this is for "internal" use
-                                  , push'' -- this is for "internal" use
 
-                                  , GlobalArray(..)
-                                  , mkGlobalPushArray  
-                                  , mkGlobalPullArray
-                                  , Pull(..)
-                                  , Push(..)
-                                  )where 
--}
 import Obsidian.GCDObsidian.Exp 
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
@@ -66,7 +38,7 @@ mkPullArray n p = Array n (Pull p)
 resize m (Array n p) = Array m p 
 
 
-
+{- 
 -- TODO: Do you need (Exp e) where there is only e ? 
 class  PushyInternal a where 
   push' :: Word32 -> a e -> Array Push e  
@@ -94,7 +66,7 @@ instance PushyInternal (Array Pull)  where
                                let ix = (i+((fromIntegral ((n `div` m) * j)))),
                                let a  = ixf ix
                              ]) 
-
+-} 
 class Pushable a where 
   push :: a e -> Array Push e 
 
@@ -106,22 +78,9 @@ instance Pushable (Array Pull)  where
     Array n $
     mkPush $ \k -> ForAll n (\i -> k (i,(ixf i)))
 
--- (\_ -> Skip))) >> k ()    
-
-{- 
-class PushGlobal a where 
-  pushGlobal :: a e -> GlobalArray Push e 
-
-instance PushGlobal (GlobalArray Pull) where 
-  pushGlobal (GlobalArray n (Pull ixf))  = 
-      GlobalArray n (mkPush (\k ->
-                            do
-                              func <- runFunc k
-                              return $ ForAllGlobal
-                                (\i -> func (i,ixf i)) n ))
--} 
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 --
+---------------------------------------------------------------------------
 namedArray name n = mkPullArray n (\ix -> index name ix)
 indexArray n      = mkPullArray n (\ix -> ix)
 
