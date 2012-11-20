@@ -167,7 +167,7 @@ getHist = putStrLn$ CUDA.genKernel "hist" (hist 256)  inputWord32
 
 
 ---------------------------------------------------------------------------
--- Scan 
+-- Scan  (TODO: Rewrite as a exclusive scan (0 as first elem in result) 
 ---------------------------------------------------------------------------
 sklanskyLocal
   :: Scalar a =>
@@ -225,8 +225,15 @@ reconstruct nb inp pos = force $
     Array bsize
     $ Push (\k -> do
         ForAll bsize
-          (\ix -> k ((pos !| bix) ! ix , 
-                     (inp !| bix) ! ix))))
+          $ \ ix ->
+          let bix' = ((inp !| bix) ! ix) `div` (fromIntegral bsize)
+              ix'  = ((inp !| bix) ! ix) `mod` (fromIntegral bsize)
+          in 
+              k ((pos !| bix') ! ix',
+                 (inp !| bix) ! ix)))
+                         
+          --(\ix -> k ((pos !| bix) ! ix , 
+          --           (inp !| bix) ! ix))))
   where
     bsize = len (inp !| 0) 
 -- Check that reconstruct does what it is suppoed to
@@ -283,14 +290,26 @@ cs =
   do
     hist <- capture (hist 255) (sizedGlobal (variable "N") 256)  
     skl <- capture (sklanskyAllBlocks 8) (sizedGlobal (variable "N") 256)
+    constr <- capture (reconstruct 256)
+                      ((sizedGlobal (variable "N") 256) :->
+                       (sizedGlobal (variable "N") 256))
+                      
     
-    useVector (V.fromList [0..255::Word32]) $ \ inp -> 
-      useVector (V.fromList (replicate 256 (0::Word32))) $ \out ->
-        do
-          execute hist 1 0 inp out 
-          execute skl
-                  1  -- how many blocks 
-                  (2*256*4)  
-                  out out 
-          r <- lift$ CUDA.peekListArray 256 out
-          lift $ putStrLn $ show  (r :: [Word32])
+    useVector (V.fromList (reverse [0..255::Word32])) $ \ inp -> 
+      useVector (V.fromList (replicate 256 (0::Word32))) $ \tmp ->
+        useVector (V.fromList (replicate 256 (0::Word32))) $ \ out -> 
+          do
+            -- Create histogram
+            execute hist 1 0 inp tmp
+            -- Run Scans
+            execute skl
+                    1  
+                    (2*256*4)  
+                    tmp tmp
+            -- Reconstruct
+            execute constr
+                    1
+                    0
+                    (inp :-> tmp) out 
+            r <- lift$ CUDA.peekListArray 256 tmp
+            lift $ putStrLn $ show  (r :: [Word32])
