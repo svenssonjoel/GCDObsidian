@@ -1,4 +1,6 @@
+{- Joel Svensson 2012 -}
 
+{-# LANGUAGE GADTs #-} 
 module Obsidian.GCDObsidian.CodeGen.CUDA 
        (genKernel
        ,genKernel_
@@ -14,6 +16,7 @@ import Obsidian.GCDObsidian.Exp
 
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
+import Obsidian.GCDObsidian.Atomic 
 
 import Obsidian.GCDObsidian.CodeGen.PP
 import Obsidian.GCDObsidian.CodeGen.Common
@@ -218,11 +221,17 @@ genProg mm nt (Assign name ix a) =
         line$  name ++ "[" ++ concat (genExp gc mm ix) ++ "] = " ++ 
           concat (genExp gc mm a) ++ ";"
         newline
--- TODO: Add Similar AtomicOp case
---       Also see where else it needs to go!
---        # CSE
---        # Liveness
---
+--- *** ATOMIC OP CASE 
+genProg mm nt (AtomicOp resname name ix AtomicInc) = 
+  case Map.lookup name mm of
+    Just (addr,t) ->
+      do
+        -- TODO: Declare a variable with name resname
+        --       and type t. Assign result of operation to this var
+        line$  "atomicInc(&(" ++ sbaseStr addr t ++ ")" ++ "+"
+          ++ concat (genExp gc mm ix) ++ ",0xFFFFFFFF)" ++ ";"
+        newline
+    Nothing -> error "genProg: AtomicOp. Think about this case"       
                 
 genProg mm nt (ForAll n f) = potentialCond gc mm n nt $ 
                                genProg mm nt (f (ThreadIdx X)  )
