@@ -38,7 +38,7 @@ import Obsidian.GCDObsidian.CodeGen.SPMDC
       functions. 
 -} 
 
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- 
 gc = genConfig "" ""
 
@@ -111,9 +111,26 @@ genKernel name kernel a = proto ++ cuda
                    kern
                    name
                    ins outs
+---------------------------------------------------------------------------
+-- Generate kernel with optimizations
+---------------------------------------------------------------------------
+genKernel_ :: ToProgram a b
+             => String
+              -> (a -> b)
+              -> Ips a b
+              -> String 
+genKernel_ = genKernel' True 
 
-genKernel_ :: ToProgram a b => String -> (a -> b) -> Ips a b -> String 
-genKernel_ name kernel a = proto ++  cuda
+---------------------------------------------------------------------------
+-- Generate Kernel via SPMDC with or without optimizations
+---------------------------------------------------------------------------
+genKernel' :: ToProgram a b
+              => Bool
+              -> String
+              -> (a -> b)
+              -> Ips a b
+              -> String 
+genKernel' doCSE name kernel a = proto ++  cuda
   where
     (ins,prg) = toProgram 0 kernel a
     -- collect outputs and extract the "actual" kernel
@@ -126,8 +143,11 @@ genKernel_ name kernel a = proto ++  cuda
         Skip -> error "empty programs not yet supported" 
         a    -> threadsPerBlock prg 
 
-    spmd = performCSE2  (progToSPMDC threadBudget kern)
-    body = shared : mmSPMDC mm spmd
+    spmd = progToSPMDC threadBudget kern
+    spmd' = if doCSE
+            then performCSE2 spmd
+            else spmd
+    body = shared : mmSPMDC mm spmd'
 
 
     swap (x,y) = (y,x)
@@ -233,7 +253,7 @@ progToSPMDC nt (ForAll n f) =
   else 
     code 
   where 
-    code = progToSPMDC nt (f (ThreadIdx X) {- (variable "tid") -} )
+    code = progToSPMDC nt (f (ThreadIdx X))
     
 progToSPMDC nt (Allocate name size t _) = []
 progToSPMDC nt (Synchronize True) = [CSync] 
@@ -279,7 +299,11 @@ mmCExpr mm (CExpr (CIndex (e1,es) t)) = cIndex (mmCExpr mm e1, map (mmCExpr mm) 
 mmCExpr mm (CExpr (CBinOp op e1 e2 t)) = cBinOp op (mmCExpr mm e1) (mmCExpr mm e2) t
 mmCExpr mm (CExpr (CUnOp op e t)) = cUnOp op (mmCExpr mm e) t 
 mmCExpr mm (CExpr (CFuncExpr nom exprs t)) = cFuncExpr nom (map (mmCExpr mm) exprs) t
-mmCExpr mm (CExpr (CCast e t)) = cCast (mmCExpr mm e) t 
+mmCExpr mm (CExpr (CCast e t)) = cCast (mmCExpr mm e) t
+mmCExpr mm (CExpr (CCond e1 e2 e3 t)) = cCond (mmCExpr mm e1)
+                                              (mmCExpr mm e2)
+                                              (mmCExpr mm e3)
+                                              t
 mmCExpr mm a = a 
           
   

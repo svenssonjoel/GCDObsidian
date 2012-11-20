@@ -64,7 +64,6 @@ data CQAttribute = CAttribAligned Word32
 
 
 data CExprP e  = CVar Name CType 
-
                -- Threads, Blocks, Grids (All of type Word32) 
                | CBlockIdx  DimSpec 
                | CThreadIdx DimSpec
@@ -210,6 +209,10 @@ ppCTypedName ppc (CQualified q t) nom = ppCQual ppc q >> space >> ppCTypedName p
 
 ----------------------------------------------------------------------------
 ppValue (IntVal i)    = line$ show i
+ppValue (Int8Val i)   = line$ show i
+ppValue (Int16Val i)  = line$ show i
+ppValue (Int32Val i)  = line$ show i
+ppValue (Int64Val i)  = line$ show i
 ppValue (FloatVal f)  = line$ show f 
 ppValue (DoubleVal d) = line$ show d
 ppValue (Word8Val  w) = line$ show w 

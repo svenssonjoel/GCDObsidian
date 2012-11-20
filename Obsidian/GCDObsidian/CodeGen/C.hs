@@ -15,7 +15,6 @@ import qualified Data.Map as Map
 
 import Obsidian.GCDObsidian.Array 
 import Obsidian.GCDObsidian.Exp  
---import Obsidian.GCDObsidian.Memory
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 import Obsidian.GCDObsidian.Program
@@ -27,9 +26,8 @@ import Obsidian.GCDObsidian.CodeGen.Liveness
 import Obsidian.GCDObsidian.CodeGen.Memory
 
 
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- 
-
 gc = genConfig "" ""
 
     
@@ -57,8 +55,9 @@ forEach gc mm e pp = line ("for (uint32_t tid = 0; tid < " ++ concat (genExp gc 
 
 -- TODO: DUPLICATED CODE 
 sbaseStr 0 t    = parens$ genCast gc t ++ "sbase" 
-sbaseStr addr t = parens$ genCast gc t ++ "(sbase + " ++ show addr ++ ")" 
-------------------------------------------------------------------------------
+sbaseStr addr t = parens$ genCast gc t ++ "(sbase + " ++ show addr ++ ")"
+
+---------------------------------------------------------------------------
 -- sequential C code generation
 
 getC :: Config 
@@ -78,15 +77,16 @@ getC conf c name ins outs =
   where 
     size = (configLocalMem conf)
 
-------------------------------------------------------------------------------
 
+---------------------------------------------------------------------------
+--
 genCBody :: Config -> Program a -> PP () 
 genCBody conf prg = genProg mm nt prg
   where
     mm = configMM conf
     nt = configThreads conf
 
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- pretty print a "Program", now C STYLE! 
 -- But it is the same ??? 
 -- TODO: DUPLICATED CODE 
@@ -114,7 +114,7 @@ genProg mm nt (ProgramSeq p1 p2) =
     genProg mm nt p1
     genProg mm nt p2
 
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- C style function "header"
 kernelHead :: Name -> 
               [(String,Type)] -> 
@@ -130,7 +130,7 @@ kernelHead name ins outs =
     typeList ((a,t):xs)      = (genType gc t ++ a) : typeList xs
   
   
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- make "runnable" code 
 -- Gives a string that should be a runnable C kernel
 
