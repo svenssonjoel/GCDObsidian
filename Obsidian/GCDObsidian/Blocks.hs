@@ -9,14 +9,15 @@ import Obsidian.GCDObsidian.Array
 import Data.Word
 
 
-
+---------------------------------------------------------------------------
+-- Blocks
+---------------------------------------------------------------------------
 data Blocks a = Blocks (Exp Word32)   -- number of 
-                       -- (Word32)       -- size of each 
                        (Exp Word32 -> a)
 
 sizedGlobal bn bs = Blocks bn
                     (\bix -> (mkPullArray bs undefined))
-namedGlobal name bn bs = Blocks bn {- bs -} 
+namedGlobal name bn bs = Blocks bn 
                          (\bix -> (mkPullArray bs
                                    (\ix -> index name (bix * (fromIntegral bs) + ix)))) 
 
@@ -25,8 +26,7 @@ namedGlobal name bn bs = Blocks bn {- bs -}
 {-
 similar to a pull array but represents the division
 of work over blocks. 
-
-b-} 
+-} 
 
 
 ---------------------------------------------------------------------------

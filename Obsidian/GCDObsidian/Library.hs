@@ -1,3 +1,6 @@
+{- Joel Svensson 2012
+   Mary Sheeran  2012 -}
+
 {-# LANGUAGE FlexibleInstances #-}
 
 module Obsidian.GCDObsidian.Library where 

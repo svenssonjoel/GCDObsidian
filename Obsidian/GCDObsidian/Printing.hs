@@ -8,7 +8,7 @@ import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Program  
 
 
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Print Code
 
 printCode :: Show a => Program a -> IO () 

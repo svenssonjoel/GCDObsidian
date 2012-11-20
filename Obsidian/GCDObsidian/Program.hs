@@ -1,26 +1,11 @@
 {-# LANGUAGE     RankNTypes, 
                  GADTs  #-} 
 module Obsidian.GCDObsidian.Program 
-       (Program(..)
---       ,printProgram
-        ,programThreads
-       ,(*>*)
---       ,targetArray
---       ,targetPair
---       ,Atomic(..)
---       ,printAtomic
+       ( Program(..)
+       , programThreads
+       , (*>*)
        , runPrg
        , printPrg
---       ,P(..)
-        
- --      ,runP
- --      ,(*>>)
- --      ,(*>>>)
- --      ,P(..)
- --      ,runFunc
- --      ,NameSupply
-  --     ,unNS
-  --     ,runNSDummy
        )where 
 
 import Data.Word
@@ -35,7 +20,7 @@ import Obsidian.GCDObsidian.Atomic
 import Data.Supply
 import System.IO.Unsafe
 
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- 
 data Program a where 
   Assign :: Scalar a

@@ -14,28 +14,21 @@ import Obsidian.GCDObsidian.Globs
 import Obsidian.GCDObsidian.CodeGen.PP
 import Obsidian.GCDObsidian.CodeGen.Memory
 
-
-------------------------------------------------------------------------------
--- TINY TOOLS 
-fst2 (x,y,z) = (x,y) 
-
------------------------------------------------------------------------------- 
+---------------------------------------------------------------------------
 data GenConfig = GenConfig { global :: String,
                              local  :: String };
   
 genConfig = GenConfig
 
 
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Helpers
-
-
 
 mappedName :: Name -> Bool 
 mappedName name = isPrefixOf "arr" name
 
 tid :: Exp Word32
-tid = variable "tid" 
+tid = ThreadIdx X
 
 genType _ Int = "int "
 genType _ Int8 = "int8_t "
@@ -58,7 +51,7 @@ genCast gc t = "(" ++ genType gc t ++ ")"
 
 parens s = '(' : s ++ ")"
 
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- genExp C-style 
 genExp :: Scalar a => GenConfig -> MemMap -> Exp a -> [String]
 
@@ -69,12 +62,6 @@ genExp gc _ (BlockIdx Z) = ["blockIdx.z"]
 genExp gc _ (ThreadIdx X) = ["threadIdx.x"]
 genExp gc _ (ThreadIdx Y) = ["threadIdx.y"]
 genExp gc _ (ThreadIdx Z) = ["threadIdx.z"]
-genExp gc _ (BlockDim X) = ["blockDim.x"]
-genExp gc _ (BlockDim Y) = ["blockDim.y"]
-genExp gc _ (BlockDim Z) = ["blockDim.z"]
-genExp gc _ (GridDim X) = ["gridDim.x"]
-genExp gc _ (GridDim Y) = ["gridDim.y"]
-genExp gc _ (GridDim Z) = ["gridDim.z"]
 
 
 genExp gc _ (Literal a) = [show a] 
@@ -105,7 +92,7 @@ genExp gc mm (If b e1 e2) =
           genExp gc mm e1 ++ 
           genExp gc mm e2 )] 
 
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 --
 genIndices gc mm es = concatMap (pIndex mm) es  
   where 
@@ -114,7 +101,7 @@ genIndices gc mm es = concatMap (pIndex mm) es
 
 genIf         [b,e1,e2] = "(" ++ b ++ " ? " ++ e1 ++ " : " ++ e2 ++ ")"
 
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- genOp
 genOp :: Op a -> [String] -> String
 genOp Add     [a,b] = oper "+" a b 
@@ -150,7 +137,7 @@ func  f a = f ++ "(" ++ a ++ ")"
 oper  f a b = "(" ++ a ++ f ++ b ++ ")" 
 unOp  f a   = "(" ++ f ++ a ++ ")"
 
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Configurations, threads,memorymap 
 
 data Config = Config {configThreads  :: NumThreads, 

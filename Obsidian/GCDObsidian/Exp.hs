@@ -20,14 +20,14 @@ import qualified Foreign.Storable as Storable
 
 import Obsidian.GCDObsidian.DimSpec
 
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Obsidian imports
 import Obsidian.GCDObsidian.Types
 import Obsidian.GCDObsidian.Globs
 
 import Obsidian.GCDObsidian.CodeGen.SPMDC
 
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- some synonyms
 type Data a = Exp a 
 
@@ -51,7 +51,7 @@ type EBool   = Exp Bool
 
 
 
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Class Scalar. All the things we can handle code generation for 
 
 class (ExpToCExp a, Show a) => Scalar a where 
@@ -120,7 +120,7 @@ instance Scalar Word64 where
 
 
 
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Expressions 
 data Exp a where
   Literal :: Scalar a 
@@ -139,14 +139,7 @@ data Exp a where
               -> Exp Word32
   ThreadIdx :: DimSpec
                -> Exp Word32
-  
-  BlockDim :: DimSpec       -- useful ?? 
-              -> Exp Word32  
-
-  GridDim  :: DimSpec 
-              -> Exp Word32
-  
-  
+    
   Index   :: Scalar a => 
              (Name,[Exp Word32]) 
              -> Exp a 
@@ -173,7 +166,7 @@ data Exp a where
              
 
   
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Operations 
 -- TODO: needs conversion operations.. (Int -> Word) etc. 
 data Op a where 
@@ -238,14 +231,14 @@ data Op a where
 
 
 
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- helpers 
 
 variable name = Index (name,[])
 index name ix = Index (name,[ix])
 
  
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Collect array names
 
 collectArrays :: Scalar a => Exp a -> [Name]
@@ -268,9 +261,8 @@ collectArrayIndexPairs (If b e1 e2) = collectArrayIndexPairs b ++
                                       collectArrayIndexPairs e1 ++ 
                                       collectArrayIndexPairs e2
 
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- 
-  
 instance Scalar a => Show (Exp a) where 
   show = printExp 
 
@@ -398,8 +390,9 @@ instance Integral (Exp Int32) where
   toInteger = undefined
 
 
-----------------------------------------------------------------------------
--- Word32 Instances 
+---------------------------------------------------------------------------
+-- Word32 Instances
+---------------------------------------------------------------------------
 instance Num (Exp Word32) where 
   (+) a (Literal 0) = a
   (+) (Literal 0) a = a
@@ -529,7 +522,7 @@ instance Floating (Exp Float) where
   
   
   
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
   
 infix 4 ==*, /=*, <*, >*, >=*, <=* 
   
@@ -561,11 +554,11 @@ instance (Choice a, Choice b) => Choice (a,b) where
                                     ifThenElse b e1' e2') 
   
 
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Built-ins
 
 
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Print Expressions
 
 printExp :: Scalar a => Exp a -> String
@@ -609,9 +602,9 @@ printOp BitwiseNeg = " ~ "
 
 
 
----------------------------------------------------------------------------- 
--- Experimenting 
-
+---------------------------------------------------------------------------
+-- Experimenting
+---------------------------------------------------------------------------
 class ExpToCExp a where 
   expToCExp :: Exp a -> CExpr 
 
@@ -673,8 +666,6 @@ instance ExpToCExp Word64 where
 expToCExpGeneral :: ExpToCExp a  => Exp a -> CExpr 
 expToCExpGeneral (BlockIdx d) = cBlockIdx d
 expToCExpGeneral (ThreadIdx d) = cThreadIdx d
-expToCExpGeneral (BlockDim d) = cBlockDim d
-expToCExpGeneral (GridDim d)  = cGridDim d
 
 expToCExpGeneral e@(Index (name,[])) = cVar name (typeToCType (typeOf e))
 expToCExpGeneral e@(Index (name,xs)) = cIndex (cVar name (CPointer (typeToCType (typeOf e))),map expToCExp xs) (typeToCType (typeOf e)) 
