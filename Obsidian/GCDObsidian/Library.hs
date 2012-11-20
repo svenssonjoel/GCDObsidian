@@ -258,36 +258,29 @@ unpairP arr =
   where
     parr@(Array n (Push pushf)) = push arr
 
-{- 
-unpairP :: Pushable arr => arr (a,a) -> Array Push a 
-unpairP arr =  mkPushArray (\k -> parr !* (everyOther k))
-         (2 * n)
-  where 
-    parr = push arr 
-    n    = len parr
--}      
 everyOther :: ((Exp Word32, a) -> Program ()) 
               -> (Exp Word32, (a,a)) -> Program ()
 everyOther f  = \(ix,(a,b)) -> f (ix * 2,a) *>* f (ix * 2 + 1,b)  
 
-{-
- {-     
-----------------------------------------------------------------------------
--- 
-    
+---------------------------------------------------------------------------
+-- zipP
+---------------------------------------------------------------------------
 zipP :: Pushable arr  => arr a -> arr a -> Array Push a  
 zipP arr1 arr2 =
-  mkPushArray (\func -> p1 !* (\(i,a) -> func (2*i,a))
-                        *>*
-                        p2 !* (\(i,a) -> func (2*i + 1,a)))
-         (n1+n2)
+  Array (n1+n2)
+  $ Push (\func -> p1 (\(i,a) -> func (2*i,a)) *>*
+                   p2 (\(i,a) -> func (2*i + 1,a)))
+         
   where 
-    p1 = push arr1
-    p2 = push arr2
-    n1 = len p1
-    n2 = len p2 
-    
-    
+    Array n1 (Push p1) = push arr1
+    Array n2 (Push p2) = push arr2
+
+
+
+
+
+{-
+{- 
     
 -- Combine assumes the two push arrays     
 -- Pushes to completely disjoint sets of indices     

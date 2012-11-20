@@ -41,18 +41,16 @@ import Data.List
 import Data.Word
 
 
-----------------------------------------------------------------------------
--- 
-
-
-------------------------------------------------------------------------------
-type P a = forall b . (( a -> Program ()) -> Program ()) 
+---------------------------------------------------------------------------
+-- Push and Pull arrays
+---------------------------------------------------------------------------
+type P a = (a -> Program ()) -> Program ()
 
 data Push a = Push {pushFun :: P (Exp Word32,a)}
 data Pull a = Pull {pullFun :: Exp Word32 -> a}
 
 mkPush :: (((Exp Word32, a) -> Program ())
-                         -> Program ()) -> Push a
+           -> Program ()) -> Push a
 mkPush p = Push p  
 
 data Array p a = Array Word32 (p a) 
@@ -162,39 +160,6 @@ infixl 9 !
 -- (!*) :: PushApp a => a e -> ((Exp Word32,e) -> Program ()) -> Program ()
 -- (!*) :: PushApp a => a e -> 
 -- (!*) p a = papp p a 
- 
-
-------------------------------------------------------------------------------
--- Show 
-
-instance Show  a => Show (Array Pull a) where
-  show arr | len arr <= 10 =  "[" ++ 
-                              (concat . intersperse ",") 
-                              [show (arr ! (fromIntegral i)) | i <- [0..len arr-1]] ++ 
-                              "]"
-           | otherwise     =  "[" ++ 
-                              (concat . intersperse ",") 
-                              [show (arr ! (fromIntegral i)) | i <- [0..3]] ++ 
-                              "...]"
-
          
-
---------------------------------------------------------------------------
--- Global array related stuff
--- This is also quite directly influencing "coordination" 
--- of kernels. 
-
-data GlobalArray p a = GlobalArray (Exp Word32) (p a) 
-
-mkGlobalPushArray n p  = GlobalArray n (Push p) 
-mkGlobalPullArray n f  = GlobalArray n (Pull f) 
-
-instance Functor (GlobalArray Pull) where 
-  fmap f (GlobalArray n (Pull g)) = GlobalArray n (Pull (f . g)) 
-
-instance Indexible (GlobalArray Pull) a where  
-  access (GlobalArray _ ixf) ix = pullFun ixf ix
-  
-globLen (GlobalArray n _) = n
 -} 
 
