@@ -90,9 +90,9 @@ conc a1 a2 = mkPullArray (n1+n2)
     n2 = len a2 
 
     
-------------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- zipp unzipp
-
+---------------------------------------------------------------------------
 unzipp :: Array Pull (a,b) -> (Array Pull a, Array Pull b)       
 unzipp arr = (mkPullArray (len arr) (\ix -> fst (arr ! ix)) ,
               mkPullArray (len arr) (\ix -> snd (arr ! ix)) )
@@ -101,17 +101,13 @@ zipp :: (Array Pull a, Array Pull b) -> Array Pull (a, b)
 zipp (arr1,arr2) = Array (min (len arr1) (len arr2))
                    (Pull (\ix -> (arr1 ! ix, arr2 ! ix))) 
 
-{- 
 unzipp3 :: Array Pull (a,b,c) 
            -> (Array Pull a, Array Pull b, Array Pull c)       
-unzipp3 arr = (mkPullArray (len arr) (\ix -> fst3 (arr ! ix)) ,
-               mkPullArray (len arr) (\ix -> snd3 (arr ! ix)) ,
-               mkPullArray (len arr) (\ix -> trd3 (arr ! ix)) )
-  where
-    fst3 (x,_,_) = x
-    snd3 (_,y,_) = y
-    trd3 (_,_,z) = z
-    
+unzipp3 arr = (fmap (\(x,_,_) -> x) arr,
+               fmap (\(_,y,_) -> y) arr,
+               fmap (\(_,_,z) -> z)  arr) 
+
+
 zipp3 :: (Array Pull a, Array Pull b, Array Pull c) 
          -> Array Pull (a,b,c)             
 zipp3 (arr1,arr2,arr3) = 
@@ -125,11 +121,11 @@ zipWith op a1 a2 =
   mkPullArray (min (len a1) (len a2))
   (\ix -> (a1 ! ix) `op` (a2 ! ix))
                    
-
+    
                    
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- pair 
-
+---------------------------------------------------------------------------
 pair :: Array Pull a -> Array Pull (a,a)
 pair (Array n (Pull ixf)) = 
   mkPullArray n' (\ix -> (ixf (ix*2),ixf (ix*2+1))) 
@@ -146,9 +142,9 @@ unpair arr =
                                   (snd (arr ! (ix `shiftR` 1)))) 
 
 
-------------------------------------------------------------------------------    
+---------------------------------------------------------------------------
 -- twoK (untested for proper functionality) 
--}
+---------------------------------------------------------------------------
 twoK ::Int -> (Array Pull a -> Array Pull b) -> Array Pull a -> Array Pull b 
 twoK 0 f = f  -- divide 0 times and apply f
 twoK n f =  (\arr -> 
@@ -160,8 +156,6 @@ twoK n f =  (\arr ->
                   nl2   = (len (f (mkPullArray  m (\j -> arr ! variable "X"))))
                   lt    = nl2 `shiftL` n 
               in arr')  
-{-
-
 
 ---------------------------------------------------------------------------
 -- ivt (untested)
@@ -214,38 +208,34 @@ ivDiv i j (Array (Pull ixf) n) = (Array (Pull (ixf . left)) (n-n2),
 --    parr = push arr
 --    n =  len parr
 
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- IxMap Class
+---------------------------------------------------------------------------
 class IxMap a where 
   ixMap :: (Exp Word32 -> Exp Word32) 
            -> a e 
            -> a e
 
---instance IxMap (Array Push) where
---  ixMap f (Array n (Push p)) = Array n (Push (ixMap' f p)) 
+instance IxMap (Array Push) where
+  ixMap f (Array n (Push p)) = Array n (Push (ixMap' f p)) 
 
---instance IxMap (GlobalArray Push) where 
---  ixMap f (GlobalArray n (Push p)) = 
---     GlobalArray n (Push (ixMap' f p))
 
 instance IxMap (Array Pull) where 
   ixMap f (Array n (Pull ixf)) = Array n (Pull (ixf . f)) 
 
-instance IxMap (GlobalArray Pull) where 
-  ixMap f (GlobalArray n (Pull ixf)) = GlobalArray n (Pull (ixf . f)) 
 
---ixMap' :: (Exp Word32 -> Exp Word32) 
---         -> P (Exp Word32, a)
---         -> P (Exp Word32, a) 
---ixMap' f p = \g -> ( p) (\(i,a) -> g (f i,a))
+ixMap' :: (Exp Word32 -> Exp Word32) 
+          -> (((Exp Word32, a) -> Program b) -> Program b) 
+          -> (((Exp Word32, a) -> Program b) -> Program b) 
+ixMap' f p = \g -> p (\(i,a) -> g (f i,a))
 
 
 
 
 
-----------------------------------------------------------------------------
+---------------------------------------------------------------------------
 -- Concatenate on Push arrays 
--} 
+---------------------------------------------------------------------------
 concP :: (Pushable arr1,
           Pushable arr2) => (arr1 a, arr2 a) -> Array Push a     
 concP (arr1,arr2) = 
@@ -258,24 +248,30 @@ concP (arr1,arr2) =
   where 
      (Array n1 (Push parr1)) = push arr1
      (Array n2 (Push parr2)) = push arr2
-    -- n1    = len parr1
-    -- n2    = len parr2
 
-{-
- {-     
+
 ----------------------------------------------------------------------------
 --
+unpairP :: Pushable arr => arr (a,a) -> Array Push a
+unpairP arr =
+  Array n (Push (\k -> pushf (everyOther k)))
+  where
+    parr@(Array n (Push pushf)) = push arr
+
+{- 
 unpairP :: Pushable arr => arr (a,a) -> Array Push a 
 unpairP arr =  mkPushArray (\k -> parr !* (everyOther k))
          (2 * n)
   where 
     parr = push arr 
     n    = len parr
-        
+-}      
 everyOther :: ((Exp Word32, a) -> Program ()) 
               -> (Exp Word32, (a,a)) -> Program ()
 everyOther f  = \(ix,(a,b)) -> f (ix * 2,a) *>* f (ix * 2 + 1,b)  
-    
+
+{-
+ {-     
 ----------------------------------------------------------------------------
 -- 
     
