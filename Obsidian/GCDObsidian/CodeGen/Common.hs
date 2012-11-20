@@ -157,7 +157,7 @@ cond gc mm e = line ("if " ++ concat (genExp gc mm e))
 
 
 -- used in both OpenCL and CUDA generation
-potentialCond gc mm n nt pp 
+potentialCond gc mm n nt pp
   | n < nt = 
     do
       cond gc mm (tid <* (fromIntegral n))

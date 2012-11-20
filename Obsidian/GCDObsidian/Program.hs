@@ -1,8 +1,8 @@
-{-# LANGUAGE     RankNTypes, 
-                 GADTs  #-} 
+{- Joel Svensson 2012 -}
+
+{-# LANGUAGE GADTs  #-} 
 module Obsidian.GCDObsidian.Program 
        ( Program(..)
-       , programThreads
        , (*>*)
        , runPrg
        , printPrg
@@ -94,31 +94,11 @@ runPrg i (Bind m f) =
   in runPrg i' (f a) 
 runPrg i (Sync) = ((),i)
 runPrg i (ForAll n ixf) =
-  (fst (runPrg i (ixf (variable "tid"))),i) -- FIX THE i
+  let (p,i') = runPrg i (ixf (variable "tid")) 
+  in  (p,i') 
 runPrg i (Allocate _ _) = ("new" ++ show i,i+1)
 runPrg i (Assign _ _ a) = ((),i) -- Probaby wrong.. 
 runPrg i (AtomicOp _ _ _) = (variable ("new"++show i),i+1)
-
-{- 
-runPAccm :: Monoid b
-            => Int
-            -> Program a
-            -> (forall a . (Program a -> b))
-            -> b 
-            -> (a,b,Int)
-runPAccm i p@(Return a) f b  = (a, f p `mappend` b,i) 
-runPAccm i p@(Bind mf m) f b =
-  let (a,acc,i') = runPAccm i m f b 
-  in  runPAccm i' (mf a) f acc
-runPAccm i p@(Sync) f b = ((),f p `mappend` b, i)
-runPAccm i p@(ForAll _ _) f b = ((),f p `mappend` b, i)
-runPAccm i p@(Allocate _ _) f b = ("arr" ++ show i,f p `mappend` b, i)
-runPAccm i p@(Assign _ _ _)  f b = ((), f p `mappend` b, i)
-runPAccm i p@(AtomicOp _ _ _) f b =
-  (variable ("new" ++ show i),f p `mappend` b,i+1);
--}
--- took same as precedence as for ++ for *>*
-
 
 ---------------------------------------------------------------------------
 -- Sequence programs
@@ -129,26 +109,7 @@ infixr 5 *>*
          -> Program b
          -> Program b   
 (*>*) p1 p2 = p1 >> p2  
-    
-
----------------------------------------------------------------------------
--- Required threads (reimplement in runPAccm ?)
--- TODO: Maybe just implement this on CodeGen.Program ?? 
----------------------------------------------------------------------------
-
-programThreads :: Program a -> Word32
--- programThreads Skip = 0
-programThreads (Sync) = 0 
-programThreads (Assign _ _ _) = 1
-programThreads (ForAll n f) = n -- inner ForAlls are sequential
-programThreads (ForAllBlocks _ f) = programThreads (f (variable "X"))
-programThreads (Allocate _ _) = 0 -- programThreads p
-programThreads (Bind m f) =
-  let (a,_) = runPrg 0 m
-  in max (programThreads m) (programThreads (f a))
-programThreads (Return a) = 0 
-programThreads (AtomicOp _ _ _) = 1
-
+     
 ---------------------------------------------------------------------------
 -- printPrg
 ---------------------------------------------------------------------------
