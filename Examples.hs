@@ -175,7 +175,7 @@ histogram (Blocks nb blkf) =
                   ix' = arr ! tix
                   blk = ix' `div` fromIntegral blkSize
                   ix  = ix' `mod` fromIntegral blkSize  
-              in  wf 1 ix blk)
+              in  wf 1 blk ix)
 
 
 
@@ -196,7 +196,7 @@ forceBT (GlobArray nb bs (PushP pbt)) =
       return $ Blocks nb  $ 
         \bix -> Array bs (Pull (\ix -> index global ((bix * (fromIntegral bs)) + ix)))
     where 
-      assignTo name s e i b = Assign name ((b*(fromIntegral s))+i) e
+      assignTo name s e b i = Assign name ((b*(fromIntegral s))+i) e
       
 hist
   :: Exp Word32
@@ -258,8 +258,51 @@ getScan_ n = CUDA.genKernel_ "scan" (sklanskyAllBlocks n)
 -- Reconstruct
 ---------------------------------------------------------------------------
 
-type GlobalArray p a = Blocks (Array p a) 
+-- type GlobalArray p a = Blocks (Array p a) 
 
+reconstruct :: Blocks (Array Pull (Exp Word32))
+               -> Blocks (Array Pull (Exp Word32))
+               -> GlobArray PushBT (Exp Word32)
+reconstruct inp pos =
+  GlobArray nb bs $
+    PushP $ \wf bix tix ->
+        let gix = (inp !| bix) ! tix
+            bix' = gix `div` (fromIntegral bs)
+            tix' = gix `mod` (fromIntegral bs)
+
+            pgix = (pos !| bix') ! tix'
+            pbix = pgix `div` (fromIntegral bs)
+            ptix = pgix `mod` (fromIntegral bs) 
+            
+        in wf gix pbix ptix
+  where
+    bs = len (inp !| 0)
+    (Blocks nb _) = inp
+
+recs :: Blocks (Array Pull (Exp Word32))
+        -> Blocks (Array Pull (Exp Word32))
+        -> Program (Blocks (Array Pull (Exp Word32)))
+recs inp pos = forceBT (reconstruct inp pos) 
+
+{-
+  Blocks nb (\bix -> -- nb seems totally unimportant
+                     -- (does appear in code). rethink this.
+    Array bsize
+    $ Push (\k -> do
+        ForAll bsize
+          $ \ ix ->
+          let bix' = ((inp !| bix) ! ix) `div` (fromIntegral bsize)
+              ix'  = ((inp !| bix) ! ix) `mod` (fromIntegral bsize)
+          in 
+              k ((pos !| bix') ! ix',
+                 (inp !| bix) ! ix)))
+                         
+          --(\ix -> k ((pos !| bix) ! ix , 
+          --           (inp !| bix) ! ix))))
+  where
+    bsize = len (inp !| 0)
+-} 
+{- 
 reconstruct :: Exp Word32
                -> GlobalArray Pull (Exp Word32)
                -> GlobalArray Pull (Exp Word32)
@@ -280,14 +323,15 @@ reconstruct nb inp pos = force $
           --(\ix -> k ((pos !| bix) ! ix , 
           --           (inp !| bix) ! ix))))
   where
-    bsize = len (inp !| 0) 
+    bsize = len (inp !| 0)
+-} 
 -- Check that reconstruct does what it is suppoed to
 -- TODO: Needs type convertion functionality if this is
 --       to be implemented for anything else than Word32.
 --         (indices are Word32)
 getReconstruct n =
   CUDA.genKernel "reconstruct"
-                 (reconstruct (variable "N"))
+                 recs
                  (inG n :-> inG n)
                  
 inG n = namedGlobal "apa" (variable "N") (2^n)
@@ -335,7 +379,10 @@ cs =
   do
     hist <- capture (hist 255) (sizedGlobal (variable "N") 256)  
     skl <- capture (sklanskyAllBlocks 8) (sizedGlobal (variable "N") 256)
-    constr <- capture (reconstruct 256)
+    --constr <- capture (reconstruct 256)
+    --                  ((sizedGlobal (variable "N") 256) :->
+    --                   (sizedGlobal (variable "N") 256))
+    constr <- capture recs
                       ((sizedGlobal (variable "N") 256) :->
                        (sizedGlobal (variable "N") 256))
                       
