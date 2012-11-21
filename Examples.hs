@@ -169,14 +169,14 @@ histogram (Blocks nb blkf) =
 histogram :: Blocks (Array Pull (Exp Word32))
              -> GlobArray PushBT (Exp Word32)
 histogram (Blocks nb blkf) =
-  GlobArray nb 256 $ PushP (\wf bix tix ->
+  GlobArray nb blkSize $ PushP (\wf bix tix ->
               let arr = blkf bix
-                  blkSize = len arr
                   ix' = arr ! tix
                   blk = ix' `div` fromIntegral blkSize
                   ix  = ix' `mod` fromIntegral blkSize  
               in  wf 1 blk ix)
-
+    where
+      blkSize = len (blkf 0)
 
 
 {-
