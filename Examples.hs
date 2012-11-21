@@ -140,23 +140,69 @@ reify0 = fst $ toProgram 0 testG2 (inputG :-> inputG)
 ---------------------------------------------------------------------------
 -- Histogram
 ---------------------------------------------------------------------------
+{- 
 histogram :: Exp Word32
              -> Blocks (Array Pull (Exp Word32))
              -> Blocks (Array Push (Exp Word32))
 histogram maxLen (Blocks nb blkf)  =
   Blocks nb blkf' 
-  where
-                
+  where                
     blkf' bid = Array blkSize (Push (collect bid)) 
     blkSize = len (blkf 0) -- all blocks are same size  
     collect bid k = ForAll blkSize $ \i ->
       k ((blkf bid) ! i,1)
+-} 
+{- 
+histogram :: Blocks (Array Pull (Exp Word32))
+             -> GlobArray PushBT (Exp Word32)
+histogram (Blocks nb blkf) =
+  GlobArray nb 256 $ PushP (\wf bix ->
+              let arr = blkf bix
+                  blkSize = len arr
+              in ForAll blkSize $ \i ->
+                  let ix' = arr ! i
+                      blk = ix' `div` fromIntegral blkSize
+                      ix  = ix' `mod` fromIntegral blkSize  
+                  in  wf ix 1 blk)
+-}
 
+histogram :: Blocks (Array Pull (Exp Word32))
+             -> GlobArray PushBT (Exp Word32)
+histogram (Blocks nb blkf) =
+  GlobArray nb 256 $ PushP (\wf bix tix ->
+              let arr = blkf bix
+                  blkSize = len arr
+                  ix' = arr ! tix
+                  blk = ix' `div` fromIntegral blkSize
+                  ix  = ix' `mod` fromIntegral blkSize  
+              in  wf 1 ix blk)
+
+
+
+{-
+ 
+
+-}
+forceBT :: forall a. Scalar a => GlobArray PushBT (Exp a) -> Program (Blocks (Array Pull (Exp a)))
+forceBT (GlobArray nb bs (PushP pbt)) =
+  do
+      global <- Output $ Pointer (typeOf (undefined :: (Exp a)))
+      
+      ForAllBlocks nb 
+        (\bid ->
+          ForAll bs $ \ix -> 
+            (pbt (assignTo global bs)) bid ix)
+        
+      return $ Blocks nb  $ 
+        \bix -> Array bs (Pull (\ix -> index global ((bix * (fromIntegral bs)) + ix)))
+    where 
+      assignTo name s e i b = Assign name ((b*(fromIntegral s))+i) e
+      
 hist
   :: Exp Word32
      -> Blocks (Array Pull (Exp Word32))
      -> Program (Blocks (Array Pull (Exp Word32)))
-hist max inp = force  (histogram max inp)
+hist max inp = forceBT (histogram {-max-} inp)
 
 inputWord32 :: Blocks (Array Pull (Exp Word32)) 
 inputWord32 = namedGlobal "apa" (variable "N") 256
@@ -309,6 +355,27 @@ cs =
             execute constr
                     1
                     0
-                    (inp :-> tmp) out 
+                    (inp :-> tmp) out
+                    
             r <- lift$ CUDA.peekListArray 256 out
             lift $ putStrLn $ show  (r :: [Word32])
+
+
+
+wc2 = 
+  withCUDA $
+  do
+    -- Capture, compile and link the Obsidian program
+    -- into a CUDA function 
+    myCudaFun <- capture (hist 256) (sizedGlobal (variable "N") 256)  
+    
+    -- Set up data and launch the kernel!
+    useVector (V.fromList [0..511::Word32]) $ \ inp -> 
+      allocaVector 512 $ \out ->
+        do
+          execute myCudaFun
+                  2  -- how many blocks 
+                  0   -- how much shared mem (will come from an analysis later) 
+                  inp out 
+          r <- lift$ CUDA.peekListArray 512 out
+          lift $ putStrLn $ show  (r :: [Word32])

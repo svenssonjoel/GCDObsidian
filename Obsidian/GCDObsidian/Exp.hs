@@ -576,6 +576,8 @@ printOp :: Op a -> String
 printOp Add = " + " 
 printOp Sub = " - " 
 printOp Mul = " * "
+printOp Div = " / "
+printOp Mod = " % "
 
 -- printOp If  = " if "
 

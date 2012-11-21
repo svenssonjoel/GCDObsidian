@@ -18,7 +18,36 @@ import Data.Word
 ---------------------------------------------------------------------------
 type P a = (a -> Program ()) -> Program ()
 
+
 data Push a = Push {pushFun :: P (Exp Word32,a)}
+
+data PushP r a = PushP ((a -> r) -> r) 
+
+
+--                             nBlocks     elt/block
+data PushGlob a = PushGlobal (Exp Word32) Word32
+                             ((a -> Exp Word32 -> Exp Word32 -> Program ())
+                              -> Program ())
+-- Global Computations
+type PushBT = PushP (Exp Word32 -> Exp Word32 -> Program ())
+-- Local Computations
+type PushT  = PushP (Exp Word32 -> Program ())
+
+--data PushP r a = PushP ((a -> r) -> r) 
+{-
+  PushP:
+   Think about what the r parameter looks like.
+   So. if we add a thread id here we can remove the "ForAll"
+   constructor from the Program type.
+
+   In the PushBT case a BlockId -> Program () is the result
+   this could also be avoided by having a ForAllBlocks in
+   the program () type. 
+
+-}  
+--type PushBT = PushP (Exp Word32 -> Exp Word32 -> Program ())
+--type PushT  = PushP (Exp Word32 -> Program ())
+
 data Pull a = Pull {pullFun :: Exp Word32 -> a}
 
 mkPush :: (((Exp Word32, a) -> Program ())
@@ -26,6 +55,7 @@ mkPush :: (((Exp Word32, a) -> Program ())
 mkPush p = Push p  
 
 data Array p a = Array Word32 (p a) 
+data GlobArray p a = GlobArray (Exp Word32) Word32 (p a)
 
 type PushArray a = Array Push a 
 type PullArray a = Array Pull a 
