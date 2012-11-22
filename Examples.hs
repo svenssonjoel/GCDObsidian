@@ -166,6 +166,7 @@ histogram (Blocks nb blkf) =
                   in  wf ix 1 blk)
 -}
 
+{- 
 histogram :: Blocks (Array Pull (Exp Word32))
              -> GlobArray PushBT (Exp Word32)
 histogram (Blocks nb blkf) =
@@ -178,11 +179,12 @@ histogram (Blocks nb blkf) =
     where
       blkSize = len (blkf 0)
 
-
+-}
 {-
  
 
 -}
+{-
 forceBT :: forall a. Scalar a => GlobArray PushBT (Exp a) -> Program (Blocks (Array Pull (Exp a)))
 forceBT (GlobArray nb bs (PushP pbt)) =
   do
@@ -210,7 +212,7 @@ inputWord32 = namedGlobal "apa" (variable "N") 256
 
 getHist = putStrLn$ CUDA.genKernel "hist" (hist 256)  inputWord32
 
-
+-} 
 ---------------------------------------------------------------------------
 -- Scan  (TODO: Rewrite as a exclusive scan (0 as first elem in result) 
 ---------------------------------------------------------------------------
@@ -259,7 +261,7 @@ getScan_ n = CUDA.genKernel_ "scan" (sklanskyAllBlocks n)
 ---------------------------------------------------------------------------
 
 -- type GlobalArray p a = Blocks (Array p a) 
-
+{- 
 reconstruct :: Blocks (Array Pull (Exp Word32))
                -> Blocks (Array Pull (Exp Word32))
                -> GlobArray PushBT (Exp Word32)
@@ -283,7 +285,7 @@ recs :: Blocks (Array Pull (Exp Word32))
         -> Blocks (Array Pull (Exp Word32))
         -> Program (Blocks (Array Pull (Exp Word32)))
 recs inp pos = forceBT (reconstruct inp pos) 
-
+-}
 {-
   Blocks nb (\bix -> -- nb seems totally unimportant
                      -- (does appear in code). rethink this.
@@ -329,6 +331,7 @@ reconstruct nb inp pos = force $
 -- TODO: Needs type convertion functionality if this is
 --       to be implemented for anything else than Word32.
 --         (indices are Word32)
+{-
 getReconstruct n =
   CUDA.genKernel "reconstruct"
                  recs
@@ -336,7 +339,7 @@ getReconstruct n =
                  
 inG n = namedGlobal "apa" (variable "N") (2^n)
         :: Blocks (Array Pull (Exp Word32))
-
+-} 
 ---------------------------------------------------------------------------
 -- Testing WithCUDA aspects
 ---------------------------------------------------------------------------
@@ -351,7 +354,7 @@ wc1 =
   do
     -- Capture, compile and link the Obsidian program
     -- into a CUDA function 
-    myCudaFun <- capture testGRev inputWord32
+    myCudaFun <- capture testGRev (sizedGlobal (variable "N") 256) -- inputWord32
     
     -- Set up data and launch the kernel!
     useVector (V.fromList [0..511::Word32]) $ \ inp -> 
@@ -373,7 +376,7 @@ t2 =
     where
       header = "#include <stdint.h>\n"
 
-
+{- 
 cs =
   withCUDA $
   do
@@ -426,3 +429,86 @@ wc2 =
                   inp out 
           r <- lift$ CUDA.peekListArray 512 out
           lift $ putStrLn $ show  (r :: [Word32])
+
+
+-} 
+
+---------------------------------------------------------------------------
+-- Experiments Nov 22 2012
+---------------------------------------------------------------------------
+{- 
+mapB :: forall a b . Scalar b
+        => (Array Pull a -> Program (Array Pull (Exp b))) -> 
+        (Distrib a -> Program (Distrib (Exp b)))
+mapB f inp@(Distrib nb bs bixf) =
+  do
+    name <- Allocate (bs * fromIntegral (sizeOf (undefined :: Exp b)))
+                     (Pointer (typeOf (undefined :: Exp b)))
+            
+
+    return $ Distrib nb bs $ \bix tix -> index name tix
+    where
+      target name bix tix e = Assign name tix e
+      arr = Array bs $ Pull $ \ix -> bixf
+-} 
+
+mapB :: (Array Pull a -> Program (Array Pull b)) ->
+        (Distrib (Array Pull a) -> Distrib (Program (Array Pull b)))
+mapB f inp@(Distrib nb bixf) =
+  Distrib nb $ \bid -> f (bixf bid)
+
+
+toGlobArray :: Distrib (Program (Array Pull a)) -> GlobArray a
+toGlobArray inp@(Distrib nb bixf) =
+  GlobArray nb bs $
+     
+    \wf bid tid ->
+      do
+        arr <- bixf bid 
+        wf (arr ! tid) bid tid
+  where
+    -- Maybe not very efficient.. 
+    bs = len $ fst $ runPrg 0 (bixf 0)
+
+
+--  a post permutation (very little can be done with a GlobArray) 
+permuteGlobal :: Distrib (Array Pull a)
+                 -> (Exp Word32 -> Exp Word32 -> (Exp Word32, Exp Word32))
+                 -> GlobArray a
+permuteGlobal distr@(Distrib nb bixf) perm = 
+  GlobArray nb bs $
+    \wf bid tid ->
+      do
+        let (bid',tid') = perm bid tid
+        wf ((bixf bid) ! tid) bid' tid' 
+ where 
+  bs = len (bixf 0)
+
+
+gatherGlobal :: Distrib (Array Pull (Exp Word32))
+                -> Exp Word32 -- expected output size number of blocks
+                -> Word32     -- expected output size block-size
+                -> Distrib (Array Pull a)
+                -> GlobArray a
+gatherGlobal indices@(Distrib nbs inf)
+             nb bs
+             elems@(Distrib ebs enf) =
+  GlobArray nb bs $
+   \wf bid tid ->
+     let  inArr = inf bid
+          inix  = inArr ! tid
+
+          e     = (enf bid) ! tid 
+     in wf e
+           (inix `div` (fromIntegral bs))
+           (inix `mod` (fromIntegral bs))
+           
+distribute :: Exp Word32 -> Word32 -> a -> Distrib (Array Pull a)
+distribute nb bs e = Distrib nb $ \bid -> replicate bs e  
+
+histogram :: Num a
+             => Exp Word32
+             -> Word32
+             -> Distrib (Array Pull (Exp Word32))
+             -> GlobArray a
+histogram nb bs elems = gatherGlobal elems nb bs (distribute nb bs 1) 

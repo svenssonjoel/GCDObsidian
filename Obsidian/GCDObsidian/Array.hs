@@ -14,6 +14,17 @@ import Data.Word
 
 
 ---------------------------------------------------------------------------
+-- An Array distributed over MultiProcessors (same as old Blocks) 
+---------------------------------------------------------------------------
+data Distrib a = Distrib (Exp Word32)
+                         (Exp Word32 -> a)
+
+-- Global result array. 
+data GlobArray a = GlobArray (Exp Word32)
+                             Word32
+                             ((a -> Exp Word32 -> Exp Word32 -> Program ()) ->  
+                              (Exp Word32 -> Exp Word32 -> Program ())) 
+---------------------------------------------------------------------------
 -- Push and Pull arrays
 ---------------------------------------------------------------------------
 type P a = (a -> Program ()) -> Program ()
@@ -25,11 +36,11 @@ data PushP r a = PushP ((a -> r) -> r)
 
 
 --                             nBlocks     elt/block
-data PushGlob a = PushGlobal (Exp Word32) Word32
-                             ((a -> Exp Word32 -> Exp Word32 -> Program ())
-                              -> Program ())
+--data PushGlob a = PushGlobal (Exp Word32) Word32
+--                             ((a -> Exp Word32 -> Exp Word32 -> Program ())
+--                              -> Program ())
 -- Global Computations
-type PushBT = PushP (Exp Word32 -> Exp Word32 -> Program ())
+--type PushBT = PushP (Exp Word32 -> Exp Word32 -> Program ())
 -- Local Computations
 type PushT  = PushP (Exp Word32 -> Program ())
 
@@ -55,7 +66,7 @@ mkPush :: (((Exp Word32, a) -> Program ())
 mkPush p = Push p  
 
 data Array p a = Array Word32 (p a) 
-data GlobArray p a = GlobArray (Exp Word32) Word32 (p a)
+--data GlobArray p a = GlobArray (Exp Word32) Word32 (p a)
 
 type PushArray a = Array Push a 
 type PullArray a = Array Pull a 
