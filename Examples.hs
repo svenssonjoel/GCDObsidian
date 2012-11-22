@@ -472,10 +472,10 @@ toGlobArray inp@(Distrib nb bixf) =
 
 
 --  a post permutation (very little can be done with a GlobArray) 
-permuteGlobal :: Distrib (Array Pull a)
-                 -> (Exp Word32 -> Exp Word32 -> (Exp Word32, Exp Word32))
+permuteGlobal :: (Exp Word32 -> Exp Word32 -> (Exp Word32, Exp Word32))
+                 -> Distrib (Array Pull a)
                  -> GlobArray a
-permuteGlobal distr@(Distrib nb bixf) perm = 
+permuteGlobal perm distr@(Distrib nb bixf) = 
   GlobArray nb bs $
     \wf bid tid ->
       do
@@ -511,4 +511,20 @@ histogram :: Num a
              -> Word32
              -> Distrib (Array Pull (Exp Word32))
              -> GlobArray a
-histogram nb bs elems = gatherGlobal elems nb bs (distribute nb bs 1) 
+histogram nb bs elems = gatherGlobal elems nb bs (distribute nb bs 1)
+
+
+-- Im not sure this one is right. (Try to get to code generation soon) 
+reconstruct inp@(Distrib nb bixf) pos@(Distrib _ posf) =
+  permuteGlobal perm inp 
+  where
+    perm bix tix =
+      let bs  = len (bixf bix) 
+          gix = (bixf bix) ! tix
+          bix' = gix `div` (fromIntegral bs)
+          tix' = gix `mod` (fromIntegral bs)
+
+          pgix = (posf bix') ! tix'
+          pbix = pgix `div` (fromIntegral bs)
+          ptix = pgix `mod` (fromIntegral bs) 
+      in (pbix,ptix) 
