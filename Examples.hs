@@ -452,6 +452,41 @@ mapB f inp@(Distrib nb bs bixf) =
       arr = Array bs $ Pull $ \ix -> bixf
 -} 
 
+
+---------------------------------------------------------------------------
+--
+--  NEW PART
+--
+---------------------------------------------------------------------------
+
+
+{-
+   I want to think of mapB like this:
+
+    f is a program on local data that potentially stores results
+    in local memory (thats what the Program part in the return type means).
+
+    mapB f takes an array distributed over a number of "blocks"
+    (Not physically distributed at this time). The result on the
+    other hand is potentially stored distributedly(wow thats really a word!)
+    over the shared memories (thats the Program part inside of the Distrib).
+
+   Questions: 
+    Im not sure that it is impossible to missuse mapB to somehow affect
+    elements outside of the "local" part of the array. How do I make sure so ?
+
+   Thoughts: It should be possible to compose mapB's .. mapB f . mapB g.
+    since there is no communication across blocks.
+
+    Anything that actually communicates values across block boundaries
+    should have the GlobArray return type instead of Distrib Something.
+    (It should be impossible to go from a GlobArray  to a Distrib something
+    inside a kernel) 
+    
+   
+
+-} 
+
 mapB :: (Array Pull a -> Program (Array Pull b)) ->
         (Distrib (Array Pull a) -> Distrib (Program (Array Pull b)))
 mapB f inp@(Distrib nb bixf) =
