@@ -461,21 +461,21 @@ mapB f inp@(Distrib nb bs bixf) =
 
 
 {-
-   I want to think of mapB like this:
+   I want to think of mapD like this:
 
     f is a program on local data that potentially stores results
     in local memory (thats what the Program part in the return type means).
 
-    mapB f takes an array distributed over a number of "blocks"
+    mapD f takes an array distributed over a number of "blocks"
     (Not physically distributed at this time). The result on the
     other hand is potentially stored distributedly(wow thats really a word!)
     over the shared memories (thats the Program part inside of the Distrib).
 
    Questions: 
-    Im not sure that it is impossible to missuse mapB to somehow affect
+    Im not sure that it is impossible to missuse mapD to somehow affect
     elements outside of the "local" part of the array. How do I make sure so ?
 
-   Thoughts: It should be possible to compose mapB's .. mapB f . mapB g.
+   Thoughts: It should be possible to compose mapD's .. mapD f . mapD g.
     since there is no communication across blocks.
 
     Anything that actually communicates values across block boundaries
@@ -487,16 +487,23 @@ mapB f inp@(Distrib nb bs bixf) =
 
 -} 
 
-mapB :: (Array Pull a -> Program (Array Pull b)) ->
-        (Distrib (Array Pull a) -> Distrib (Program (Array Pull b)))
-mapB f inp@(Distrib nb bixf) =
+class LocalArrays a
+instance LocalArrays (Array Pull a) 
+instance LocalArrays (Array Push a) 
+instance (LocalArrays a, LocalArrays b) => LocalArrays (a,b)
+instance (LocalArrays a, LocalArrays b, LocalArrays c) => LocalArrays (a,b,c)
+  
+
+mapD :: (LocalArrays a, LocalArrays b) =>
+        (a -> Program b) ->
+        (Distrib a -> Distrib (Program b))
+mapD f inp@(Distrib nb bixf) =
   Distrib nb $ \bid -> f (bixf bid)
 
 
 toGlobArray :: Distrib (Program (Array Pull a)) -> GlobArray a
 toGlobArray inp@(Distrib nb bixf) =
-  GlobArray nb bs $
-     
+  GlobArray nb bs $     
     \wf bid tid ->
       do
         arr <- bixf bid 
@@ -562,4 +569,40 @@ reconstruct inp@(Distrib nb bixf) pos@(Distrib _ posf) =
           pgix = (posf bix') ! tix'
           pbix = pgix `div` (fromIntegral bs)
           ptix = pgix `mod` (fromIntegral bs) 
-      in (pbix,ptix) 
+      in (pbix,ptix)
+
+
+---------------------------------------------------------------------------
+-- Ensure that nothing further can be done with a forced GlobArray. 
+---------------------------------------------------------------------------
+data Final a = Final {cheat :: a} -- cheat should not be exposed. 
+
+---------------------------------------------------------------------------
+-- force a GlobArray
+---------------------------------------------------------------------------
+forceBT :: forall a. Scalar a => GlobArray (Exp a)
+           -> Final (Program (Blocks (Array Pull (Exp a))))
+forceBT (GlobArray nb bs pbt) = Final $ 
+  do
+      global <- Output $ Pointer (typeOf (undefined :: (Exp a)))
+      
+      ForAllBlocks nb 
+        (\bid ->
+          ForAll bs $ \ix -> 
+            (pbt (assignTo global bs)) bid ix)
+        
+      return $ Blocks nb  $ 
+        \bix -> Array bs (Pull (\ix -> index global ((bix * (fromIntegral bs)) + ix)))
+    where 
+      assignTo name s e b i = Assign name ((b*(fromIntegral s))+i) e
+
+
+---------------------------------------------------------------------------
+-- Experiment: reverse a GlobArray
+---------------------------------------------------------------------------
+reverseGA :: GlobArray a -> GlobArray a
+reverseGA (GlobArray nb bs pbt) =
+  GlobArray nb bs $ \wf bid tid ->
+      pbt wf (nb - 1 - bid)
+             (fromIntegral bs - 1 - tid)
+             

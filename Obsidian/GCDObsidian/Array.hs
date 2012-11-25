@@ -19,7 +19,11 @@ import Data.Word
 data Distrib a = Distrib (Exp Word32)
                          (Exp Word32 -> a)
 
+
+
+---------------------------------------------------------------------------
 -- Global result array. 
+---------------------------------------------------------------------------
 data GlobArray a = GlobArray (Exp Word32)
                              Word32
                              ((a -> Exp Word32 -> Exp Word32 -> Program ()) ->  
@@ -79,35 +83,9 @@ mkPullArray n p = Array n (Pull p)
 resize m (Array n p) = Array m p 
 
 
-{- 
--- TODO: Do you need (Exp e) where there is only e ? 
-class  PushyInternal a where 
-  push' :: Word32 -> a e -> Array Push e  
-  push'' :: Word32 -> a e -> Array Push e 
-
-
-
-  
-instance PushyInternal (Array Pull)  where   
-  push' m (Array n (Pull ixf)) = 
-    Array n $ mkPush $ \k ->
-                      ForAll (n `div` m)
-                      (\i -> foldr1 (*>*) 
-                             [k (ix,a)
-                             | j <-  [0..m-1],
-                               let ix = (i*(fromIntegral m) + (fromIntegral j)),
-                               let a  = ixf ix
-                             ]) 
-  push'' m (Array n (Pull ixf)) = 
-    Array n $mkPush $ \k ->
-                      ForAll (n `div` m)
-                      (\i -> foldr1 (*>*) 
-                             [k (ix,a)
-                             | j <-  [0..m-1],
-                               let ix = (i+((fromIntegral ((n `div` m) * j)))),
-                               let a  = ixf ix
-                             ]) 
--} 
+---------------------------------------------------------------------------
+-- Pushable
+---------------------------------------------------------------------------
 class Pushable a where 
   push :: a e -> Array Push e 
 
@@ -120,7 +98,7 @@ instance Pushable (Array Pull)  where
     mkPush $ \k -> ForAll n (\i -> k (i,(ixf i)))
 
 ---------------------------------------------------------------------------
---
+-- Indexing, array creation.
 ---------------------------------------------------------------------------
 namedArray name n = mkPullArray n (\ix -> index name ix)
 indexArray n      = mkPullArray n (\ix -> ix)
