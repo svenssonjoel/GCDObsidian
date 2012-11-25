@@ -98,34 +98,34 @@ inputG = namedGlobal "apa" (variable "N") 256
 
 
 
-testG1 :: Blocks (Array Pull EInt) -> Program (Blocks (Array Pull EInt))
-testG1 arr = force ( fmap mapSomething (reverseG arr) )
+--testG1 :: Blocks (Array Pull EInt) -> Program (Blocks (Array Pull EInt))
+--testG1 arr = force ( fmap mapSomething (reverseG arr) )
 
-getTestG1 = putStrLn$ CUDA.genKernel "testG1" testG1 inputG
+--getTestG1 = putStrLn$ CUDA.genKernel "testG1" testG1 inputG
 
-testG2 :: Blocks (Array Pull EInt)
-          -> Blocks (Array Pull EInt)
-          -> Program (Blocks (Array Pull EInt))
-testG2 _ arr = force ( fmap mapSomething (reverseG arr) )
+--testG2 :: Blocks (Array Pull EInt)
+--          -> Blocks (Array Pull EInt)
+--          -> Program (Blocks (Array Pull EInt))
+--testG2 _ arr = force ( fmap mapSomething (reverseG arr) )
 
 
 ---------------------------------------------------------------------------
 -- Print Programs for test
 ---------------------------------------------------------------------------
 prg0 = putStrLn$ printPrg$ mapFusion input1
-prg1 = putStrLn$ printPrg$ testG1 inputG
+--prg1 = putStrLn$ printPrg$ testG1 inputG
 
 
 ---------------------------------------------------------------------------
 -- Translate and pring as CGP.Programs 
 ---------------------------------------------------------------------------
 prg0' = putStrLn$ CGP.printPrg$ CGP.runPrg (mapFusion input1)
-prg1' = putStrLn$ CGP.printPrg$ CGP.runPrg (testG1 inputG)
+--prg1' = putStrLn$ CGP.printPrg$ CGP.runPrg (testG1 inputG)
 
 ---------------------------------------------------------------------------
 -- A small test for the function "reifyer" 
 ---------------------------------------------------------------------------
-reify0 = fst $ toProgram 0 testG2 (inputG :-> inputG)
+--reify0 = fst $ toProgram 0 testG2 (inputG :-> inputG)
 
 
 
@@ -238,20 +238,20 @@ fan op arr =  a1 `conc`  fmap (op c) a2
 
 sklanskyAllBlocks :: Int
                      -> Blocks (Array Pull (Exp Int32))
-                     -> Program (Blocks (Array Pull (Exp Int32)))
+                     -> Blocks (Program (Array Pull (Exp Int32)))
 sklanskyAllBlocks logbsize arr =
-  force $ fmap (sklanskyLocal logbsize (+)) arr
+  fmap (sklanskyLocal logbsize (+)) arr
    
 
 
-getScan n = CUDA.genKernel "scan" (sklanskyAllBlocks n) 
-                    (namedGlobal "apa" (variable "N") (2^n)
-                     :: Blocks (Array Pull (Exp Int32)))
+--getScan n = CUDA.genKernel "scan" (sklanskyAllBlocks n) 
+--                    (namedGlobal "apa" (variable "N") (2^n)
+--                     :: Blocks (Array Pull (Exp Int32)))
 
 
-getScan_ n = CUDA.genKernel_ "scan" (sklanskyAllBlocks n) 
-                    (namedGlobal "apa" (variable "N") (2^n)
-                     :: Blocks (Array Pull (Exp Int32)))
+--getScan_ n = CUDA.genKernel_ "scan" (sklanskyAllBlocks n) 
+--                    (namedGlobal "apa" (variable "N") (2^n)
+--                     :: Blocks (Array Pull (Exp Int32)))
 
 -- TODO: Rewrite Scan with BlockMap functionality.
 --       Also add the output of blockmaxs, and tweak code generation to
@@ -344,37 +344,37 @@ inG n = namedGlobal "apa" (variable "N") (2^n)
 -- Testing WithCUDA aspects
 ---------------------------------------------------------------------------
 
-testGRev :: Blocks (Array Pull EWord32)
-            -> Program (Blocks (Array Pull EWord32))
-testGRev arr = force ( fmap (push . rev) arr )
+testGRev :: Distrib (Array Pull EWord32)
+            -> Distrib (Program (Array Pull EWord32))
+testGRev = mapD (force . push . rev)
 
 
-wc1 = 
-  withCUDA $
-  do
-    -- Capture, compile and link the Obsidian program
-    -- into a CUDA function 
-    myCudaFun <- capture testGRev (sizedGlobal (variable "N") 256) -- inputWord32
+--wc1 = 
+--  withCUDA $
+--  do
+--    -- Capture, compile and link the Obsidian program
+--    -- into a CUDA function 
+--myCudaFun <- capture testGRev (sizedGlobal (variable "N") 256) -- inputWord32
     
     -- Set up data and launch the kernel!
-    useVector (V.fromList [0..511::Word32]) $ \ inp -> 
-      allocaVector 512 $ \out ->
-        do
-          execute myCudaFun
-                  2  -- how many blocks 
-                  0   -- how much shared mem (will come from an analysis later) 
-                  inp out 
-          r <- lift$ CUDA.peekListArray 512 out
-          lift $ putStrLn $ show  (r :: [Word32])
+--    useVector (V.fromList [0..511::Word32]) $ \ inp -> 
+--      allocaVector 512 $ \out ->
+--        do
+--          execute myCudaFun
+--                  2  -- how many blocks 
+--                  0   -- how much shared mem (will come from an analysis later) 
+--                  inp out 
+--          r <- lift$ CUDA.peekListArray 512 out
+--          lift $ putStrLn $ show  (r :: [Word32])
 
  
-t2 =
-  do
-    let str = getScan 8
-    fp <- storeAndCompile "-arch=sm_30" "scan.cu" (header ++ str)
-    putStrLn fp
-    where
-      header = "#include <stdint.h>\n"
+--t2 =
+--  do
+--    let str = getScan 8
+--    fp <- storeAndCompile "-arch=sm_30" "scan.cu" (header ++ str)
+--    putStrLn fp
+--    where
+--      header = "#include <stdint.h>\n"
 
 {- 
 cs =

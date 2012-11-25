@@ -82,63 +82,11 @@ instance Scalar a => Forceable (Array Push (Exp a)) where
     where
       targetArr name (i,e) = Assign name i e
 
----------------------------------------------------------------------------
--- Force Global Pull Array 
----------------------------------------------------------------------------
+instance (Forceable a, Forceable b) => Forceable (a,b) where
+  type Forced (a,b) = (Forced a, Forced b)
+  force (a,b) = (force a, force b) 
 
-instance Scalar a => Forceable (Blocks (Array Pull (Exp a))) where 
-  type Forced (Blocks (Array Pull (Exp a))) = 
-    Program (Blocks (Array Pull (Exp a)))
-  force bs = force (fmap push bs)
 
----------------------------------------------------------------------------
--- Force Global Push Array 
----------------------------------------------------------------------------
-instance Scalar a => Forceable (Blocks (Array Push (Exp a))) where 
-  type Forced (Blocks (Array Push (Exp a))) = 
-    Program (Blocks (Array Pull (Exp a)))
-
-  force (Blocks n bxf) =  
-    do
-      global <- Output $ Pointer (typeOf (undefined :: (Exp a))) 
-
-      -- dryrun to get length. 
-      let (Array s (Push pfun)) =  bxf (variable "dummy") 
-    
-      ForAllBlocks n
-        (\bid ->
-          do
-            let (Array s (Push pfun)) = bxf bid 
-            pfun (assignTo global (bid, s)))
-     
-      return $ Blocks n  $ 
-        \bix -> Array s (Pull (\ix -> index global ((bix * (fromIntegral s)) + ix)))
-    where 
-      assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e       
-
----------------------------------------------------------------------------
--- Force Global Program of Pull Array 
----------------------------------------------------------------------------
-instance Scalar a =>
-         Forceable (Blocks (Program (Array Pull (Exp a)))) where
-  type Forced (Blocks (Program (Array Pull (Exp a)))) =
-    Program (Blocks (Array Pull (Exp a)))
-
-  force (Blocks n bxf) =  
-    do
-      global <- Output $ Pointer (typeOf (undefined :: (Exp a))) 
-
-      -- dryrun to get length. 
-      (Array s (Pull pfun)) <- bxf (variable "dummy") 
-    
-      ForAllBlocks n
-        (\bid ->
-          do
-            arr <- bxf bid
-            let (Array s (Push pfun)) = push arr 
-            pfun (assignTo global (bid, s)))
-     
-      return $ Blocks n  $ 
-        \bix -> Array s (Pull (\ix -> index global ((bix * (fromIntegral s)) + ix)))
-    where 
-      assignTo name (bid,s) (i,e) = Assign name ((bid*(fromIntegral s))+i) e 
+instance (Forceable a, Forceable b, Forceable c) => Forceable (a,b,c) where
+  type Forced (a,b,c) = (Forced a, Forced b, Forced c)
+  force (a,b,c) = (force a, force b, force c) 

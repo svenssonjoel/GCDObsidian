@@ -1,4 +1,5 @@
-{-# LANGUAGE TypeOperators #-} 
+{-# LANGUAGE TypeOperators,
+             GADTs #-} 
 module Obsidian.GCDObsidian.CodeGen.CUDA.WithCUDA where
 
 import qualified Foreign.CUDA.Driver as CUDA
@@ -9,6 +10,7 @@ import qualified Foreign.CUDA.Driver.Stream as CUDAStream
 import Obsidian.GCDObsidian.CodeGen.CUDA
 import Obsidian.GCDObsidian.CodeGen.CUDA.Compile
 import Obsidian.GCDObsidian.CodeGen.InOut
+import Obsidian.GCDObsidian.Types -- experimental 
 
 import Control.Monad.State
 
@@ -18,6 +20,9 @@ import Foreign.ForeignPtr.Unsafe -- (req GHC 7.6 ?)
 
 
 import Data.Word
+import Data.Supply
+
+import System.IO.Unsafe 
 ---------------------------------------------------------------------------
 -- Get a list of devices from the CUDA driver
 ---------------------------------------------------------------------------
@@ -175,3 +180,68 @@ instance ParamList (CUDA.DevicePtr a) where
 
 instance (ParamList a, ParamList b) => ParamList (a :-> b) where
   toParamList (a :-> b) = toParamList a ++ toParamList b 
+
+
+---------------------------------------------------------------------------
+-- New Approach
+---------------------------------------------------------------------------
+
+type Id = Integer
+
+data CUDAProgram a where
+  CUDAKernel    :: String -> CUDAProgram Id
+  CUDAUseVector :: V.Storable a
+                   => V.Vector a
+                   -> CUDAProgram Id
+  CUDAAllocaVector :: Int
+                      -> Type 
+                      -> CUDAProgram Id
+
+  CUDAExecute :: Id
+                 -> Word32 -- Number of blocks 
+                 -> Word32 -- Amount of Shared mem (get from an analysis) 
+                 -> [Id] -- identify inputs.
+                 -> [Id] -- identfy outputs. 
+                 -> CUDAProgram ()
+
+  CUDAEventRecord :: CUDAProgram Id -- change type
+  CUDAEventSync   :: Id -> CUDAProgram ()
+  CUDAEventTime   :: Id -> Id -> CUDAProgram Id -- needs improvement. 
+
+  CUDABind :: CUDAProgram a
+              -> (a -> CUDAProgram b)
+              -> CUDAProgram b
+  CUDAReturn :: a -> CUDAProgram a 
+              
+
+---------------------------------------------------------------------------
+-- Collect Kernels from a CUDAProgram
+---------------------------------------------------------------------------
+getKerns :: CUDAProgram a -> [String]
+getKerns cp = collectKernels (unsafePerformIO newEnumSupply) cp 
+
+collectKernels :: Supply Id -> CUDAProgram a -> [String]
+collectKernels id cp = snd $ collectKernels' id cp 
+
+collectKernels' :: Supply Id -> CUDAProgram a -> (a,[String])
+collectKernels' id (CUDAKernel str) = (supplyValue id, [str])
+collectKernels' id (CUDABind cp f) =
+  let (id1,id2) = split2 id 
+      (a,kerns) = collectKernels' id1 cp
+      (b,moreKerns) = collectKernels' id2 (f a)
+  in  (b,kerns ++ moreKerns)
+collectKernels' id (CUDAReturn a) = (a,[])
+collectKernels' id (CUDAUseVector v) = (supplyValue id,[])
+collectKernels' id (CUDAAllocaVector s t) = (supplyValue id,[])
+collectKernels' id (CUDAExecute _ _ _ _ _) = ((),[])
+collectKernels' id CUDAEventRecord = (supplyValue id,[])
+collectKernels' id (CUDAEventSync _) = ((),[])
+collectKernels' id (CUDAEventTime _ _) = (supplyValue id,[])
+
+---------------------------------------------------------------------------
+-- Output a string with the kernel launch code.
+-- 
+---------------------------------------------------------------------------
+
+
+
