@@ -14,10 +14,21 @@ import Data.Word
 
 
 ---------------------------------------------------------------------------
+-- A value that can not be used in further computations
+--------------------------------------------------------------------------- 
+data Final a = Final {cheat :: a} -- cheat should not be exposed. 
+
+---------------------------------------------------------------------------
 -- An Array distributed over MultiProcessors (same as old Blocks) 
 ---------------------------------------------------------------------------
 data Distrib a = Distrib (Exp Word32)
                          (Exp Word32 -> a)
+
+sizedGlobal bn bs = Distrib bn
+                    (\bix -> (mkPullArray bs undefined))
+namedGlobal name bn bs = Distrib bn 
+                         (\bix -> (mkPullArray bs
+                                   (\ix -> index name (bix * (fromIntegral bs) + ix)))) 
 
 
 

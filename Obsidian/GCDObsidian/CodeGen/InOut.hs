@@ -35,20 +35,28 @@ import Data.Int
 
 -} 
   
-
 type Inputs = [(Name,Type)] 
 
 class ToProgram a b where
   toProgram :: Int -> (a -> b) -> Ips a b -> (Inputs,CG.Program ())
 
 #define toprgBase(t) \
-instance ToProgram (Blocks (Array Pull (Exp t))) (Program a) where { \
-  toProgram i f (Blocks n blkf)  =      \
+instance ToProgram (Distrib (Array Pull (Exp t))) (Program a) where { \
+  toProgram i f (Distrib n blkf)  =      \
     ([(nom,Pointer t)],CG.runPrg (f input)) \
      where {nom = "input" ++ show i; \
             var = "N" ++ show i; \
             n   = len (blkf (variable "X")); \
-            input = namedGlobal  nom (variable var) n;} } 
+            input = namedGlobal  nom (variable var) n;}}  \
+;\
+instance ToProgram (Distrib (Array Pull (Exp t))) (Final (Program a)) where { \
+  toProgram i f (Distrib n blkf)  =      \
+    ([(nom,Pointer t)],CG.runPrg (cheat (f input))) \
+     where  {nom = "input" ++ show i; \
+            var = "N" ++ show i; \
+            n   = len (blkf (variable "X")); \
+            input = namedGlobal  nom (variable var) n;}} 
+
 toprgBase(Int)
 
 toprgBase(Int8)
@@ -65,10 +73,9 @@ toprgBase(Word64)
 toprgBase(Float)
 toprgBase(Double) 
 
-
 #define toprgRec(t) \
-instance ToProgram b c => ToProgram (Blocks (Array Pull (Exp t))) (b -> c) where{\
-  toProgram i f ((Blocks n blkf) :-> rest) = ((nom,Pointer t):ins,prg)\
+instance ToProgram b c => ToProgram (Distrib (Array Pull (Exp t))) (b -> c) where{\
+  toProgram i f ((Distrib n blkf) :-> rest) = ((nom,Pointer t):ins,prg)\
     where {\
       (ins,prg) = toProgram (i+1) (f input) rest;\
       nom = "input" ++ show i;\
@@ -109,7 +116,9 @@ type family Ips' a
 
 
 #define ipsBase(t) \
-type instance Ips' (Blocks (Array Pull (Exp t))) = Blocks (Array Pull (Exp t));
+type instance Ips' (Distrib (Array Pull (Exp t))) = Distrib (Array Pull (Exp t));
+
+-- type instance Ips' (GlobArray (Exp t)) = GlobArray (Exp t);
 
 ipsBase(Int)
 ipsBase(Int8)
@@ -126,6 +135,9 @@ ipsBase(Float)
 ipsBase(Double)
 ipsBase(Bool) 
 
+-- type instance Ips a (GlobArray b) = Ips' a -- added Now 26
+
+type instance Ips a (Final (Program b)) = Ips' a 
 type instance Ips a (Program b) = Ips' a
 type instance Ips a (b -> c) =  Ips' a :-> Ips b c
 

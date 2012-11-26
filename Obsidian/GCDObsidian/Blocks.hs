@@ -12,6 +12,7 @@ import Data.Word
 ---------------------------------------------------------------------------
 -- Blocks
 ---------------------------------------------------------------------------
+{- 
 data Blocks a = Blocks (Exp Word32)   -- number of 
                        (Exp Word32 -> a)
 
@@ -43,3 +44,4 @@ zipBlocksWith :: (a -> b -> c)
 zipBlocksWith f (Blocks nb1 bxf1)
                 (Blocks nb2 bxf2) =
   Blocks (min nb1 nb2) (\bix -> f (bxf1 bix) (bxf2 bix))
+-} 

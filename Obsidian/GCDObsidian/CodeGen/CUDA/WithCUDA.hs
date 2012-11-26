@@ -10,6 +10,7 @@ import qualified Foreign.CUDA.Driver.Stream as CUDAStream
 import Obsidian.GCDObsidian.CodeGen.CUDA
 import Obsidian.GCDObsidian.CodeGen.CUDA.Compile
 import Obsidian.GCDObsidian.CodeGen.InOut
+import Obsidian.GCDObsidian.CodeGen.Common (genType,GenConfig(..))
 import Obsidian.GCDObsidian.Types -- experimental 
 
 import Control.Monad.State
@@ -21,8 +22,11 @@ import Foreign.ForeignPtr.Unsafe -- (req GHC 7.6 ?)
 
 import Data.Word
 import Data.Supply
+import Data.List 
 
-import System.IO.Unsafe 
+import System.IO.Unsafe
+import Control.Monad.State
+
 ---------------------------------------------------------------------------
 -- Get a list of devices from the CUDA driver
 ---------------------------------------------------------------------------
@@ -188,31 +192,91 @@ instance (ParamList a, ParamList b) => ParamList (a :-> b) where
 
 type Id = Integer
 
-data CUDAProgram a where
-  CUDAKernel    :: String -> CUDAProgram Id
-  CUDAUseVector :: V.Storable a
-                   => V.Vector a
-                   -> CUDAProgram Id
-  CUDAAllocaVector :: Int
-                      -> Type 
-                      -> CUDAProgram Id
+data CUDADir = HostToDevice | DeviceToHost | DeviceToDevice
 
-  CUDAExecute :: Id
-                 -> Word32 -- Number of blocks 
+data CUDAProgram a where
+  CUDANewId     :: CUDAProgram Id 
+  CUDAKernel    :: String -> CUDAProgram () 
+  CUDAUseVector :: (Show a, V.Storable a)
+                   => Id 
+                   -> V.Vector a
+                   -> Type 
+                   -> CUDAProgram ()
+
+  CUDACopyVector :: Id -> Id -> Int -> CUDADir -> CUDAProgram ()
+  CUDAAllocaVector :: Id 
+                      -> Int
+                      -> Type 
+                      -> CUDAProgram ()
+
+  CUDAExecute :: (String, Word32) 
+                 -> Word32 -- Number of blocks
                  -> Word32 -- Amount of Shared mem (get from an analysis) 
                  -> [Id] -- identify inputs.
                  -> [Id] -- identfy outputs. 
                  -> CUDAProgram ()
 
-  CUDAEventRecord :: CUDAProgram Id -- change type
-  CUDAEventSync   :: Id -> CUDAProgram ()
-  CUDAEventTime   :: Id -> Id -> CUDAProgram Id -- needs improvement. 
+  --CUDAEventRecord :: CUDAProgram Id -- change type
+  --CUDAEventSync   :: Id -> CUDAProgram ()
+  --CUDAEventTime   :: Id -> Id -> CUDAProgram Id -- needs improvement. 
 
+  CUDATime :: String -> CUDAProgram () -> CUDAProgram () -- TimeVal  
+
+  -- CUDAShowTimeVal :: TimeVal -> CUDAProgram () 
+  
   CUDABind :: CUDAProgram a
               -> (a -> CUDAProgram b)
               -> CUDAProgram b
-  CUDAReturn :: a -> CUDAProgram a 
-              
+  CUDAReturn :: a -> CUDAProgram a
+  
+---------------------------------------------------------------------------
+-- Monad Instance
+---------------------------------------------------------------------------
+instance Monad CUDAProgram where
+  return = CUDAReturn
+  (>>=)  = CUDABind 
+
+---------------------------------------------------------------------------
+--  Wrappers
+--------------------------------------------------------------------------- 
+cudaCapture :: ToProgram a b => (a -> b) -> Ips a b -> CUDAProgram (String,Word32) 
+cudaCapture f inputs =
+  do
+    id <- CUDANewId
+    
+    let kn      = "gen" ++ show id
+        prgstr  = genKernel kn f inputs
+        threads = getNThreads f inputs 
+        header  = "#include <stdint.h>\n" -- more includes ? 
+         
+    CUDAKernel (header ++ prgstr)        
+    return (kn,threads)
+
+cudaAlloca :: Int -> Type -> CUDAProgram Id
+cudaAlloca size typ =
+  do 
+    id <- CUDANewId
+    CUDAAllocaVector id (size * typeSize typ)  typ
+    return id
+
+cudaUseVector :: (Show a, V.Storable a) => V.Vector a -> Type -> CUDAProgram Id
+cudaUseVector v typ =
+  do
+    hostid <- CUDANewId
+    devid  <- CUDANewId
+    CUDAUseVector hostid v typ
+    CUDAAllocaVector devid (V.length v) typ
+    CUDACopyVector devid hostid (V.length v * typeSize typ) HostToDevice
+    return devid
+
+
+cudaExecute :: (String, Word32) -> Word32 -> Word32 -> [Id] -> [Id] -> CUDAProgram ()
+cudaExecute kern blocks sm ins outs =
+  CUDAExecute kern blocks sm ins outs
+
+
+cudaTime :: String -> CUDAProgram () -> CUDAProgram ()
+cudaTime str prg = CUDATime str prg  
 
 ---------------------------------------------------------------------------
 -- Collect Kernels from a CUDAProgram
@@ -224,24 +288,109 @@ collectKernels :: Supply Id -> CUDAProgram a -> [String]
 collectKernels id cp = snd $ collectKernels' id cp 
 
 collectKernels' :: Supply Id -> CUDAProgram a -> (a,[String])
-collectKernels' id (CUDAKernel str) = (supplyValue id, [str])
+collectKernels' id CUDANewId = (supplyValue id, []) 
+collectKernels' id (CUDAKernel str) = ((), [str])
 collectKernels' id (CUDABind cp f) =
   let (id1,id2) = split2 id 
       (a,kerns) = collectKernels' id1 cp
       (b,moreKerns) = collectKernels' id2 (f a)
   in  (b,kerns ++ moreKerns)
 collectKernels' id (CUDAReturn a) = (a,[])
-collectKernels' id (CUDAUseVector v) = (supplyValue id,[])
-collectKernels' id (CUDAAllocaVector s t) = (supplyValue id,[])
+collectKernels' id (CUDAUseVector i v t) = ((),[])
+collectKernels' id (CUDAAllocaVector i s t) = ((),[])
 collectKernels' id (CUDAExecute _ _ _ _ _) = ((),[])
-collectKernels' id CUDAEventRecord = (supplyValue id,[])
-collectKernels' id (CUDAEventSync _) = ((),[])
-collectKernels' id (CUDAEventTime _ _) = (supplyValue id,[])
+collectKernels' id (CUDATime _ p) = collectKernels' id p
+--collectKernels' id CUDAEventRecord = (supplyValue id,[])
+--collectKernels' id (CUDAEventSync _) = ((),[])
+--collectKernels' id (CUDAEventTime _ _) = (supplyValue id,[])
 
 ---------------------------------------------------------------------------
 -- Output a string with the kernel launch code.
--- 
+--
+--  
 ---------------------------------------------------------------------------
 
 
+getCUDA :: CUDAProgram a -> String
+getCUDA prg = (concat . intersperse "\n\n") kerns  ++ wrap launcher
+  where
+    sup = (unsafePerformIO newEnumSupply) 
+    (a,kerns,launcher) = getCUDA' sup prg 
+    wrap str = "\n\nint main(void){ \n" ++ str ++
+               "\n}" 
+      
+      
+getCUDA' :: Supply Id -> CUDAProgram a -> (a, [String], String)
+getCUDA' sid CUDANewId           = (supplyValue sid, [], "")
+getCUDA' sid (CUDAKernel kern)   = ((),[kern], "")
+getCUDA' sid (CUDAUseVector i v t) = ((),[],str)
+  where
+    -- Should also copy array to device.
+    -- Will only work for small arrays right now. 
+    str = genType (GenConfig "" "")  t ++
+          "v" ++ show i ++ "[" ++ size ++ "] = {"
+          ++ dat ++ "};\n"
+    size = show $ V.length v
+    dat  = concat $ intersperse "," $ map show $ V.toList v
+getCUDA' sid (CUDACopyVector o i s d) = ((),[],str)
+  where
+    str = copy o i s d  
+getCUDA' sid (CUDAAllocaVector i s t) = ((),[],str)
+  where
+    str = allocDeviceVector i s t 
+  
+getCUDA' sid (CUDAExecute (name,threads) blocks sm ins outs) = ((),[],str)
+  where
+    str = name++"<<<"++show blocks++","++ show threads ++ "," ++ show sm ++ ">>>" ++
+          "(" ++ devIds ins ++ ", " ++ devIds outs ++");\n"
+    devIds ids = concat $ intersperse "," $ map (("d"++) . show) ids
 
+
+getCUDA' sid (CUDATime str prg) = ((),kerns,newstr)
+  where 
+    newstr = "//Start timing (" ++ str ++ ")\n"  ++ body ++
+          "//Stop  timing \n"
+    ((),kerns,body) = getCUDA' sid prg 
+  
+getCUDA' sid (CUDAReturn a) = (a,[],"")
+getCUDA' sid (CUDABind cp f) = (b,kerns,launcher) 
+  
+    where
+      (sid1,sid2) = split2 sid
+      (a,kerns',launcher') = getCUDA' sid1 cp
+      (b,kerns'',launcher'') = getCUDA' sid2 (f a)
+      kerns = kerns' ++ kerns''
+      launcher = launcher' ++ launcher'' 
+
+copy :: Id -> Id -> Int -> CUDADir-> String
+copy o i size d =
+  "cudaMemcpy(" ++ dev o ++ "," ++ host i ++ ", "++  show size ++
+  ", " ++ dir d ++");\n" 
+  where
+    host id = "v" ++ show id
+    dev  id = "d" ++ show id
+    dir HostToDevice = "cudaMemcpyHostToDevice" 
+ 
+allocDeviceVector :: Id -> Int -> Type -> String
+allocDeviceVector id size t  =
+  typeptr ++ " " ++ nom ++ ";\n" ++  
+  malloc nom size  ++ ";\n" 
+  where
+    nom = "d" ++ show id 
+    typeptr = genType (GenConfig "" "") (Pointer t)
+    cast str = "(void**)&" ++ str
+    malloc nom s = "cudaMalloc("++ cast nom++ ","  ++ show s ++ ")"
+
+
+
+typeSize Int8 = 1
+typeSize Int16 = 2
+typeSize Int32 = 4
+typeSize Int64 = 8
+typeSize Word8 = 1
+typeSize Word16 = 2
+typeSize Word32 = 4
+typeSize Word64 = 8
+typeSize Bool = 4
+typeSize Float = 4
+typeSize Double = 8 

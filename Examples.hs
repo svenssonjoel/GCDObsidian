@@ -19,7 +19,7 @@ import           Obsidian.GCDObsidian.CodeGen.InOut
 import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Types
-import Obsidian.GCDObsidian.Blocks
+-- import Obsidian.GCDObsidian.Blocks
 import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Library
 import Obsidian.GCDObsidian.Force
@@ -65,23 +65,23 @@ sync = force
 -- Global array permutation
 ---------------------------------------------------------------------------
 
-reverseG :: Blocks (Array Pull a) -> Blocks (Array Pull a)
-reverseG (Blocks nb arrf) =
-  Blocks nb (\bix -> rev (arrf (nb - 1 - bix)))
+--reverseG :: Blocks (Array Pull a) -> Blocks (Array Pull a)
+--reverseG (Blocks nb arrf) =
+--  Blocks nb (\bix -> rev (arrf (nb - 1 - bix)))
 
 
 -- Permutations on the output arrays are more complicated
 -- good wrappings are needed!
-reverseGO :: Blocks (Array Push a)
-             -> Blocks (Array Push a)
-reverseGO (Blocks nb prgf) =
-  Blocks nb $ 
-   \bix ->
-    let a@(Array n (Push p)) =  prgf bix
-    in  Array n $
-        Push  (\k ->
-               let k' k (ix,e) = k ((fromIntegral n) - 1 - ix,e)
-               in  p (k' k))
+--reverseGO :: Blocks (Array Push a)
+--             -> Blocks (Array Push a)
+--reverseGO (Blocks nb prgf) =
+--  Blocks nb $ 
+--   \bix ->
+--    let a@(Array n (Push p)) =  prgf bix
+--    in  Array n $
+--        Push  (\k ->
+--               let k' k (ix,e) = k ((fromIntegral n) - 1 - ix,e)
+--               in  p (k' k))
                -- k :: (Exp Word32,EInt) -> Program
 
 ---------------------------------------------------------------------------
@@ -93,8 +93,8 @@ mapSomething arr = push ((fmap (+1) . fmap (*2)) arr)
 
 
 
-inputG :: Blocks (Array Pull EInt) 
-inputG = namedGlobal "apa" (variable "N") 256
+--inputG :: Blocks (Array Pull EInt) 
+--inputG = namedGlobal "apa" (variable "N") 256
 
 
 
@@ -237,10 +237,10 @@ fan op arr =  a1 `conc`  fmap (op c) a2
 
 
 sklanskyAllBlocks :: Int
-                     -> Blocks (Array Pull (Exp Int32))
-                     -> Blocks (Program (Array Pull (Exp Int32)))
+                     -> Distrib (Array Pull (Exp Int32))
+                     -> Distrib (Program (Array Pull (Exp Int32)))
 sklanskyAllBlocks logbsize arr =
-  fmap (sklanskyLocal logbsize (+)) arr
+  mapD (sklanskyLocal logbsize (+)) arr
    
 
 
@@ -573,15 +573,10 @@ reconstruct inp@(Distrib nb bixf) pos@(Distrib _ posf) =
 
 
 ---------------------------------------------------------------------------
--- Ensure that nothing further can be done with a forced GlobArray. 
----------------------------------------------------------------------------
-data Final a = Final {cheat :: a} -- cheat should not be exposed. 
-
----------------------------------------------------------------------------
 -- force a GlobArray
 ---------------------------------------------------------------------------
 forceBT :: forall a. Scalar a => GlobArray (Exp a)
-           -> Final (Program (Blocks (Array Pull (Exp a))))
+           -> Final (Program (Distrib (Array Pull (Exp a))))
 forceBT (GlobArray nb bs pbt) = Final $ 
   do
       global <- Output $ Pointer (typeOf (undefined :: (Exp a)))
@@ -591,7 +586,7 @@ forceBT (GlobArray nb bs pbt) = Final $
           ForAll bs $ \ix -> 
             (pbt (assignTo global bs)) bid ix)
         
-      return $ Blocks nb  $ 
+      return $ Distrib nb  $ 
         \bix -> Array bs (Pull (\ix -> index global ((bix * (fromIntegral bs)) + ix)))
     where 
       assignTo name s e b i = Assign name ((b*(fromIntegral s))+i) e
@@ -600,9 +595,63 @@ forceBT (GlobArray nb bs pbt) = Final $
 ---------------------------------------------------------------------------
 -- Experiment: reverse a GlobArray
 ---------------------------------------------------------------------------
-reverseGA :: GlobArray a -> GlobArray a
+reverseGA :: GlobArray (Exp Int32) -> GlobArray (Exp Int32) 
 reverseGA (GlobArray nb bs pbt) =
   GlobArray nb bs $ \wf bid tid ->
       pbt wf (nb - 1 - bid)
              (fromIntegral bs - 1 - tid)
              
+
+
+
+---------------------------------------------------------------------------
+-- Get Launcher as text experiment. (For the windows users!) 
+---------------------------------------------------------------------------
+
+
+launcher1 =
+  do
+    myFun <- cudaCapture (forceBT . toGlobArray . sklanskyAllBlocks 3)
+                         (sizedGlobal (variable "N") 256)
+
+    d1 <- cudaUseVector (V.fromList [0..255::Int32]) Int32    
+    d2 <- cudaAlloca 256 Int32
+
+    cudaTime "Timing kernel execution: "
+      $ do 
+        cudaExecute myFun 1 2048 [d1] [d2] 
+    
+    return 10
+
+
+
+
+
+---------------------------------------------------------------------------
+-- Local Push array experiments
+---------------------------------------------------------------------------
+
+revP :: Pushable (Array p) => Array p a -> Array Push a
+revP arr = Array n $Push $ \wf -> p (\(ix,a) -> wf (fromIntegral n - 1 - ix,a))
+  where
+    parr@(Array n (Push p)) = push arr
+
+revP2 :: Array (PushP (Exp Word32 -> Program ())) a ->
+         Array (PushP (Exp Word32 -> Program ())) a
+revP2 (Array n (PushP p)) =
+  Array n (PushP
+           (\wf tid ->
+             let wf' a ix = wf a (fromIntegral n - 1 - ix)  
+             in p wf' tid))
+
+push' (Array n (Pull ixf)) =
+  Array n $
+  PushP $ \wf tid -> wf (ixf tid) tid
+
+revP2Test = printPrg (ForAll n $ \ix -> prg ix) 
+  where prg = pfun (write n)
+        (Array n (PushP pfun)) = revP2 (push' arr)
+        write n a ix =
+          Assign "bepa" ix a 
+        arr = namedArray "apa" 256 :: Array Pull (Exp Int32)
+        
