@@ -150,7 +150,10 @@ twoK n f =  (\arr ->
 
                   nl2   = (len (f (mkPullArray  m (\j -> arr ! variable "X"))))
                   lt    = nl2 `shiftL` n 
-              in arr')  
+              in arr')
+ 
+twoKP :: Int -> (Array Pull a -> Array Push b) -> Array Pull a -> Array Push b
+twoKP k f  = undefined 
 
 ---------------------------------------------------------------------------
 -- ivt (untested)
