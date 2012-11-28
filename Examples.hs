@@ -521,12 +521,15 @@ permuteGlobal perm distr@(Distrib nb bixf) =
   GlobArray nb bs $
     \wf bid tid ->
       do
+        -- TODO: I Think this is wrong. 
         let (bid',tid') = perm bid tid
-        wf ((bixf bid) ! tid) bid' tid' 
+        -- I changed order here.. (bid tid bid' tid') 
+        wf ((bixf bid') ! tid') bid tid 
  where 
   bs = len (bixf 0)
 
-
+-- The code generator needs to insert suitable conditionals
+-- if the number of blocks to output are fewer than those we read from 
 gatherGlobal :: Distrib (Array Pull (Exp Word32))
                 -> Exp Word32 -- expected output size number of blocks
                 -> Word32     -- expected output size block-size
@@ -537,13 +540,15 @@ gatherGlobal indices@(Distrib nbs inf)
              elems@(Distrib ebs enf) =
   GlobArray nb bs $
    \wf bid tid ->
+     -- TODO: I think this is wrong too.
+     --       Generate code and see. 
      let  inArr = inf bid
           inix  = inArr ! tid
 
           e     = (enf bid) ! tid 
      in wf e
-           (inix `div` (fromIntegral bs))
-           (inix `mod` (fromIntegral bs))
+           (inix `div` (fromIntegral bs)) -- this is incorrect!
+           (inix `mod` (fromIntegral bs)) -- this is incorrect!
            
 distribute :: Exp Word32 -> Word32 -> a -> Distrib (Array Pull a)
 distribute nb bs e = Distrib nb $ \bid -> replicate bs e  

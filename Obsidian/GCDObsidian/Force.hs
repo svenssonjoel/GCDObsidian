@@ -10,7 +10,6 @@ module Obsidian.GCDObsidian.Force where
 import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Array
-import Obsidian.GCDObsidian.Blocks
 import Obsidian.GCDObsidian.Types
 
 {- 
