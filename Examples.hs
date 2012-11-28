@@ -657,4 +657,20 @@ revP2Test = printPrg (ForAll n $ \ix -> prg ix)
         write n a ix =
           Assign "bepa" ix a 
         arr = namedArray "apa" 256 :: Array Pull (Exp Int32)
-        
+
+
+twoKP :: Int -> (Array Pull a -> Array (PushP (Exp Word32 -> Program ()))  b)
+         -> Array Pull a -> Array (PushP (Exp Word32 -> Program ())) b
+twoKP k f arr = undefined 
+  where
+    templ = len arr `div` (2^k) 
+    arr'  = resize templ arr 
+
+    
+    parr  = f arr' 
+    {-
+      i parr finns kärnan av en program som beskriver hur man utför
+      f på en liten del av input arrayen.
+      Jag funderar på om det finns ngt sätt att manipulera programmet
+      för att beskriva f beräkningen replicerad över hela input arrayen.
+    -} 

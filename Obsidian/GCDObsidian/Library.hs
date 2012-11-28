@@ -152,8 +152,6 @@ twoK n f =  (\arr ->
                   lt    = nl2 `shiftL` n 
               in arr')
  
-twoKP :: Int -> (Array Pull a -> Array Push b) -> Array Pull a -> Array Push b
-twoKP k f  = undefined 
 
 ---------------------------------------------------------------------------
 -- ivt (untested)
