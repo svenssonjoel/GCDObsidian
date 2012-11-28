@@ -540,15 +540,13 @@ gatherGlobal indices@(Distrib nbs inf)
              elems@(Distrib ebs enf) =
   GlobArray nb bs $
    \wf bid tid ->
-     -- TODO: I think this is wrong too.
-     --       Generate code and see. 
      let  inArr = inf bid
           inix  = inArr ! tid
 
+          bid'  = (inix `div` (fromIntegral bs))
+          tid'  = (inix `mod` (fromIntegral bs))  
           e     = (enf bid) ! tid 
-     in wf e
-           (inix `div` (fromIntegral bs)) -- this is incorrect!
-           (inix `mod` (fromIntegral bs)) -- this is incorrect!
+     in wf e bid tid
            
 distribute :: Exp Word32 -> Word32 -> a -> Distrib (Array Pull a)
 distribute nb bs e = Distrib nb $ \bid -> replicate bs e  
