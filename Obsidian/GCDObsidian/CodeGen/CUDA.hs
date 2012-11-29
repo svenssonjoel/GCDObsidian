@@ -234,7 +234,7 @@ genProg mm nt (AtomicOp resname name ix AtomicInc) =
     Nothing -> error "genProg: AtomicOp. Think about this case"       
                 
 genProg mm nt (ForAll n f) = potentialCond gc mm n nt $ 
-                               genProg mm nt (f (ThreadIdx X)  )
+                               genProgNoForAll mm nt (f (ThreadIdx X)  )
 genProg mm nt (Allocate name size t _) = return () 
 genProg mm nt (Synchronize True) = syncLine >> newline 
 genProg mm nt (Synchronize False) = return () 
@@ -243,6 +243,42 @@ genProg mm nt (ProgramSeq p1 p2) =
   do 
     genProg mm nt p1
     genProg mm nt p2
+
+-- HACK 
+genProgNoForAll :: MemMap -> Word32 ->  Program a -> PP () 
+genProgNoForAll mm nt (Assign name ix a) = 
+  case Map.lookup name mm of 
+    Just (addr,t) -> 
+      do
+        line$  sbaseStr addr t ++ "[" ++ concat (genExp gc mm ix) ++ "] = " ++ 
+          concat (genExp gc mm a) ++ ";" 
+        newline
+    Nothing ->  --- A result array
+      do
+        line$  name ++ "[" ++ concat (genExp gc mm ix) ++ "] = " ++ 
+          concat (genExp gc mm a) ++ ";"
+        newline
+--- *** ATOMIC OP CASE 
+genProgNoForAll mm nt (AtomicOp resname name ix AtomicInc) = 
+  case Map.lookup name mm of
+    Just (addr,t) ->
+      do
+        -- TODO: Declare a variable with name resname
+        --       and type t. Assign result of operation to this var
+        line$  "atomicInc(&(" ++ sbaseStr addr t ++ ")" ++ "+"
+          ++ concat (genExp gc mm ix) ++ ",0xFFFFFFFF)" ++ ";"
+        newline
+    Nothing -> error "genProg: AtomicOp. Think about this case"       
+                
+genProgNoForAll mm nt (ForAll n f) = error "genProgNoForAll: Error Program contains nested ForAll" 
+genProgNoForAll mm nt (Allocate name size t _) = return () 
+genProgNoForAll mm nt (Synchronize True) = syncLine >> newline 
+genProgNoForAll mm nt (Synchronize False) = return () 
+genProgNoForAll mm nt Skip = return ()
+genProgNoForAll mm nt (ProgramSeq p1 p2) = 
+  do 
+    genProgNoForAll mm nt p1
+    genProgNoForAll mm nt p2
 
 
 

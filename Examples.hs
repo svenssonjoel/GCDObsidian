@@ -673,4 +673,21 @@ twoKP k f arr = undefined
       f på en liten del av input arrayen.
       Jag funderar på om det finns ngt sätt att manipulera programmet
       för att beskriva f beräkningen replicerad över hela input arrayen.
-    -} 
+    -}
+
+
+---------------------------------------------------------------------------
+-- Get somewhere on the codegen front 
+---------------------------------------------------------------------------
+testPermute :: Distrib (Array Pull (Exp Int32)) -> GlobArray (Exp Int32)
+testPermute input@(Distrib nb disf) = permuteGlobal perm input 
+  where
+    bs = len $ disf 0
+    perm bid tid = (nb - 1 - bid,
+                    fromIntegral bs - 1 - tid) -- reverse in other words.
+
+-- This shows that codegen needs to take care of the "number of blocks", N0
+-- in this case. 
+printTestPermute = putStrLn 
+                   $ CUDA.genKernel "perm"
+                   (forceBT . testPermute) (sizedGlobal (variable "never looked at") 256)
