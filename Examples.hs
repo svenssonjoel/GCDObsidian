@@ -99,6 +99,35 @@ forceBT (GlobArray2 nb bs pbt) = Final $
 
 prg1 = putStrLn$ printPrg$ toProg $ cheat $ (forceBT . toGlobArray . mapFusion') input2
 
+
+---------------------------------------------------------------------------
+-- Permutation test
+--------------------------------------------------------------------------- 
+--  a post permutation (very little can be done with a GlobArray) 
+permuteGlobal :: (Exp Word32 -> Exp Word32 -> (Exp Word32, Exp Word32))
+                 -> Distrib (Array Pull a)
+                 -> GlobArray2 a
+permuteGlobal perm distr@(Distrib nb bixf) = 
+  GlobArray2 nb bs $
+    \wf -> -- (a -> W32 -> W32 -> TProgram)
+       do
+         GForAll nb $
+           \bix -> BForAll bs $
+                   \tix ->
+                   let (bix',tix') = perm bix tix 
+                   in wf ((bixf bix') ! tix') bix tix  
+                       
+{-       
+       do
+        -- TODO: I Think this is wrong. 
+        let (bid',tid') = perm bid tid
+        -- I changed order here.. (bid tid bid' tid') 
+        wf ((bixf bid') ! tid') bid tid
+-}
+ where 
+  bs = len (bixf 0)
+
+
 {- 
 ---------------------------------------------------------------------------
 -- Sync, Force. What to use? what to scrap ? 
