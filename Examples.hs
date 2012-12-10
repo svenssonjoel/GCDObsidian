@@ -115,17 +115,31 @@ permuteGlobal perm distr@(Distrib nb bixf) =
            \bix -> BForAll bs $
                    \tix ->
                    let (bix',tix') = perm bix tix 
-                   in wf ((bixf bix') ! tix') bix tix  
-                       
-{-       
+                   in wf ((bixf bix) ! tix) bix' tix'
+  where 
+    bs = len (bixf 0)
+
+--Complicated. 
+permuteGlobal' :: (Exp Word32 -> Exp Word32 -> (Exp Word32, Exp Word32))
+                 -> Distrib (BProgram (Array Pull a))
+                 -> GlobArray2 a
+permuteGlobal' perm distr@(Distrib nb bixf) = 
+  GlobArray2 nb bs $
+    \wf -> -- (a -> W32 -> W32 -> TProgram)
        do
-        -- TODO: I Think this is wrong. 
-        let (bid',tid') = perm bid tid
-        -- I changed order here.. (bid tid bid' tid') 
-        wf ((bixf bid') ! tid') bid tid
--}
- where 
-  bs = len (bixf 0)
+         GForAll nb $
+           \bix ->
+           do -- BProgram do block
+             arr <- bixf bix
+             BForAll bs $ 
+               \tix ->
+                 let (bix',tix') = perm bix tix 
+                 in wf (arr ! tix) bix' tix'
+  where
+    -- Gah.
+    bs = len $ fst $ runPrg 0 $ toProg  $ bixf 0
+
+
 
 
 {- 
