@@ -32,6 +32,16 @@ import Control.Monad.State
 import Prelude hiding (zipWith,sum,replicate)
 import qualified Prelude as P 
 
+{-
+   I think that with this approach I have to remove the ForAll
+   and ForAllBlocks constructors from the IR.
+   This means I will go directly to a "SPMD" representation of the
+   program with no (easy) way of getting serial c code
+
+-} 
+
+
+
 ---------------------------------------------------------------------------
 -- MapFusion example
 ---------------------------------------------------------------------------
@@ -233,7 +243,7 @@ mapD f inp@(Distrib nb bixf) =
 -- Incorrect.
 -- I suspect turning into a GlobArray really requires
 -- the data to be copied. (and the programs "sequenced")
--- (So a ForAll will occur here) 
+
 toGlobArray :: Distrib (Program (Array Pull a)) -> GlobArray a
 toGlobArray inp@(Distrib nb bixf) =
   GlobArray nb bs $     
@@ -278,7 +288,6 @@ permuteGlobal' perm distr@(Distrib nb bixf) =
         let (bid',tid') = perm bid tid
         -- I changed order here.. (bid tid bid' tid') 
         wf (arr ! tid') bid tid 
-
 
 -- The code generator needs to insert suitable conditionals
 -- if the number of blocks to output are fewer than those we read from 
@@ -334,7 +343,7 @@ forceBT :: forall a. Scalar a => GlobArray (Exp a)
            -> Final (Program (Distrib (Array Pull (Exp a))))
 forceBT (GlobArray nb bs pbt) = Final $ 
   do
-      global <- Output $ Pointer (typeOf (undefined :: (Exp a)))
+      global <- Output $ Pointer (typeOf (undefined :: Exp a))
       
       ForAllBlocks nb 
         (\bid ->

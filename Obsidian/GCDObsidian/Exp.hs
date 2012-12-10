@@ -243,6 +243,8 @@ index name ix = Index (name,[ix])
 
 collectArrays :: Scalar a => Exp a -> [Name]
 collectArrays (Literal _) = []
+collectArrays (ThreadIdx _) = []
+collectArrays (BlockIdx _) = [] 
 collectArrays (Index (name,[])) = []
 collectArrays (Index (name,_)) = [name]
 collectArrays (BinOp _ e1 e2) = collectArrays e1 ++ collectArrays e2
@@ -250,6 +252,7 @@ collectArrays (UnOp  _ e) = collectArrays e
 collectArrays (If b e1 e2) = collectArrays b ++ 
                              collectArrays e1 ++ 
                              collectArrays e2
+-- collectArrays a = error $ show a
 
 collectArrayIndexPairs :: Scalar a => Exp a -> [(Name,Exp Word32)]
 collectArrayIndexPairs (Literal _) = []
