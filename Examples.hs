@@ -32,19 +32,6 @@ import Control.Monad.State
 import Prelude hiding (zipWith,sum,replicate)
 import qualified Prelude as P 
 
-{-
-   I think that with this approach I have to remove the ForAll
-   and ForAllBlocks constructors from the IR.
-   This means I will go directly to a "SPMD" representation of the
-   program with no (easy) way of getting serial c code.
-
-   To think about: A Program type that does not allow nested ForAlls.
-   This might make it clear where my thinking fails.. 
-
--} 
-
-
-
 ---------------------------------------------------------------------------
 -- MapFusion example
 ---------------------------------------------------------------------------
