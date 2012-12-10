@@ -4,14 +4,11 @@
              RankNTypes  #-} 
 module Examples where 
 
---import Obsidian.GCDObsidian
 
 import qualified Obsidian.GCDObsidian.CodeGen.CUDA as CUDA
 import Obsidian.GCDObsidian.CodeGen.CUDA.WithCUDA
 import Obsidian.GCDObsidian.CodeGen.CUDA.Compile
 import qualified Foreign.CUDA.Driver as CUDA
---import qualified Obsidian.GCDObsidian.CodeGen.C as C
---import qualified Obsidian.GCDObsidian.CodeGen.OpenCL as CL
 
 import qualified Obsidian.GCDObsidian.CodeGen.Program as CGP
 import           Obsidian.GCDObsidian.CodeGen.InOut
@@ -19,7 +16,6 @@ import           Obsidian.GCDObsidian.CodeGen.InOut
 import Obsidian.GCDObsidian.Program
 import Obsidian.GCDObsidian.Exp
 import Obsidian.GCDObsidian.Types
--- import Obsidian.GCDObsidian.Blocks
 import Obsidian.GCDObsidian.Array
 import Obsidian.GCDObsidian.Library
 import Obsidian.GCDObsidian.Force
@@ -49,10 +45,6 @@ mapFusion arr =
 input1 :: Array Pull EInt 
 input1 = namedArray "apa" 32
 
--- Uses genKernel, that implicitly maps over all blocks. 
--- getMapFusion   = putStrLn$ CUDA.genKernel "mapFusion" mapFusion input1
--- getMapFusion_  = putStrLn$ CL.genKernel_ "mapFusion" mapFusion input1
-
 ---------------------------------------------------------------------------
 -- Sync, Force. What to use? what to scrap ? 
 ---------------------------------------------------------------------------
@@ -61,54 +53,6 @@ sync :: Scalar a => Array Pull (Exp a) -> Program (Array Pull (Exp a))
 sync = force
 
              
----------------------------------------------------------------------------
--- Global array permutation
----------------------------------------------------------------------------
-
---reverseG :: Blocks (Array Pull a) -> Blocks (Array Pull a)
---reverseG (Blocks nb arrf) =
---  Blocks nb (\bix -> rev (arrf (nb - 1 - bix)))
-
-
--- Permutations on the output arrays are more complicated
--- good wrappings are needed!
---reverseGO :: Blocks (Array Push a)
---             -> Blocks (Array Push a)
---reverseGO (Blocks nb prgf) =
---  Blocks nb $ 
---   \bix ->
---    let a@(Array n (Push p)) =  prgf bix
---    in  Array n $
---        Push  (\k ->
---               let k' k (ix,e) = k ((fromIntegral n) - 1 - ix,e)
---               in  p (k' k))
-               -- k :: (Exp Word32,EInt) -> Program
-
----------------------------------------------------------------------------
--- Global Array examples 
----------------------------------------------------------------------------
-
-mapSomething :: Array Pull EInt -> Array Push EInt
-mapSomething arr = push ((fmap (+1) . fmap (*2)) arr)
-
-
-
---inputG :: Blocks (Array Pull EInt) 
---inputG = namedGlobal "apa" (variable "N") 256
-
-
-
---testG1 :: Blocks (Array Pull EInt) -> Program (Blocks (Array Pull EInt))
---testG1 arr = force ( fmap mapSomething (reverseG arr) )
-
---getTestG1 = putStrLn$ CUDA.genKernel "testG1" testG1 inputG
-
---testG2 :: Blocks (Array Pull EInt)
---          -> Blocks (Array Pull EInt)
---          -> Program (Blocks (Array Pull EInt))
---testG2 _ arr = force ( fmap mapSomething (reverseG arr) )
-
-
 ---------------------------------------------------------------------------
 -- Print Programs for test
 ---------------------------------------------------------------------------
@@ -122,21 +66,10 @@ prg0 = putStrLn$ printPrg$ mapFusion input1
 prg0' = putStrLn$ CGP.printPrg$ CGP.runPrg (mapFusion input1)
 --prg1' = putStrLn$ CGP.printPrg$ CGP.runPrg (testG1 inputG)
 
----------------------------------------------------------------------------
--- A small test for the function "reifyer" 
----------------------------------------------------------------------------
---reify0 = fst $ toProgram 0 testG2 (inputG :-> inputG)
-
-
-
-
-
 
 ---------------------------------------------------------------------------
 -- Counting sort experiments
 ---------------------------------------------------------------------------
-
-
 ---------------------------------------------------------------------------
 -- Histogram
 ---------------------------------------------------------------------------
@@ -242,104 +175,6 @@ sklanskyAllBlocks :: Int
 sklanskyAllBlocks logbsize arr =
   mapD (sklanskyLocal logbsize (+)) arr
    
-
-
---getScan n = CUDA.genKernel "scan" (sklanskyAllBlocks n) 
---                    (namedGlobal "apa" (variable "N") (2^n)
---                     :: Blocks (Array Pull (Exp Int32)))
-
-
---getScan_ n = CUDA.genKernel_ "scan" (sklanskyAllBlocks n) 
---                    (namedGlobal "apa" (variable "N") (2^n)
---                     :: Blocks (Array Pull (Exp Int32)))
-
--- TODO: Rewrite Scan with BlockMap functionality.
---       Also add the output of blockmaxs, and tweak code generation to
---       allow such kernels. 
----------------------------------------------------------------------------
--- Reconstruct
----------------------------------------------------------------------------
-
--- type GlobalArray p a = Blocks (Array p a) 
-{- 
-reconstruct :: Blocks (Array Pull (Exp Word32))
-               -> Blocks (Array Pull (Exp Word32))
-               -> GlobArray PushBT (Exp Word32)
-reconstruct inp pos =
-  GlobArray nb bs $
-    PushP $ \wf bix tix ->
-        let gix = (inp !| bix) ! tix
-            bix' = gix `div` (fromIntegral bs)
-            tix' = gix `mod` (fromIntegral bs)
-
-            pgix = (pos !| bix') ! tix'
-            pbix = pgix `div` (fromIntegral bs)
-            ptix = pgix `mod` (fromIntegral bs) 
-            
-        in wf gix pbix ptix
-  where
-    bs = len (inp !| 0)
-    (Blocks nb _) = inp
-
-recs :: Blocks (Array Pull (Exp Word32))
-        -> Blocks (Array Pull (Exp Word32))
-        -> Program (Blocks (Array Pull (Exp Word32)))
-recs inp pos = forceBT (reconstruct inp pos) 
--}
-{-
-  Blocks nb (\bix -> -- nb seems totally unimportant
-                     -- (does appear in code). rethink this.
-    Array bsize
-    $ Push (\k -> do
-        ForAll bsize
-          $ \ ix ->
-          let bix' = ((inp !| bix) ! ix) `div` (fromIntegral bsize)
-              ix'  = ((inp !| bix) ! ix) `mod` (fromIntegral bsize)
-          in 
-              k ((pos !| bix') ! ix',
-                 (inp !| bix) ! ix)))
-                         
-          --(\ix -> k ((pos !| bix) ! ix , 
-          --           (inp !| bix) ! ix))))
-  where
-    bsize = len (inp !| 0)
--} 
-{- 
-reconstruct :: Exp Word32
-               -> GlobalArray Pull (Exp Word32)
-               -> GlobalArray Pull (Exp Word32)
-               -> Program (GlobalArray Pull (Exp Word32))
-reconstruct nb inp pos = force $ 
-  Blocks nb (\bix -> -- nb seems totally unimportant
-                     -- (does appear in code). rethink this.
-    Array bsize
-    $ Push (\k -> do
-        ForAll bsize
-          $ \ ix ->
-          let bix' = ((inp !| bix) ! ix) `div` (fromIntegral bsize)
-              ix'  = ((inp !| bix) ! ix) `mod` (fromIntegral bsize)
-          in 
-              k ((pos !| bix') ! ix',
-                 (inp !| bix) ! ix)))
-                         
-          --(\ix -> k ((pos !| bix) ! ix , 
-          --           (inp !| bix) ! ix))))
-  where
-    bsize = len (inp !| 0)
--} 
--- Check that reconstruct does what it is suppoed to
--- TODO: Needs type convertion functionality if this is
---       to be implemented for anything else than Word32.
---         (indices are Word32)
-{-
-getReconstruct n =
-  CUDA.genKernel "reconstruct"
-                 recs
-                 (inG n :-> inG n)
-                 
-inG n = namedGlobal "apa" (variable "N") (2^n)
-        :: Blocks (Array Pull (Exp Word32))
--} 
 ---------------------------------------------------------------------------
 -- Testing WithCUDA aspects
 ---------------------------------------------------------------------------
@@ -348,117 +183,11 @@ testGRev :: Distrib (Array Pull EWord32)
             -> Distrib (Program (Array Pull EWord32))
 testGRev = mapD (force . push . rev)
 
-
---wc1 = 
---  withCUDA $
---  do
---    -- Capture, compile and link the Obsidian program
---    -- into a CUDA function 
---myCudaFun <- capture testGRev (sizedGlobal (variable "N") 256) -- inputWord32
-    
-    -- Set up data and launch the kernel!
---    useVector (V.fromList [0..511::Word32]) $ \ inp -> 
---      allocaVector 512 $ \out ->
---        do
---          execute myCudaFun
---                  2  -- how many blocks 
---                  0   -- how much shared mem (will come from an analysis later) 
---                  inp out 
---          r <- lift$ CUDA.peekListArray 512 out
---          lift $ putStrLn $ show  (r :: [Word32])
-
- 
---t2 =
---  do
---    let str = getScan 8
---    fp <- storeAndCompile "-arch=sm_30" "scan.cu" (header ++ str)
---    putStrLn fp
---    where
---      header = "#include <stdint.h>\n"
-
-{- 
-cs =
-  withCUDA $
-  do
-    hist <- capture (hist 255) (sizedGlobal (variable "N") 256)  
-    skl <- capture (sklanskyAllBlocks 8) (sizedGlobal (variable "N") 256)
-    --constr <- capture (reconstruct 256)
-    --                  ((sizedGlobal (variable "N") 256) :->
-    --                   (sizedGlobal (variable "N") 256))
-    constr <- capture recs
-                      ((sizedGlobal (variable "N") 256) :->
-                       (sizedGlobal (variable "N") 256))
-                      
-    
-    useVector (V.fromList (P.replicate 10 (1::Word32) ++ [10..255])) $ \ inp -> 
-      useVector (V.fromList (P.replicate 256 (0::Word32))) $ \tmp ->
-        useVector (V.fromList (P.replicate 256 (0::Word32))) $ \ out -> 
-          do
-            -- Create histogram
-            execute hist 1 0 inp tmp
-            -- Run Scans
-            execute skl
-                    1  
-                    (2*256*4)  
-                    tmp tmp
-            -- Reconstruct
-            execute constr
-                    1
-                    0
-                    (inp :-> tmp) out
-                    
-            r <- lift$ CUDA.peekListArray 256 out
-            lift $ putStrLn $ show  (r :: [Word32])
-
-
-
-wc2 = 
-  withCUDA $
-  do
-    -- Capture, compile and link the Obsidian program
-    -- into a CUDA function 
-    myCudaFun <- capture (hist 256) (sizedGlobal (variable "N") 256)  
-    
-    -- Set up data and launch the kernel!
-    useVector (V.fromList [0..511::Word32]) $ \ inp -> 
-      allocaVector 512 $ \out ->
-        do
-          execute myCudaFun
-                  2  -- how many blocks 
-                  0   -- how much shared mem (will come from an analysis later) 
-                  inp out 
-          r <- lift$ CUDA.peekListArray 512 out
-          lift $ putStrLn $ show  (r :: [Word32])
-
-
--} 
-
----------------------------------------------------------------------------
--- Experiments Nov 22 2012
----------------------------------------------------------------------------
-{- 
-mapB :: forall a b . Scalar b
-        => (Array Pull a -> Program (Array Pull (Exp b))) -> 
-        (Distrib a -> Program (Distrib (Exp b)))
-mapB f inp@(Distrib nb bs bixf) =
-  do
-    name <- Allocate (bs * fromIntegral (sizeOf (undefined :: Exp b)))
-                     (Pointer (typeOf (undefined :: Exp b)))
-            
-
-    return $ Distrib nb bs $ \bix tix -> index name tix
-    where
-      target name bix tix e = Assign name tix e
-      arr = Array bs $ Pull $ \ix -> bixf
--} 
-
-
 ---------------------------------------------------------------------------
 --
 --  NEW PART
 --
 ---------------------------------------------------------------------------
-
 
 {-
    I want to think of mapD like this:
@@ -501,6 +230,10 @@ mapD f inp@(Distrib nb bixf) =
   Distrib nb $ \bid -> f (bixf bid)
 
 
+-- Incorrect.
+-- I suspect turning into a GlobArray really requires
+-- the data to be copied. (and the programs "sequenced")
+-- (So a ForAll will occur here) 
 toGlobArray :: Distrib (Program (Array Pull a)) -> GlobArray a
 toGlobArray inp@(Distrib nb bixf) =
   GlobArray nb bs $     
@@ -527,6 +260,25 @@ permuteGlobal perm distr@(Distrib nb bixf) =
         wf ((bixf bid') ! tid') bid tid 
  where 
   bs = len (bixf 0)
+
+--  a post permutation (very little can be done with a GlobArray) 
+permuteGlobal' :: (Exp Word32 -> Exp Word32 -> (Exp Word32, Exp Word32))
+                 -> Distrib (Program (Array Pull a))
+                 -> Program (GlobArray a)
+permuteGlobal' perm distr@(Distrib nb bixf) =
+  do
+    inner <- bixf 0
+    let bs = len inner
+    return $ GlobArray nb bs $
+      \wf bid tid ->
+      do
+        arr <- bixf bid
+      
+        -- TODO: I Think this is wrong. 
+        let (bid',tid') = perm bid tid
+        -- I changed order here.. (bid tid bid' tid') 
+        wf (arr ! tid') bid tid 
+
 
 -- The code generator needs to insert suitable conditionals
 -- if the number of blocks to output are fewer than those we read from 
@@ -610,8 +362,6 @@ reverseGA (GlobArray nb bs pbt) =
 ---------------------------------------------------------------------------
 -- Get Launcher as text experiment. (For the windows users!) 
 ---------------------------------------------------------------------------
-
-
 launcher1 =
   do
     myFun <- cudaCapture (forceBT . toGlobArray . sklanskyAllBlocks 3)
@@ -690,4 +440,26 @@ testPermute input@(Distrib nb disf) = permuteGlobal perm input
 -- in this case. 
 printTestPermute = putStrLn 
                    $ CUDA.genKernel "perm"
-                   (forceBT . testPermute) (sizedGlobal (variable "never looked at") 256)
+                   (forceBT . testPermute) (sizedGlobal undefined 256)
+
+
+-- Testing Testing.
+testScanThenReverse :: Distrib (Array Pull (Exp Int32)) -> Program (GlobArray (Exp Int32))
+testScanThenReverse input@(Distrib nb disf) =
+  do
+    let bs = len (disf 0)
+    permuteGlobal' perm res
+   where
+     res = sklanskyAllBlocks 3 input
+     bs = len $ disf 0
+     perm bid tid = (nb - 1 - bid,
+                     fromIntegral bs - 1 - tid) -- reverse in other words.
+
+-- Turn a (Program (GlobArray a)) into a GlobArray a. Possible ?
+--f :: Program (GlobArray a) -> GlobArray a
+--f prg = GlobArray nb bs $ \ a bid tid -> undefined
+-- I think this is problematic.
+--  But does it indicate some larger issues about the
+--  mapD and Distrib setup in general ?
+--  is there a way to get this functionality without these problems?
+
