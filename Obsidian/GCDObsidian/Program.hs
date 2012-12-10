@@ -1,12 +1,12 @@
 {- Joel Svensson 2012 -}
 
 {-# LANGUAGE GADTs  #-} 
-module Obsidian.GCDObsidian.Program 
-       ( Program(..)
-       , (*>*)
-       , runPrg
-       , printPrg
-       )where 
+module Obsidian.GCDObsidian.Program  where 
+   --    ( Program(..)
+   --    , (*>*)
+   --    , runPrg
+   --    , printPrg
+   --    )where 
 
 import Data.Word
 import Data.Monoid
@@ -152,3 +152,111 @@ printPrg' i Sync = ((),"Sync;\n",i)
 
 
 
+
+
+
+
+---------------------------------------------------------------------------
+-- Rethink program type
+---------------------------------------------------------------------------
+
+-- The Kind of program that can be executed by a single
+-- thread on the GPU 
+data TProgram a where
+  TAssign :: Scalar a
+            => Name
+            -> (Exp Word32)
+            -> (Exp a)
+            -> TProgram ()
+
+  TAtomicOp :: Scalar a
+              => Name 
+              -> Exp Word32
+              -> Atomic a
+              -> TProgram (Exp a)
+
+
+  TBind :: TProgram a
+           -> (a -> TProgram b)
+           -> TProgram b
+  TReturn :: a -> TProgram a
+
+instance Monad TProgram where
+  return = TReturn
+  (>>=)  = TBind
+
+tToPrg :: TProgram a -> Program a
+tToPrg (TAssign n e1 e2) = Assign n e1 e2
+tToPrg (TAtomicOp n e a) = AtomicOp n e a
+tToPrg (TBind a f) = Bind (tToPrg a) (\x -> tToPrg (f x))
+tToPrg (TReturn a) = Return a
+
+---------------------------------------------------------------------------
+--
+---------------------------------------------------------------------------
+-- The kind of program that can be executed by a block
+-- of threads on the GPU 
+data BProgram a where
+  BForAll :: Word32
+             -> (Exp Word32 -> TProgram ())
+             -> BProgram ()
+
+
+ 
+  BAllocate :: Word32 -> Type -> BProgram Name
+  BSync :: BProgram ()
+
+  BBind :: BProgram a
+           -> (a -> BProgram b)
+           -> BProgram b
+  BReturn :: a -> BProgram a
+
+instance Monad BProgram where
+  return = BReturn
+  (>>=)  = BBind
+
+bToPrg :: BProgram a -> Program a
+bToPrg (BForAll w f) = ForAll w (\e -> tToPrg (f e))
+bToPrg (BAllocate w t) = Allocate w t
+bToPrg BSync = Sync
+bToPrg (BBind a f) = Bind (bToPrg a) (\x -> bToPrg (f x))
+bToPrg (BReturn a) = Return a 
+
+-- The kind of programs that can be executed by a Grid
+-- of blocks on the GPU 
+data GProgram a where
+  GForAll :: Exp Word32
+             -> (Exp Word32 -> BProgram ())
+             -> GProgram ()
+             
+  GOutput :: Type -> GProgram Name
+ 
+             
+  GBind :: GProgram a
+           -> (a -> GProgram b)
+           -> GProgram b
+  GReturn :: a -> GProgram a 
+
+
+instance Monad GProgram where
+  return = GReturn
+  (>>=)  = GBind
+
+gToPrg :: GProgram a -> Program a
+gToPrg (GForAll w f) = ForAllBlocks w (\x -> bToPrg (f x))
+gToPrg (GOutput t)   = Output t
+gToPrg (GBind a f)   = Bind (gToPrg a) (\x -> gToPrg (f x))
+gToPrg (GReturn a)   = Return a
+
+
+class ToProg a where
+  toProg :: a b -> Program b
+
+instance ToProg GProgram where
+  toProg = gToPrg
+
+instance ToProg TProgram where
+  toProg = tToPrg
+
+instance ToProg BProgram where
+  toProg = bToPrg

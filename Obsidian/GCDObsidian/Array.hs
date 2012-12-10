@@ -35,10 +35,21 @@ namedGlobal name bn bs = Distrib bn
 ---------------------------------------------------------------------------
 -- Global result array. 
 ---------------------------------------------------------------------------
-data GlobArray a = GlobArray (Exp Word32)
-                             Word32
-                             ((a -> Exp Word32 -> Exp Word32 -> Program ()) ->  
-                              (Exp Word32 -> Exp Word32 -> Program ())) 
+data GlobArray a =
+  GlobArray (Exp Word32)
+            Word32
+            ((a -> Exp Word32 -> Exp Word32 -> Program ()) ->  
+             (Exp Word32 -> Exp Word32 -> Program ()))
+
+
+
+-- WOA!???? 
+data GlobArray2 a =
+  GlobArray2 (Exp Word32)
+             Word32
+             ((a -> Exp Word32 -> Exp Word32 -> TProgram ()) ->
+             GProgram ())
+                             
 ---------------------------------------------------------------------------
 -- Push and Pull arrays
 ---------------------------------------------------------------------------
@@ -48,6 +59,10 @@ type P a = (a -> Program ()) -> Program ()
 data Push a = Push {pushFun :: P (Exp Word32,a)}
 
 data PushP r a = PushP ((a -> r) -> r) 
+
+
+data BPush a = BPush ((a -> Exp Word32 -> Program ()) -> BProgram ())   
+
 
 
 --                             nBlocks     elt/block

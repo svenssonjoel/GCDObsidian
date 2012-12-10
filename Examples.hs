@@ -36,7 +36,10 @@ import qualified Prelude as P
    I think that with this approach I have to remove the ForAll
    and ForAllBlocks constructors from the IR.
    This means I will go directly to a "SPMD" representation of the
-   program with no (easy) way of getting serial c code
+   program with no (easy) way of getting serial c code.
+
+   To think about: A Program type that does not allow nested ForAlls.
+   This might make it clear where my thinking fails.. 
 
 -} 
 
@@ -46,15 +49,70 @@ import qualified Prelude as P
 -- MapFusion example
 ---------------------------------------------------------------------------
 
-mapFusion :: Array Pull EInt -> Program (Array Pull EInt)
+mapFusion :: Array Pull EInt -> BProgram (Array Pull EInt)
 mapFusion arr =
   do
-    a1 <- sync $ (fmap (+1) . fmap (*2)) arr
-    sync $ (fmap (+1) . fmap (*2)) a1
+    imm <- sync $ (fmap (+1) . fmap (*2)) arr
+    sync $ (fmap (+3) . fmap (*4)) imm 
 
 input1 :: Array Pull EInt 
 input1 = namedArray "apa" 32
 
+input2 :: Distrib (Array Pull EInt)
+input2 = namedGlobal "apa" 256 32
+
+sync :: forall a. Scalar a
+        => Array Pull (Exp a) -> BProgram (Array Pull (Exp a))
+sync (Array n (Pull ixf)) =
+  do
+    name <- BAllocate (n*fromIntegral (sizeOf (undefined :: Exp a)))
+                      (Pointer (typeOf (undefined :: Exp a)))
+
+    p (targetArr name) 
+    BSync
+    return $ Array n $ Pull (\i -> index name i) 
+      
+    where
+      p = \k -> BForAll n $ (\ix -> k (ixf ix) ix)  
+      targetArr name e i = TAssign name i e
+
+prg0 = putStrLn$ printPrg$ toProg $ mapFusion input1
+
+mapFusion' :: Distrib (Array Pull EInt)
+              -> Distrib (BProgram (Array Pull EInt))
+mapFusion' arr = mapD mapFusion arr
+
+toGlobArray :: forall a. Scalar a
+               => Distrib (BProgram (Array Pull (Exp a)))
+               -> GlobArray2 (Exp a)
+toGlobArray inp@(Distrib nb bixf) =
+  GlobArray2 nb bs $
+    \wf -> GForAll nb $
+           \bix ->
+           do -- BProgram do block 
+             arr <- bixf bix 
+             BForAll bs $ \ix -> wf (arr ! ix) bix ix 
+  where
+    bs = len $ fst $ runPrg 0 $ toProg (bixf 0) 
+  
+
+forceBT :: forall a. Scalar a => GlobArray2 (Exp a)
+           -> Final (GProgram (Distrib (Array Pull (Exp a))))
+forceBT (GlobArray2 nb bs pbt) = Final $ 
+  do
+      global <- GOutput $ Pointer (typeOf (undefined :: Exp a))
+      
+      pbt (assignTo global bs)
+        
+      return $ Distrib nb  $ 
+        \bix -> Array bs (Pull (\ix -> index global ((bix * (fromIntegral bs)) + ix)))
+    where 
+      assignTo name s e b i = TAssign name ((b*(fromIntegral s))+i) e
+
+
+prg1 = putStrLn$ printPrg$ toProg $ cheat $ (forceBT . toGlobArray . mapFusion') input2
+
+{- 
 ---------------------------------------------------------------------------
 -- Sync, Force. What to use? what to scrap ? 
 ---------------------------------------------------------------------------
@@ -225,20 +283,21 @@ testGRev = mapD (force . push . rev)
    
 
 -} 
-
+-}
 class LocalArrays a
 instance LocalArrays (Array Pull a) 
-instance LocalArrays (Array Push a) 
+instance LocalArrays (Array Push a)
+instance LocalArrays (Array BPush a)
 instance (LocalArrays a, LocalArrays b) => LocalArrays (a,b)
 instance (LocalArrays a, LocalArrays b, LocalArrays c) => LocalArrays (a,b,c)
   
 
 mapD :: (LocalArrays a, LocalArrays b) =>
-        (a -> Program b) ->
-        (Distrib a -> Distrib (Program b))
+        (a -> BProgram b) ->
+        (Distrib a -> Distrib (BProgram b))
 mapD f inp@(Distrib nb bixf) =
   Distrib nb $ \bid -> f (bixf bid)
-
+{- 
 
 -- Incorrect.
 -- I suspect turning into a GlobArray really requires
@@ -472,3 +531,4 @@ testScanThenReverse input@(Distrib nb disf) =
 --  mapD and Distrib setup in general ?
 --  is there a way to get this functionality without these problems?
 
+-} 
